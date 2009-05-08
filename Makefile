@@ -1,0 +1,151 @@
+#
+# Makefile for a Video Disk Recorder plugin
+#
+# $Id: Makefile 1633 2009-05-08 16:18:53Z fliegl $
+
+# The official name of this plugin.
+# This name will be used in the '-P...' option of VDR to load the plugin.
+# By default the main source file also carries this name.
+# IMPORTANT: the presence of this macro is important for the Make.config
+# file. So it must be defined, even if it is not used here!
+#
+PLUGIN = mcli
+APPLE_DARWIN = $(shell gcc -dumpmachine | grep -q 'apple-darwin' && echo "1" || echo "0")
+
+### The version number of this plugin (taken from the main source file):
+
+VERSION = $(shell grep 'static const char \*VERSION *=' $(PLUGIN).c | awk '{ print $$6 }' | sed -e 's/[";]//g')
+
+### The C++ compiler and options:
+
+CXX      ?= g++
+ifeq ($(APPLE_DARWIN), 1)
+CXXFLAGS ?= -fPIC -pg -O2 -Wall -Woverloaded-virtual -Wno-parentheses -fno-common -bundle -flat_namespace -undefined suppress
+else
+CXXFLAGS ?= -fPIC -pg -O2 -Wall -Woverloaded-virtual -Wno-parentheses
+endif
+
+### The directory environment:
+
+VDRDIR = ../../..
+LIBDIR = ../../lib
+TMPDIR = /tmp
+XML_INC:=`xml2-config --cflags`
+XML_LIB:=`xml2-config --libs`  
+
+ifdef MCLI_SHARED
+LIBS = -lmcli $(XML_LIB)
+else
+LIBS = mcast/client/libmcli.a $(XML_LIB)
+endif
+
+### Allow user defined options to overwrite defaults:
+
+-include $(VDRDIR)/Make.config
+
+### The version number of VDR's plugin API (taken from VDR's "config.h"):
+
+APIVERSION = $(shell sed -ne '/define APIVERSION/s/^.*"\(.*\)".*$$/\1/p' $(VDRDIR)/config.h)
+
+### The name of the distribution archive:
+
+ARCHIVE = $(PLUGIN)-$(VERSION)
+PACKAGE = vdr-$(ARCHIVE)
+
+### Includes and Defines (add further entries here):
+
+INCLUDES += -I$(VDRDIR)/include -I. $(XML_INC)
+
+ifdef MCLI_SHARED
+INCLUDES +=-I$(HOME)/proj/dvbmcast/
+endif
+
+ifeq ($(APPLE_DARWIN), 1)
+INCLUDES += -I/sw/include
+DEFINES += -DAPPLE
+ifdef MCLI_SHARED
+DEFINES += -I$(HOME)/proj/dvbmcast/mcast/common/darwin/include/
+endif
+endif
+
+DEFINES += -D_GNU_SOURCE -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -DCLIENT
+# -DDEVICE_ATTRIBUTES
+
+### The object files (add further files here):
+
+OBJS = $(PLUGIN).o device.o filter.o
+
+### The main target:
+
+plug: all
+
+ifdef MCLI_SHARED
+all: libvdr-$(PLUGIN).so i18n
+else
+all: libmcli.so libvdr-$(PLUGIN).so i18n
+endif
+
+libmcli.so:
+	$(MAKE) -C mcast/client/
+
+
+### Implicit rules:
+
+%.o: %.c
+	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
+
+### Dependencies:
+
+MAKEDEP = $(CXX) -MM -MG
+DEPFILE = .dependencies
+$(DEPFILE): Makefile
+	@$(MAKEDEP) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
+
+-include $(DEPFILE)
+
+### Internationalization (I18N):
+
+PODIR     = po
+LOCALEDIR = $(VDRDIR)/locale
+I18Npo    = $(wildcard $(PODIR)/*.po)
+I18Nmsgs  = $(addprefix $(LOCALEDIR)/, $(addsuffix /LC_MESSAGES/vdr-$(PLUGIN).mo, $(notdir $(foreach file, $(I18Npo), $(basename $(file))))))
+I18Npot   = $(PODIR)/$(PLUGIN).pot
+
+%.mo: %.po
+	msgfmt -c -o $@ $<
+
+$(I18Npot): $(wildcard *.c)
+	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --msgid-bugs-address='<see README>' -o $@ $^
+
+%.po: $(I18Npot)
+	msgmerge -U --no-wrap --no-location --backup=none -q $@ $<
+	@touch $@
+
+$(I18Nmsgs): $(LOCALEDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
+	@mkdir -p $(dir $@)
+	cp $< $@
+
+.PHONY: i18n
+i18n: $(I18Nmsgs) $(I18Npot)
+
+### Targets:
+
+libvdr-$(PLUGIN).so: $(OBJS)
+ifeq ($(APPLE_DARWIN), 1)
+	$(CXX) $(CXXFLAGS) $(OBJS) $(LIBS) -o $@
+	@cp $@ $(LIBDIR)/$@.$(APIVERSION)
+else
+	$(CXX) $(CXXFLAGS) -shared $(OBJS) $(LIBS) -o $@
+	@cp --remove-destination $@ $(LIBDIR)/$@.$(APIVERSION)
+endif
+
+dist: clean
+	@-rm -rf $(TMPDIR)/$(ARCHIVE)
+	@mkdir $(TMPDIR)/$(ARCHIVE)
+	@cp -a * $(TMPDIR)/$(ARCHIVE)
+	@tar czf $(PACKAGE).tgz -C $(TMPDIR) $(ARCHIVE)
+	@-rm -rf $(TMPDIR)/$(ARCHIVE)
+	@echo Distribution package created as $(PACKAGE).tgz
+
+clean:
+	@-rm -f $(OBJS) $(DEPFILE) *.so *.tgz core* *~ $(PODIR)/*.mo $(PODIR)/*.pot
