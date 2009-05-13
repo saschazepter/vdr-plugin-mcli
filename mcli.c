@@ -9,7 +9,7 @@
 /*
  * mcli.c: A plugin for the Video Disk Recorder
  *
- * $Id: mcli.c 1640 2009-05-08 20:57:27Z fliegl $
+ * $Id: mcli.c 1652 2009-05-13 12:21:39Z fliegl $
  */
 
 #include <vdr/plugin.h>
@@ -18,17 +18,19 @@
 #define MCLI_MAX_DEVICES 8
 #define MCLI_DEVICE_TIMEOUT 30
 
+#define CAM_MENU_TEST
+
 static const char *VERSION = trNOOP("0.0.1");
 static const char *DESCRIPTION = trNOOP("NetCeiver Client Application");
-static const char *MENUSETUPPLUGINENTRY = trNOOP("NetCeiver Client Application");
-
-//static const char *MAINMENUENTRY = "NetCeiver-Client";
+static const char *MENUSETUPENTRY = trNOOP("NetCeiver Client Application");
+//static const char *MAINMENUENTRY = "NetCeiver Client";
 
 static int recv_init_done = 0;
 static int mld_init_done = 0;
 static int api_init_done = 0;
 static int devices = 0;
 static int reconf = 0;
+static int mmi_init_done = 0;
 
 typedef struct
 {
@@ -110,7 +112,7 @@ cMenuSetupMcli::cMenuSetupMcli (cmdline_t * cmd)
 	Add (new cMenuEditIntItem (tr ("DVB-C"), &m_cmd->tuner_type_limit[FE_QAM]));
 	Add (new cMenuEditIntItem (tr ("DVB-T"), &m_cmd->tuner_type_limit[FE_OFDM]));
 	Add (new cMenuEditIntItem (tr ("DVB-S"), &m_cmd->tuner_type_limit[FE_QPSK]));
-	Add (new cMenuEditIntItem (tr ("DVB-S2"), &m_cmd->tuner_type_limit[FE_DVBS2]));
+	Add (new cMenuEditIntItem (tr ("DVB-S2"), &m_cmd->tuner_type_limit[FE_DVBS2]));		
 }
 
 void cMenuSetupMcli::Store (void)
@@ -122,6 +124,11 @@ void cMenuSetupMcli::Store (void)
 	reconf=1;
 }
 
+typedef struct {
+	char uuid[UUID_SIZE];
+	int slot;
+	char info[MMI_TEXT_LENGTH];
+} cam_list_t;
 
 class cPluginMcli:public cPlugin, public cThread
 {
@@ -129,6 +136,7 @@ class cPluginMcli:public cPlugin, public cThread
 	// Add any member variables or functions you may need here.
 	cMcliDeviceList m_devs;
 	cmdline_t m_cmd;
+	UDPContext *m_cam_mmi;
 
       public:
 	cPluginMcli (void);
@@ -150,11 +158,14 @@ class cPluginMcli:public cPlugin, public cThread
 	virtual void MainThreadHook (void);
 	virtual cString Active (void);
 	virtual time_t WakeupTime (void);
-	virtual const char *MainMenuEntry (void)
-	{
-		return NULL;
-//              return MAINMENUENTRY;
+        virtual const char *MenuSetupPluginEntry(void)
+        { 
+        	return tr(MENUSETUPENTRY);
 	}
+//	virtual const char *MainMenuEntry (void)
+//	{
+//              return MAINMENUENTRY;
+//	}
 	virtual cOsdObject *MainMenuAction (void);
 	virtual cMenuSetupPage *SetupMenu (void);
 	virtual bool SetupParse (const char *Name, const char *Value);
@@ -163,7 +174,110 @@ class cPluginMcli:public cPlugin, public cThread
 	virtual cString SVDRPCommand (const char *Command, const char *Option, int &ReplyCode);
 	virtual void Action (void);
 	void reconfigure(void);
+
+	int CamFind(cam_list_t *cam_list, int *len);
+	int CamMenuOpen(cam_list_t *cam);
+	int CamMenuSend(int fd, char *c);
+	int CamMenuReceive(int fd, char *buf, int bufsize);
+	void CamMenuClose(int fd);
+	int CamPollText(mmi_info_t *text);
+#ifdef CAM_MENU_TEST	
+	void CamMenuTest(void);
+#endif	
 };
+
+
+int cPluginMcli::CamFind(cam_list_t *cam_list, int *len)
+{
+	int n, cnt=0, i;
+	netceiver_info_list_t *nc_list=nc_get_list();
+	printf("Looking for netceivers out there....\n");
+        nc_lock_list();
+        for (n = 0; n < nc_list->nci_num; n++) {
+		netceiver_info_t *nci = nc_list->nci + n;
+		printf("\nFound NetCeiver: %s \n",nci->uuid);
+		printf("    CAMS [%d]: \n",nci->cam_num);
+		for (i = 0; i < nci->cam_num; i++) {
+			switch(nci->cam[i].status) {
+				case 2://DVBCA_CAMSTATE_READY:
+					printf("    %i.CAM - %s\n",i+1, nci->cam[i].menu_string);
+					if(cnt < *len) {
+						cam_list[cnt].slot=i;
+						strcpy(cam_list[cnt].uuid, nci->uuid);
+						strcpy(cam_list[cnt].info, nci->cam[i].menu_string);
+					}
+					cnt++;
+					break;
+                        }
+                }
+	}
+	nc_unlock_list();
+	*len=cnt;
+	return cnt;
+}
+
+int cPluginMcli::CamMenuOpen(cam_list_t *cam)
+{
+	int mmi_session = mmi_open_menu_session(cam->uuid, m_cmd.iface, m_cmd.port, cam->slot);
+	if(mmi_session>0) {
+		sleep(1);
+		CamMenuSend(mmi_session, "00000000000000\n");
+	} 
+	return mmi_session;
+}
+
+int cPluginMcli::CamMenuSend(int mmi_session, char *c)
+{
+	return mmi_send_menu_answer(mmi_session, c, strlen(c));
+}
+
+int cPluginMcli::CamMenuReceive(int mmi_session, char *buf, int bufsize)
+{
+	return mmi_get_menu_text( mmi_session, buf, bufsize, 50000);
+}
+
+void cPluginMcli::CamMenuClose(int mmi_session)
+{
+	close(mmi_session);
+}
+
+int cPluginMcli::CamPollText(mmi_info_t *text)
+{
+	return mmi_poll_for_menu_text(m_cam_mmi, text, 10);
+}
+
+#ifdef CAM_MENU_TEST
+void cPluginMcli::CamMenuTest(void)
+{
+	cam_list_t c[16];
+	int len=16;
+
+	// Find all operational CAMs.
+	if(CamFind(c, &len)) {
+		printf("Opening CAM Menu at NetCeiver %s Slot %d\n", c[0].uuid, c[0].slot);
+		
+		// connect to CAM slot 0 of first NetCeiver (THIS CODE IS JUST FOR TESTING)
+		int mmi_session=CamMenuOpen(&c[0]);
+		char buf[MMI_TEXT_LENGTH];
+		printf("mmi_session: %d\n", mmi_session);
+		if (mmi_session>0) {
+			time_t t=time(NULL);
+			while((time(NULL)-t)<10) {
+				// receive the CAM MENU
+				if(CamMenuReceive(mmi_session, buf, MMI_TEXT_LENGTH)>0) {
+					printf("MMI: %s\n",buf);
+					break;
+				}
+				
+				// send key events to the CAM via CamMenuSend (NOT SHOWN HERE)
+				
+				sleep(1);
+			}
+			CamMenuClose(mmi_session);
+		}
+	}
+}
+#endif
 
 cPluginMcli::cPluginMcli (void)
 {
@@ -186,6 +300,10 @@ cPluginMcli::cPluginMcli (void)
 cPluginMcli::~cPluginMcli ()
 {
 	printf ("cPluginMcli::~cPluginMcli\n");
+	
+	if(mmi_init_done) {
+		mmi_broadcast_client_exit(m_cam_mmi);
+	}
 	if (api_init_done) {
 		api_sock_exit ();
 	}
@@ -314,6 +432,16 @@ void cPluginMcli::Action (void)
 		}
 		nc_unlock_list ();
 		Unlock ();
+
+// Call this code periodically to find out if any CAM out there want's us to tell something.
+// If it's relevant to us we need to check if any of our DVB-Devices gets programm from a NetCeiver with this UUID.
+// The text received should pop up via OSD with a CAM-Session opened afterwards (CamMenuOpen...CamMenuReceive...CamMenuSend...CamMenuClose).
+		mmi_info_t m;
+		if(CamPollText(&m)>0) {
+			printf("NetCeiver %s CAM slot %d Received %s\n", m.uuid, m.slot, m.mmi_text);
+		}
+		
+		
 		usleep (250 * 1000);
 	}
 }
@@ -331,7 +459,11 @@ bool cPluginMcli::Initialize (void)
 	if (!api_sock_init (m_cmd.cmd_sock_path)) {
 		api_init_done = 1;
 	}
-
+	m_cam_mmi = mmi_broadcast_client_init(m_cmd.port, m_cmd.iface);
+        if (!m_cam_mmi) {
+        	mmi_init_done = 1;
+        }
+	
 	return true;
 }
 
@@ -407,9 +539,13 @@ cOsdObject *cPluginMcli::MainMenuAction (void)
 	return NULL;
 }
 
+
 cMenuSetupPage *cPluginMcli::SetupMenu (void)
 {
 	printf ("cPluginMcli::SetupMenu\n");
+#ifdef CAM_MENU_TEST
+	CamMenuTest();
+#endif
 	// Return a setup menu in case the plugin supports one.
 	return new cMenuSetupMcli(&m_cmd);
 }

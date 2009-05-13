@@ -7,7 +7,7 @@
  */
 
 /*
- *  $Id: device.c 1640 2009-05-08 20:57:27Z fliegl $
+ *  $Id: device.c 1645 2009-05-12 12:52:39Z fliegl $
  */
 
 #include "filter.h"
@@ -458,8 +458,12 @@ int cMcliDevice::GetAttribute(const char *attr_name, uint64_t *val)
 int cMcliDevice::GetAttribute(const char *attr_name, char *val, int maxret)
 {
 	int ret=0;
-	if (!strcmp(attr_name,"fe.name")) {
+	if (!strcmp(attr_name,"fe.uuid")) {
 		strncpy(val, m_uuid, maxret);
+		val[maxret-1]=0;
+	}
+	else if (!strcmp(attr_name,"fe.name")) {
+		strncpy(val, "NetCeiver", maxret);
 		val[maxret-1]=0;
 	}
 	else if (!strncmp(attr_name,"main.",5)) {

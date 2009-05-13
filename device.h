@@ -7,7 +7,7 @@
  */
 
 /*
- *  $Id: device.h 1640 2009-05-08 20:57:27Z fliegl $
+ *  $Id: device.h 1649 2009-05-12 15:53:54Z fliegl $
  */
 
 #ifndef VDR_MCLI_DEVICE_H
@@ -27,6 +27,7 @@
 #include <mcast/client/tra_handler.h>
 #include <mcast/common/tools.h>
 #include <mcast/client/api_server.h>
+#include <mcast/client/mmi_handler.h>
 
 class cMyTSBuffer:public cThread
 {
@@ -55,6 +56,7 @@ class cMcliDevice:public cDevice
 	struct dvb_frontend_parameters m_fep;
 	dvb_pid_t m_pids[256];
 	char m_uuid[UUID_SIZE];
+	char m_name[];
 	tra_t m_ten;
 	fe_type_t m_fetype;
 	const cChannel *m_chan;

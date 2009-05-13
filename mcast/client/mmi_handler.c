@@ -9,14 +9,13 @@
 #include "headers.h"
 
 //---------------------------------------------------------------------------------------------
-void print_mmi_info(mmi_info_t *m)
+void mmi_print_info(mmi_info_t *m)
 {
         char str[INET6_ADDRSTRLEN];
         printf("------------------\n");
         inet_ntop (AF_INET6, &m->ipv6, (char *) str, INET6_ADDRSTRLEN);
         printf("IP: %s\n",str);
-        inet_ntop (AF_INET6, &m->uuid, (char *) str, INET6_ADDRSTRLEN);
-        printf("UUID: %s\n",str);
+        printf("UUID: %s\n",m->uuid);
         printf("Slot: %d\n",m->slot);
         
         int i;
@@ -30,10 +29,13 @@ void print_mmi_info(mmi_info_t *m)
 
 }
 //---------------------------------------------------------------------------------------------
-int open_mmi_menu_session(struct in6_addr *ipv6, char *iface,int port, int cmd)
+int mmi_open_menu_session(char *uuid, char *iface,int port, int cmd)
 {
         int ret;
         int j, sockfd;
+        struct in6_addr ipv6;
+
+        inet_pton(AF_INET6, uuid, &ipv6);
 
         sockfd = socket (PF_INET6, SOCK_STREAM, 0);
         j = 1;
@@ -46,16 +48,14 @@ int open_mmi_menu_session(struct in6_addr *ipv6, char *iface,int port, int cmd)
                 err ("setsockopt TCP_NODELAY\n");
         }
         
-        char host[INET6_ADDRSTRLEN];
-        inet_ntop (AF_INET6, ipv6, (char *) host, INET6_ADDRSTRLEN);
-        dbg ("Connect To: %s\n", host);
+        dbg ("Connect To: %s\n", uuid);
 
         struct sockaddr_in6 addr;
         memset (&addr, 0, sizeof (struct sockaddr_in6));
 
         addr.sin6_family = AF_INET6;
         addr.sin6_port = htons (port);
-        addr.sin6_addr = *ipv6;
+        addr.sin6_addr = ipv6;
         addr.sin6_scope_id = if_nametoindex (iface);
 
         ret = connect (sockfd, (struct sockaddr *) &addr, sizeof (struct sockaddr_in6));
@@ -79,10 +79,19 @@ int open_mmi_menu_session(struct in6_addr *ipv6, char *iface,int port, int cmd)
         return sockfd;
 }
 //---------------------------------------------------------------------------------------------
-int mmi_get_menu_text(int sockfd, char *buf, int buf_len)
+int mmi_get_menu_text(int sockfd, char *buf, int buf_len, int timeout)
 {
-        int n;
-        n = recv (sockfd, buf, buf_len, 0 ); //MSG_DONTWAIT);
+        int n=-1;
+	fd_set rfds;
+	struct timeval tv;
+	FD_ZERO(&rfds);
+	FD_SET(sockfd, &rfds);
+	tv.tv_sec = 0;
+	tv.tv_usec = timeout;
+	memset(buf, 0, buf_len);
+	if(select(sockfd+1, &rfds, NULL, NULL, &tv)>0) {
+          n = recv (sockfd, buf, buf_len, 0 ); //MSG_DONTWAIT);
+        }
         if (n > 0) {
                dbg("recv:\n%s \n",buf);
         }
@@ -100,7 +109,7 @@ int mmi_send_menu_answer(int sockfd, char *buf, int buf_len)
         return n;
 }
 //---------------------------------------------------------------------------------------------
-UDPContext *mmi_init_broadcast_client(int port, char *iface)
+UDPContext *mmi_broadcast_client_init(int port, char *iface)
 {
 	UDPContext *s;
 	char mcg[1024];
@@ -114,15 +123,23 @@ UDPContext *mmi_init_broadcast_client(int port, char *iface)
 
         return s;
 }
-//---------------------------------------------------------------------------------------------
-int mmi_poll_for_menu_text(UDPContext *s, char *buf, int buf_len, int timeout)
-{
-        int n;
-        n = udp_read (s, buf, buf_len, timeout, NULL);
-        if (n > 0) {
-              dbg("recv:\n%s \n", buf);                      
-        } 
 
+void mmi_broadcast_client_exit(UDPContext *s)
+{
+  udp_close(s);
+}
+
+//---------------------------------------------------------------------------------------------
+int mmi_poll_for_menu_text(UDPContext *s, mmi_info_t *m, int timeout)
+{
+        char buf[8192];
+        int n;
+        n = udp_read (s, (unsigned char*)buf, sizeof(buf), timeout, NULL);
+        if (n > 0) {
+              dbg("recv:\n%s \n", buf);
+              memset(m,0,sizeof(mmi_info_t));
+              mmi_get_data((xmlChar *)buf, sizeof(buf), m);
+        } 
         return n;
 }
 //---------------------------------------------------------------------------------------------
@@ -147,7 +164,7 @@ static void clean_xml_parser_thread (void *arg)
 	dbg ("Free XML parser structures!\n");
 }
 //---------------------------------------------------------------------------------------------
-int get_mmi_data(xmlChar * xmlbuff, int buffersize, mmi_info_t *mmi_info)
+int mmi_get_data(xmlChar * xmlbuff, int buffersize, mmi_info_t *mmi_info)
 {
           xml_parser_context_t c;      
           xmlNode *root_element = NULL, *cur_node = NULL;
@@ -194,7 +211,7 @@ int get_mmi_data(xmlChar * xmlbuff, int buffersize, mmi_info_t *mmi_info)
                                                   c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
                                                   if (c.key) {
                                                           dbg ("UUID: %s\n", c.key);
-                                                          inet_pton (AF_INET6, (char *) c.key, &mmi_info->ipv6);
+                                                          strcpy(mmi_info->uuid, (char *) c.key);
                                                           xmlFree (c.key);
                                                   }
                                           } else if ((!xmlStrcmp (cur_node->name, (const xmlChar *) "Slot"))) {
@@ -208,7 +225,10 @@ int get_mmi_data(xmlChar * xmlbuff, int buffersize, mmi_info_t *mmi_info)
                                                   c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
                                                   if (c.key) {
                                                           dbg ("TEXT: %s\n", c.key);
-                                                          strcpy(mmi_info->mmi_text, (char *)c.key);
+                                                          int olen=MMI_TEXT_LENGTH, ilen=strlen((char *)c.key);
+                                                            
+                                                          UTF8Toisolat1((unsigned char*)mmi_info->mmi_text, &olen, c.key, &ilen);
+                                                                        
                                                           xmlFree (c.key);
                                                   }                                 
                                           } 
@@ -248,25 +268,3 @@ int get_mmi_data(xmlChar * xmlbuff, int buffersize, mmi_info_t *mmi_info)
         return 1;
 }
 //---------------------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
