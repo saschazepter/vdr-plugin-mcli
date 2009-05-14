@@ -7,7 +7,7 @@
  */
 
 /*
- *  $Id: device.c 1665 2009-05-14 12:09:37Z fliegl $
+ *  $Id: device.c 1667 2009-05-14 12:46:52Z fliegl $
  */
 
 #include "filter.h"
@@ -135,8 +135,7 @@ void cMcliDevice::SetFEType (fe_type_t val)
 cMcliDevice::cMcliDevice (void)
 {
 	StartSectionHandler ();
-	m_TSB = new cMyTSBuffer (1000*TS_SIZE, CardIndex () + 1);
-//	m_TSB = new cMyTSBuffer (MEGABYTE(2), CardIndex () + 1);
+	m_TSB = new cMyTSBuffer (10000*TS_SIZE, CardIndex () + 1);
 	m_filters = new cMcliFilters ();
 	printf ("cMcliDevice: got device number %d\n", CardIndex () + 1);
 	m_pidsnum = 0;
