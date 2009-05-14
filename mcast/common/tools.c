@@ -311,7 +311,6 @@ int mcg_to_all_parms(struct in6_addr *mcg, struct mcg_data * mcd)
 	return 0;
 }
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-int pppp=0;
 int mcg_to_fe_parms (struct in6_addr *mcg, fe_type_t * type, recv_sec_t * sec, struct dvb_frontend_parameters *fep, int *vpid)
 {
 	struct in6_addr mc = *mcg;

@@ -7,7 +7,7 @@
  */
 
 /*
- *  $Id: device.c 1645 2009-05-12 12:52:39Z fliegl $
+ *  $Id: device.c 1665 2009-05-14 12:09:37Z fliegl $
  */
 
 #include "filter.h"
@@ -33,8 +33,10 @@ cMyTSBuffer::cMyTSBuffer (int Size, int CardIndex)
 	SetDescription ("TS buffer on device %d", CardIndex);
 	cardIndex = CardIndex;
 	delivered = false;
+	m_bufsize = Size;
 	ringBuffer = new cRingBufferLinear (Size, TS_SIZE, true, "TS");
 	ringBuffer->SetTimeouts (100, 100);
+	m_count = 0;
 }
 
 cMyTSBuffer::~cMyTSBuffer ()
@@ -54,18 +56,11 @@ uchar *cMyTSBuffer::Get (void)
 		delivered = false;
 	}
 	uchar *p = ringBuffer->Get (Count);
+	if(p && *p!=TS_SYNC_BYTE) {
+		esyslog ("WARN: Get TS packet missing TS_SYNC_BYTE (%02x) with pos: %d", *p, m_count%m_bufsize);
+	}
 	if (p && Count >= TS_SIZE) {
-		if (*p != TS_SYNC_BYTE) {
-			for (int i = 1; i < Count; i++) {
-				if (p[i] == TS_SYNC_BYTE) {
-					Count = i;
-					break;
-				}
-			}
-			ringBuffer->Del (Count);
-			esyslog ("ERROR: skipped %d bytes to sync on TS packet on device %d", Count, cardIndex);
-			return NULL;
-		}
+		m_count+=TS_SIZE;
 		delivered = true;
 		return p;
 	}
@@ -74,13 +69,22 @@ uchar *cMyTSBuffer::Get (void)
 
 int cMyTSBuffer::Put (const uchar * data, int count)
 {
+	for(int i=0; i<count; i+=TS_SIZE) {
+		if(data[i]!=TS_SYNC_BYTE) {
+			esyslog ("WARN: Put TS packet missing TS_SYNC_BYTE at %d (%02x)", i, data[i]);
+		}
+	}
 	return ringBuffer->Put (data, count);
 }
 
 static int handle_ts (unsigned char *buffer, size_t len, void *p)
 {
 	cMcliDevice *m = (cMcliDevice *) p;
-	m->m_TSB->Put (buffer, len);
+	unsigned int delivered=m->m_TSB->Put (buffer, len);
+	if(delivered != len) {
+		esyslog ("ERROR: could not deliver %d/%d bytes to ringbuffer of device %d", len-delivered, len, m->m_TSB->cardIndex);
+	}
+	
 	m->m_filters->PutTS (buffer, len);
 	return len;
 }
@@ -131,7 +135,8 @@ void cMcliDevice::SetFEType (fe_type_t val)
 cMcliDevice::cMcliDevice (void)
 {
 	StartSectionHandler ();
-	m_TSB = new cMyTSBuffer (MEGABYTE (10), CardIndex () + 1);
+	m_TSB = new cMyTSBuffer (1000*TS_SIZE, CardIndex () + 1);
+//	m_TSB = new cMyTSBuffer (MEGABYTE(2), CardIndex () + 1);
 	m_filters = new cMcliFilters ();
 	printf ("cMcliDevice: got device number %d\n", CardIndex () + 1);
 	m_pidsnum = 0;

@@ -9,14 +9,14 @@
 /*
  * mcli.c: A plugin for the Video Disk Recorder
  *
- * $Id: mcli.c 1652 2009-05-13 12:21:39Z fliegl $
+ * $Id: mcli.c 1664 2009-05-14 10:18:48Z fliegl $
  */
 
 #include <vdr/plugin.h>
 #include "filter.h"
 #include "device.h"
 #define MCLI_MAX_DEVICES 8
-#define MCLI_DEVICE_TIMEOUT 30
+#define MCLI_DEVICE_TIMEOUT 120
 
 #define CAM_MENU_TEST
 
@@ -181,10 +181,41 @@ class cPluginMcli:public cPlugin, public cThread
 	int CamMenuReceive(int fd, char *buf, int bufsize);
 	void CamMenuClose(int fd);
 	int CamPollText(mmi_info_t *text);
+	int CamGetMMIBroadcast(void);
 #ifdef CAM_MENU_TEST	
 	void CamMenuTest(void);
 #endif	
 };
+
+int cPluginMcli::CamGetMMIBroadcast(void)
+{
+	// Call this code periodically to find out if any CAM out there want's us to tell something.
+	// If it's relevant to us we need to check if any of our DVB-Devices gets programm from a NetCeiver with this UUID.
+	// The text received should pop up via OSD with a CAM-Session opened afterwards (CamMenuOpen...CamMenuReceive...CamMenuSend...CamMenuClose).
+	mmi_info_t m;
+	if(CamPollText(&m)>0) {
+		printf("NetCeiver %s CAM slot %d Received %s valid for:\n", m.uuid, m.slot, m.mmi_text);
+		for(int i=0; i<m.caid_num; i++) {
+			caid_mcg_t *c=m.caids+i;
+			int sid;
+			int satpos;
+			fe_type_t type;
+			recv_sec_t sec;
+			struct dvb_frontend_parameters fep;
+			int vpid;
+			
+			mcg_get_id(&c->mcg, &sid);
+			mcg_get_satpos(&c->mcg, &satpos);
+			mcg_to_fe_parms(&c->mcg, &type, &sec, &fep, &vpid);
+			
+			printf("CAID:%04x, SatPos:%d Freqency:%d SID:%04x\n", c->caid, satpos, fep.frequency, sid);
+		}
+		if(m.caid_num && m.caids) {
+			free(m.caids);
+		}
+	}
+	return 0;
+}		
 
 
 int cPluginMcli::CamFind(cam_list_t *cam_list, int *len)
@@ -221,7 +252,7 @@ int cPluginMcli::CamMenuOpen(cam_list_t *cam)
 	int mmi_session = mmi_open_menu_session(cam->uuid, m_cmd.iface, m_cmd.port, cam->slot);
 	if(mmi_session>0) {
 		sleep(1);
-		CamMenuSend(mmi_session, "00000000000000\n");
+		CamMenuSend(mmi_session, (char *)"00000000000000\n");
 	} 
 	return mmi_session;
 }
@@ -433,14 +464,7 @@ void cPluginMcli::Action (void)
 		nc_unlock_list ();
 		Unlock ();
 
-// Call this code periodically to find out if any CAM out there want's us to tell something.
-// If it's relevant to us we need to check if any of our DVB-Devices gets programm from a NetCeiver with this UUID.
-// The text received should pop up via OSD with a CAM-Session opened afterwards (CamMenuOpen...CamMenuReceive...CamMenuSend...CamMenuClose).
-		mmi_info_t m;
-		if(CamPollText(&m)>0) {
-			printf("NetCeiver %s CAM slot %d Received %s\n", m.uuid, m.slot, m.mmi_text);
-		}
-		
+		CamGetMMIBroadcast();
 		
 		usleep (250 * 1000);
 	}

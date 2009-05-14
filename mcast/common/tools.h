@@ -74,22 +74,22 @@ void print_fe_info (struct dvb_frontend_info *fe_info);
 void print_mcg (struct in6_addr *mcg);
 void print_frontend_settings (struct dvb_frontend_parameters *fe_parms);
 
-void fe_parms_to_mcg (struct in6_addr *mcg, streaming_group_t StreamingGroup, fe_type_t type, recv_sec_t * sec, struct dvb_frontend_parameters *fep, int vpid);
-int mcg_to_fe_parms (struct in6_addr *mcg, fe_type_t * type, recv_sec_t * sec, struct dvb_frontend_parameters *fep, int *vpid);
-int mcg_to_all_parms(struct in6_addr *mcg, struct mcg_data * mcd);
+DLL_SYMBOL void fe_parms_to_mcg (struct in6_addr *mcg, streaming_group_t StreamingGroup, fe_type_t type, recv_sec_t * sec, struct dvb_frontend_parameters *fep, int vpid);
+DLL_SYMBOL int mcg_to_fe_parms (struct in6_addr *mcg, fe_type_t * type, recv_sec_t * sec, struct dvb_frontend_parameters *fep, int *vpid);
+DLL_SYMBOL int mcg_to_all_parms(struct in6_addr *mcg, struct mcg_data * mcd);
 
-void mcg_set_streaming_group (struct in6_addr *mcg, streaming_group_t StreamingGroup);
-void mcg_get_streaming_group (struct in6_addr *mcg, streaming_group_t *StreamingGroup);
-void mcg_init_streaming_group (struct in6_addr *mcg, streaming_group_t StreamingGroup);
+DLL_SYMBOL void mcg_set_streaming_group (struct in6_addr *mcg, streaming_group_t StreamingGroup);
+DLL_SYMBOL void mcg_get_streaming_group (struct in6_addr *mcg, streaming_group_t *StreamingGroup);
+DLL_SYMBOL void mcg_init_streaming_group (struct in6_addr *mcg, streaming_group_t StreamingGroup);
 
-void mcg_set_pid (struct in6_addr *mcg, int pid);
-void mcg_get_pid (struct in6_addr *mcg, int *pid);
+DLL_SYMBOL void mcg_set_pid (struct in6_addr *mcg, int pid);
+DLL_SYMBOL void mcg_get_pid (struct in6_addr *mcg, int *pid);
 
-void mcg_get_satpos (struct in6_addr *mcg, int *satpos);
-void mcg_set_satpos (struct in6_addr *mcg, int satpos);
+DLL_SYMBOL void mcg_get_satpos (struct in6_addr *mcg, int *satpos);
+DLL_SYMBOL void mcg_set_satpos (struct in6_addr *mcg, int satpos);
 
-void mcg_get_id (struct in6_addr *mcg, int *id);
-void mcg_set_id (struct in6_addr *mcg, int id);
+DLL_SYMBOL void mcg_get_id (struct in6_addr *mcg, int *id);
+DLL_SYMBOL void mcg_set_id (struct in6_addr *mcg, int id);
 
 
 int gzip (Bytef * dest, unsigned int *destLen, const Bytef * source, unsigned int sourceLen, int level);
