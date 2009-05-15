@@ -7,7 +7,7 @@
  */
 
 /*
- *  $Id: device.c 1667 2009-05-14 12:46:52Z fliegl $
+ *  $Id: device.c 1671 2009-05-15 17:22:22Z fliegl $
  */
 
 #include "filter.h"
@@ -28,13 +28,15 @@ using namespace std;
 
 // --- cMyTSBuffer -------------------------------------------------------------
 
-cMyTSBuffer::cMyTSBuffer (int Size, int CardIndex)
+cMyTSBuffer::cMyTSBuffer (int Size, const char *desc, int CardIndex)
 {
-	SetDescription ("TS buffer on device %d", CardIndex);
+	char buf[80];
+	SetDescription ("%s (%d)", desc, CardIndex);
+	sprintf(buf, "%s (%d)", desc, CardIndex);
 	cardIndex = CardIndex;
 	delivered = false;
 	m_bufsize = Size;
-	ringBuffer = new cRingBufferLinear (Size, TS_SIZE, true, "TS");
+	ringBuffer = new cRingBufferLinear (Size, TS_SIZE, true, buf);
 	ringBuffer->SetTimeouts (100, 100);
 	m_count = 0;
 }
@@ -57,7 +59,7 @@ uchar *cMyTSBuffer::Get (void)
 	}
 	uchar *p = ringBuffer->Get (Count);
 	if(p && *p!=TS_SYNC_BYTE) {
-		esyslog ("WARN: Get TS packet missing TS_SYNC_BYTE (%02x) with pos: %d", *p, m_count%m_bufsize);
+		esyslog ("WARN: Get TS packet missing TS_SYNC_BYTE (%02x) at pos: %d with %d bytes left", *p, m_count%m_bufsize, Count);
 	}
 	if (p && Count >= TS_SIZE) {
 		m_count+=TS_SIZE;
@@ -74,7 +76,10 @@ int cMyTSBuffer::Put (const uchar * data, int count)
 			esyslog ("WARN: Put TS packet missing TS_SYNC_BYTE at %d (%02x)", i, data[i]);
 		}
 	}
-	return ringBuffer->Put (data, count);
+	Lock();
+	int ret=ringBuffer->Put (data, count);
+	Unlock();
+	return ret;
 }
 
 static int handle_ts (unsigned char *buffer, size_t len, void *p)
@@ -135,7 +140,7 @@ void cMcliDevice::SetFEType (fe_type_t val)
 cMcliDevice::cMcliDevice (void)
 {
 	StartSectionHandler ();
-	m_TSB = new cMyTSBuffer (10000*TS_SIZE, CardIndex () + 1);
+	m_TSB = new cMyTSBuffer (10000*TS_SIZE, "Mcli TS buffer", CardIndex () + 1);
 	m_filters = new cMcliFilters ();
 	printf ("cMcliDevice: got device number %d\n", CardIndex () + 1);
 	m_pidsnum = 0;

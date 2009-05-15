@@ -69,7 +69,7 @@ int mmi_open_menu_session(char *uuid, char *iface,int port, int cmd)
         memset(buf,0,sizeof(buf));
         dbg("Request CAM slot %d \n",cmd);
         sprintf(buf,"%d",cmd);
-        int n = send(sockfd, buf, strlen(buf),0);
+        int n = send(sockfd, buf, strlen(buf)+1,0);
         if (n < 0) {
             dbg("unable to sent mmi connection cmd !\n");	
             close(sockfd);

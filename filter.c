@@ -7,7 +7,7 @@
  */
 
 /*
- *  $Id: filter.c 1640 2009-05-08 20:57:27Z fliegl $
+ *  $Id: filter.c 1671 2009-05-15 17:22:22Z fliegl $
  */
 
 #include "filter.h"
@@ -238,7 +238,7 @@ int cMcliFilters::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 	}
 
 	if (!m_TSBuffer) {
-		m_TSBuffer = new cMyTSBuffer (MEGABYTE (1), 1);
+		m_TSBuffer = new cMyTSBuffer (MEGABYTE (1), "Mcli Section filter buffer", 1);
 	}
 	Start ();
 

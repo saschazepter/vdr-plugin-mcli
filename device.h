@@ -7,7 +7,7 @@
  */
 
 /*
- *  $Id: device.h 1665 2009-05-14 12:09:37Z fliegl $
+ *  $Id: device.h 1671 2009-05-15 17:22:22Z fliegl $
  */
 
 #ifndef VDR_MCLI_DEVICE_H
@@ -39,7 +39,7 @@ class cMyTSBuffer:public cThread
 	int m_bufsize;
       public:
 	int cardIndex;      
-	  cMyTSBuffer (int Size, int CardIndex);
+	  cMyTSBuffer (int Size, const char *desc, int CardIndex);
 	 ~cMyTSBuffer ();
 	uchar *Get (void);
 	int Put (const uchar * data, int len);

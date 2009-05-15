@@ -9,7 +9,7 @@
 /*
  * mcli.c: A plugin for the Video Disk Recorder
  *
- * $Id: mcli.c 1664 2009-05-14 10:18:48Z fliegl $
+ * $Id: mcli.c 1671 2009-05-15 17:22:22Z fliegl $
  */
 
 #include <vdr/plugin.h>
@@ -422,7 +422,6 @@ void cPluginMcli::Action (void)
 		Lock ();
 		nc_lock_list ();
 		time_t now=time(NULL);
-		
 		for (int n = 0; n < nc_list->nci_num; n++) {
 			netceiver_info_t *nci = nc_list->nci + n;
 			for (int i = 0; i < nci->tuner_num; i++) {
