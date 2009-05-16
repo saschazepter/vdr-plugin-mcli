@@ -61,9 +61,9 @@ endif
 
 ifdef DEBUG
 LDFLAGS:= $(LDFLAGS) -g -rdynamic
-CFLAGS:= $(CFLAGS) -g 
+CFLAGS:= $(CFLAGS) -g -O0
 else
-CFLAGS:= $(CFLAGS) -Os
+CFLAGS:= $(CFLAGS) -O3
 endif
 
 MCLI = mcli

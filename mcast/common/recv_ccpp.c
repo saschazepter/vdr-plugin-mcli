@@ -445,7 +445,7 @@ void *recv_ten (void *arg)
 #endif
 		r->ten_run = 1;
 		while (r->ten_run) {
-			if ((n = udp_read (c.s, c.buf, XML_BUFLEN, 50000, NULL)) > 0) {
+			if ((n = udp_read (c.s, c.buf, XML_BUFLEN, 10000, NULL)) > 0) {
 				dstlen = XML_BUFLEN*5;
 				if (!gunzip (c.dst, &dstlen, c.buf, n)) {
 					memset (&tra_info, 0, sizeof (tra_info_t));

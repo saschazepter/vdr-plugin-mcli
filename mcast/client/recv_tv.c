@@ -86,8 +86,8 @@ static void *recv_ts (void *arg)
 
 	p->run = 1;
 
-	while (1) {
-		n = udp_read (p->s, buf, sizeof (buf), 500000, NULL);
+	while (p->run>0) {
+		n = udp_read (p->s, buf, sizeof (buf), 10000, NULL);
 		if (n >0 ) {
 			ptr = buf;
 			if (n % 188) {
@@ -270,9 +270,9 @@ static void deallocate_slot (recv_info_t * r, pid_info_t *p)
 			nodrop=1;
 		} 
 
-		if(pthread_exist(p->recv_ts_thread) && !pthread_cancel (p->recv_ts_thread)) {
+//		if(pthread_exist(p->recv_ts_thread) && !pthread_cancel (p->recv_ts_thread)) {
 			pthread_join (p->recv_ts_thread, NULL);
-		}
+//		}
 
 		p->dropped = MAX_DROP_NUM;
 	}
@@ -326,9 +326,10 @@ static void stop_ten_receive (recv_info_t * r)
 	if (pthread_exist(r->recv_ten_thread)) {
 		dbg ("cancel TEN receiver %p %p\n", r, r->recv_ten_thread);
 		
-		if (pthread_exist(r->recv_ten_thread) && !pthread_cancel (r->recv_ten_thread)) {
+		r->ten_run=0;
+//		if (pthread_exist(r->recv_ten_thread) && !pthread_cancel (r->recv_ten_thread)) {
 			pthread_join (r->recv_ten_thread, NULL);
-		}
+//		}
 				
 		dbg ("cancel TEN done receiver %p\n", r);
 		pthread_null(r->recv_ten_thread);

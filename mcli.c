@@ -9,7 +9,7 @@
 /*
  * mcli.c: A plugin for the Video Disk Recorder
  *
- * $Id: mcli.c 1671 2009-05-15 17:22:22Z fliegl $
+ * $Id: mcli.c 1672 2009-05-16 14:01:40Z fliegl $
  */
 
 #include <vdr/plugin.h>
@@ -462,8 +462,9 @@ void cPluginMcli::Action (void)
 		}
 		nc_unlock_list ();
 		Unlock ();
-
-		CamGetMMIBroadcast();
+		if(mmi_init_done) {
+			CamGetMMIBroadcast();
+		}
 		
 		usleep (250 * 1000);
 	}
@@ -486,7 +487,6 @@ bool cPluginMcli::Initialize (void)
         if (!m_cam_mmi) {
         	mmi_init_done = 1;
         }
-	
 	return true;
 }
 

@@ -7,7 +7,7 @@
  */
 
 /*
- *  $Id: device.c 1671 2009-05-15 17:22:22Z fliegl $
+ *  $Id: device.c 1672 2009-05-16 14:01:40Z fliegl $
  */
 
 #include "filter.h"
@@ -35,10 +35,8 @@ cMyTSBuffer::cMyTSBuffer (int Size, const char *desc, int CardIndex)
 	sprintf(buf, "%s (%d)", desc, CardIndex);
 	cardIndex = CardIndex;
 	delivered = false;
-	m_bufsize = Size;
 	ringBuffer = new cRingBufferLinear (Size, TS_SIZE, true, buf);
 	ringBuffer->SetTimeouts (100, 100);
-	m_count = 0;
 }
 
 cMyTSBuffer::~cMyTSBuffer ()
@@ -59,10 +57,9 @@ uchar *cMyTSBuffer::Get (void)
 	}
 	uchar *p = ringBuffer->Get (Count);
 	if(p && *p!=TS_SYNC_BYTE) {
-		esyslog ("WARN: Get TS packet missing TS_SYNC_BYTE (%02x) at pos: %d with %d bytes left", *p, m_count%m_bufsize, Count);
+		esyslog ("WARN: Get TS packet missing TS_SYNC_BYTE (%02x) with %d bytes left", *p, Count);
 	}
 	if (p && Count >= TS_SIZE) {
-		m_count+=TS_SIZE;
 		delivered = true;
 		return p;
 	}
@@ -356,7 +353,7 @@ bool cMcliDevice::OpenDvr (void)
 {
 	printf ("OpenDvr\n");
 	m_dvr_open = true;
-	LOCK_THREAD;
+//	LOCK_THREAD;
 	return true;
 }
 
@@ -364,7 +361,7 @@ void cMcliDevice::CloseDvr (void)
 {
 	printf ("CloseDvr\n");
 	m_dvr_open = false;
-	LOCK_THREAD;
+//	LOCK_THREAD;
 }
 
 bool cMcliDevice::GetTSPacket (uchar * &Data)

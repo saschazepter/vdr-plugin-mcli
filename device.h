@@ -7,7 +7,7 @@
  */
 
 /*
- *  $Id: device.h 1671 2009-05-15 17:22:22Z fliegl $
+ *  $Id: device.h 1672 2009-05-16 14:01:40Z fliegl $
  */
 
 #ifndef VDR_MCLI_DEVICE_H
@@ -35,8 +35,6 @@ class cMyTSBuffer:public cThread
 	bool delivered;
 	virtual void Action (void);
 	cRingBufferLinear *ringBuffer;
-	int m_count;
-	int m_bufsize;
       public:
 	int cardIndex;      
 	  cMyTSBuffer (int Size, const char *desc, int CardIndex);
