@@ -7,7 +7,7 @@
  */
 
 /*
- *  $Id: device.c 1672 2009-05-16 14:01:40Z fliegl $
+ *  $Id: device.c 1677 2009-05-17 08:54:48Z fliegl $
  */
 
 #include "filter.h"
@@ -74,19 +74,34 @@ int cMyTSBuffer::Put (const uchar * data, int count)
 		}
 	}
 	Lock();
-	int ret=ringBuffer->Put (data, count);
+	int delivered=0;
+#if 0	
+	do{
+		delivered=ringBuffer->Put (data+delivered, count);
+		if(delivered < count) {
+			esyslog ("ERROR: could not deliver %d/%d bytes to ringbuffer of device %d", count-delivered, count, cardIndex);
+		}
+		count-=delivered;
+	} while (count);
+#else
+	int avail=ringBuffer->Free();
+	if(avail>=count) {
+		delivered=ringBuffer->Put (data, count);
+		if(delivered < count) {
+			esyslog ("ERROR: could not deliver %d/%d bytes to ringbuffer of device %d", count-delivered, count, cardIndex);
+		}
+	} else {
+		esyslog ("WARN: packet to ringbuffer of device %d dropped (%d < %d)\n",cardIndex,avail,count);
+	}
+#endif	
 	Unlock();
-	return ret;
+	return delivered;
 }
 
 static int handle_ts (unsigned char *buffer, size_t len, void *p)
 {
 	cMcliDevice *m = (cMcliDevice *) p;
-	unsigned int delivered=m->m_TSB->Put (buffer, len);
-	if(delivered != len) {
-		esyslog ("ERROR: could not deliver %d/%d bytes to ringbuffer of device %d", len-delivered, len, m->m_TSB->cardIndex);
-	}
-	
+	m->m_TSB->Put (buffer, len);
 	m->m_filters->PutTS (buffer, len);
 	return len;
 }
@@ -145,6 +160,7 @@ cMcliDevice::cMcliDevice (void)
 	m_fetype = FE_QPSK;
 	m_r = recv_add ();
 	m_enable = 0;
+
 	register_ten_handler (m_r, handle_ten, this);
 	register_ts_handler (m_r, handle_ts, this);
 }
