@@ -1,7 +1,7 @@
 #
 # Makefile for a Video Disk Recorder plugin
 #
-# $Id: Makefile 1633 2009-05-08 16:18:53Z fliegl $
+# $Id: Makefile 1678 2009-05-17 13:30:57Z bratfisch $
 
 # The official name of this plugin.
 # This name will be used in the '-P...' option of VDR to load the plugin.
@@ -30,8 +30,14 @@ endif
 VDRDIR = ../../..
 LIBDIR = ../../lib
 TMPDIR = /tmp
+
+ifdef RBMINI
+XML_INC:=-I/usr/arm-linux-gnueabi/include/libxml2
+XML_LIB:=-lxml2
+else
 XML_INC:=`xml2-config --cflags`
 XML_LIB:=`xml2-config --libs`  
+endif
 
 ifdef MCLI_SHARED
 LIBS = -lmcli $(XML_LIB)

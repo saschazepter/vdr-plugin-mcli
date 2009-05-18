@@ -5,6 +5,7 @@
 #API_SOCK=1
 #VERBOSE=1
 #BACKTRACE=1
+#ARM=1
 
 APPLE_DARWIN = $(shell gcc -dumpmachine | grep -q 'apple-darwin' && echo "1" || echo "0")
 CYGWIN = $(shell gcc -dumpmachine | grep -q 'cygwin' && echo "1" || echo "0")
@@ -23,8 +24,16 @@ APPLE=1
 endif
 
 LIBRARY_PATH=/usr/lib
+
+ifdef ARM
+XML_INC:=-I/usr/arm-linux-gnueabi/include/libxml2
+XML_LIB:=-lxml2
+CC=arm-linux-gnueabi-gcc
+CXX=arm-linux-gnueabi-g++
+else
 XML_INC:=`xml2-config --cflags`
 XML_LIB:=`xml2-config --libs`
+endif
 
 ifeq ($(APPLE_DARWIN), 1)
 CFLAGS:= $(CFLAGS) -fno-common -Wall -I../common $(DEFS)

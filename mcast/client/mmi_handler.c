@@ -29,13 +29,24 @@ void mmi_print_info(mmi_info_t *m)
 
 }
 //---------------------------------------------------------------------------------------------
-int mmi_open_menu_session(char *uuid, char *iface,int port, int cmd)
+int mmi_open_menu_session(char *uuid, char *intf,int port, int cmd)
 {
         int ret;
         int j, sockfd;
         struct in6_addr ipv6;
+        char iface[IFNAMSIZ];
 
         inet_pton(AF_INET6, uuid, &ipv6);
+
+	if (!intf || !strlen (intf)) {
+	  struct intnode *intn = int_find_first ();
+	  if (intn) {
+	    strcpy (iface, intn->name);
+          } 
+	} else {
+          strncpy(iface, intf, sizeof(iface));
+          iface[sizeof(iface)-1]=0;
+	}
 
         sockfd = socket (PF_INET6, SOCK_STREAM, 0);
         j = 1;
