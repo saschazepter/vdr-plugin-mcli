@@ -7,7 +7,7 @@
  */
 
 /*
- *  $Id: device.c 1677 2009-05-17 08:54:48Z fliegl $
+ *  $Id: device.c 1723 2009-05-28 20:37:55Z fliegl $
  */
 
 #include "filter.h"
@@ -66,6 +66,25 @@ uchar *cMyTSBuffer::Get (void)
 	return NULL;
 }
 
+#ifdef GET_TS_PACKETS
+int cMyTSBuffer::Get(uchar *Data, int count) {
+	int Count = 0;
+	uchar *p = ringBuffer->Get (Count);
+	count *= TS_SIZE;
+	if(Count > count) {
+		Count = count;
+	}
+	Count -= Count % TS_SIZE;
+	if(Count <= 0) {
+		return 0;
+	}
+	 memcpy(Data, p, Count);
+	 ringBuffer->Del (Count);
+
+	 return Count;
+} // cMyTSBuffer::Get
+#endif
+
 int cMyTSBuffer::Put (const uchar * data, int count)
 {
 	for(int i=0; i<count; i+=TS_SIZE) {
@@ -77,11 +96,12 @@ int cMyTSBuffer::Put (const uchar * data, int count)
 	int delivered=0;
 #if 0	
 	do{
-		delivered=ringBuffer->Put (data+delivered, count);
+		delivered=ringBuffer->Put (data, count);
 		if(delivered < count) {
 			esyslog ("ERROR: could not deliver %d/%d bytes to ringbuffer of device %d", count-delivered, count, cardIndex);
 		}
 		count-=delivered;
+		data+=delivered;
 	} while (count);
 #else
 	int avail=ringBuffer->Free();
@@ -91,7 +111,7 @@ int cMyTSBuffer::Put (const uchar * data, int count)
 			esyslog ("ERROR: could not deliver %d/%d bytes to ringbuffer of device %d", count-delivered, count, cardIndex);
 		}
 	} else {
-		esyslog ("WARN: packet to ringbuffer of device %d dropped (%d < %d)\n",cardIndex,avail,count);
+//		esyslog ("WARN: packet to ringbuffer of device %d dropped (%d < %d)\n",cardIndex,avail,count);
 	}
 #endif	
 	Unlock();
@@ -186,7 +206,7 @@ bool cMcliDevice::ProvidesSource (int Source) const
 		return false;
 	}
 	int type = Source & cSource::st_Mask;
-	return type == cSource::stNone || type == cSource::stCable && m_fetype == FE_QAM || type == cSource::stSat && m_fetype == FE_QPSK || type == cSource::stSat && m_fetype == FE_DVBS2 || type == cSource::stTerr && m_fetype == FE_OFDM;
+	return type == cSource::stNone || (type == cSource::stCable && m_fetype == FE_QAM) || (type == cSource::stSat && m_fetype == FE_QPSK) || (type == cSource::stSat && m_fetype == FE_DVBS2) || (type == cSource::stTerr && m_fetype == FE_OFDM);
 }
 
 bool cMcliDevice::ProvidesTransponder (const cChannel * Channel) const
@@ -344,9 +364,20 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 		}
 
 		if (On) {
+			pi.re = 0;
 			pi.pid = Handle->pid;
 			if(m_chan && m_chan->Ca(0)) {
-				pi.id = m_chan->Sid();
+				int set=0;
+				for (int i=0; i < MAXAPIDS; i++) {
+					if (pi.pid == m_chan->Apid(i)) {
+						set=1;
+						break;
+					}
+				}
+				if (pi.pid == m_chan->Vpid() || set && pi.pid)
+					pi.id = m_chan->Sid();
+				else 
+					pi.id = 0;								
 			} else {
 				pi.id = 0;
 			}
@@ -380,6 +411,15 @@ void cMcliDevice::CloseDvr (void)
 //	LOCK_THREAD;
 }
 
+#ifdef GET_TS_PACKETS
+int cMcliDevice::GetTSPackets(uchar *Data, int count) {
+	if (!m_enable || !m_dvr_open) {
+		return false;
+	}
+	return m_TSB->Get (Data, count);
+} // cMcliDevice::GetTSPackets
+#endif
+
 bool cMcliDevice::GetTSPacket (uchar * &Data)
 {
 	if (!m_enable || !m_dvr_open) {
@@ -399,9 +439,20 @@ int cMcliDevice::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 //      printf ("OpenFilter pid:%d tid:%d mask:%04x\n", Pid, Tid, Mask);
 	dvb_pid_t pi;
 
+	pi.re = 0;
 	pi.pid = Pid;
 	if(m_chan && m_chan->Ca(0)) {
-		pi.id = m_chan->Sid();
+		int set=0;
+		for (int i=0; i < MAXAPIDS; i++) {
+			if (pi.pid == m_chan->Apid(i)) {
+				set=1;
+				break;
+			}
+		}
+		if (pi.pid == m_chan->Vpid() || set && pi.pid)
+			pi.id = m_chan->Sid();
+		else 
+			pi.id = 0;
 	} else {
 		pi.id = 0;
 	}
@@ -448,7 +499,7 @@ const char *cMcliDevice::GetUUID (void)
 */
 int cMcliDevice::GetAttribute(const char *attr_name, uint64_t *val)
 {
-	int ret=0,v;
+	int ret=0;
 	uint64_t rval=0;	
 
 	if (!strcmp(attr_name,"fe.status")) {

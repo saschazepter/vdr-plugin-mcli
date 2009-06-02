@@ -39,7 +39,7 @@ void dummy_client (void)
 	int run=1;
 	FILE *f;
 	recv_info_t *r;
-	dvblo_sec_t sec;
+	recv_sec_t sec;
 	struct dvb_frontend_parameters fep;
 	dvb_pid_t pids[3];
 
@@ -72,7 +72,7 @@ void dummy_client (void)
 	register_ten_handler (r, dummy_handle_ten, stderr);
 	register_ts_handler (r, dummy_handle_ts, f);
 
-	memset(&sec, 0, sizeof(dvblo_sec_t));
+	memset(&sec, 0, sizeof(recv_sec_t));
 	sec.voltage=SEC_VOLTAGE_18;
 	sec.mini_cmd=SEC_MINI_A;
 	sec.tone_mode=SEC_TONE_ON;

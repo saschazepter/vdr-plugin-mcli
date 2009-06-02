@@ -12,6 +12,13 @@
 #define RT
 #endif
 
+#define RE 1
+
+#if defined(RE)
+int set_redirected(recv_info_t *r, int sid);
+int check_if_already_redirected(recv_info_t *r, int sid);
+#endif
+
 recv_info_t receivers;
 pthread_mutex_t lock;
 
@@ -259,7 +266,7 @@ static void deallocate_slot (recv_info_t * r, pid_info_t *p)
 	int nodrop=0;
 	
 	if (pthread_exist(p->recv_ts_thread)) {
-		dbg ("Deallocating PID %d from slot %p\n", p->pid.pid, p);
+		//info ("Deallocating PID %d from slot %p\n", p->pid.pid, p);
 			
 		p->run = 0;
 
@@ -277,6 +284,7 @@ static void deallocate_slot (recv_info_t * r, pid_info_t *p)
 		p->dropped = MAX_DROP_NUM;
 	}
 
+	//printf("NO DROP: %d\n",nodrop);
 	if(!mld_start || nodrop) {
 		dvbmc_list_remove(&p->list);
 		free(p);
@@ -292,13 +300,28 @@ static pid_info_t *allocate_slot (recv_info_t * r, struct in6_addr *mcg, dvb_pid
 	if(!p) {
 		err ("Cannot get memory for pid\n");
 	}
+	
 	dbg ("Allocating new PID %d to Slot %p\n", pid->pid, p);
 	
 	memset(p, 0, sizeof(pid_info_t)); 
 	
 	p->mcg = *mcg;
 	mcg_set_pid (&p->mcg, pid->pid);
+#if defined(RE)
+	if (!check_if_already_redirected(r, pid->id)) {
+		//printf("PID %d not red. ===> SETTING ID to %d\n",pid->pid,pid->id);	
+		mcg_set_id (&p->mcg, pid->id);	
+	} else {
+		set_redirected(r, pid->id);	
+		//printf("send pid %d to noid mcg !\n",pid->pid);
+		mcg_set_id(&p->mcg, 0);
+	}
+	//mcg_set_id(&p->mcg,pid->id);
+#else
 	mcg_set_id (&p->mcg, pid->id);
+#endif
+
+
 #ifdef DEBUG
 	print_mcg (&p->mcg);
 #endif
@@ -379,7 +402,7 @@ static void update_mcg (recv_info_t * r, int handle_ten)
 	dbg("update_mcg(%p, %d)\n", r, handle_ten);
 	
 	DVBMC_LIST_FOR_EACH_ENTRY_SAFE (p, ptmp, &r->slots.list, pid_info_t, list) {
-		dbg ("DVBMC_LIST_FOR_EACH_ENTRY_SAFE: %p\n", p);
+		//dbg ("DVBMC_LIST_FOR_EACH_ENTRY_SAFE: %p\n", p);
 		if(p->run) {
 			int found_pid = 0;
 			for (i = 0;  i < r->pidsnum; i++) {
@@ -416,21 +439,98 @@ static void stop_receive (recv_info_t * r, int mode)
 }
 
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#ifdef RE
+static int find_redirected_sid (recv_info_t * r, int id)
+{
+	pid_info_t *slot;
+	DVBMC_LIST_FOR_EACH_ENTRY (slot, &r->slots.list, pid_info_t, list) {
+		if (slot->pid.id == id && slot->pid.re) {
+			return 1;
+		}
+	}
 
+	return 0;
+}
+
+int check_if_already_redirected(recv_info_t *r, int sid)
+{
+	int i;
+	for (i = 0; i < r->pidsnum; i++) {
+		//printf("PID %d SID %d RE %d\n",r->pids[i].pid, r->pids[i].id, r->pids[i].re);
+		if (r->pids[i].re && r->pids[i].id == sid) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+int check_if_sid_in(recv_info_t *r, int sid)
+{
+	int i;
+	for (i = 0; i < r->pidsnum; i++) {
+		//printf("PID %d SID %d RE %d\n",r->pids[i].pid, r->pids[i].id, r->pids[i].re);
+		if (r->pids[i].id == sid) {
+//			printf("%s: SID in %d!\n",__func__,sid);
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+int set_redirected(recv_info_t *r, int sid)
+{
+	int i;
+	for (i = 0; i < r->pidsnum; i++) {
+		if (r->pids[i].id == sid)
+			r->pids[i].re=1;
+	}
+
+	return 0;
+}
+#endif
 int recv_redirect (recv_info_t * r, struct in6_addr mcg)
 {
-	pthread_mutex_lock (&lock);
-	dbg ("In redirect for receiver %p\n", r);
-	stop_receive (r, 0);
-	r->mcg = mcg;
+	int ret = 0;
 
-	pthread_detach (r->recv_ten_thread);
-	pthread_null (r->recv_ten_thread);
-	update_mcg (r, 0);
+	pthread_mutex_lock (&lock);
+	dbg ("\n+++++++++++++\nIn redirect for receiver %p\n", r);
+#if 0
+	char addr_str[INET6_ADDRSTRLEN];
+	inet_ntop (AF_INET6, &r->mcg, addr_str, INET6_ADDRSTRLEN);
+	info ("Redirect to ===>  %s\n",addr_str);
+#endif	
+	int sid;
+	mcg_get_id(&mcg,&sid);
+	mcg_set_id(&mcg,0);
+
+	//printf("SID in: %d\n",sid);
+
+	if (!sid || ( !check_if_already_redirected(r, sid) && check_if_sid_in(r, sid)) ) {
+		stop_receive (r, 0);
+		r->mcg = mcg;	
+		
+		if (sid)
+			set_redirected(r, sid);
+
+#if 0		
+		if (!check_if_already_redirected(r,sid)) {
+			set_redirected(r, sid);		
+		}
+
+#endif
+		pthread_detach (r->recv_ten_thread);
+		pthread_null (r->recv_ten_thread);
+		update_mcg (r, 0);
+	} else { 
+		ret = 1;
+	}
+	
 	dbg ("Redirect done for receiver %p\n", r);
 	pthread_mutex_unlock (&lock);
 
-	return 0;
+	return ret;
 }
 
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -500,6 +600,9 @@ int recv_pid_add (recv_info_t * r, dvb_pid_t *pid)
 	pthread_mutex_lock (&lock);
 	pid_info_t *p=find_slot_by_pid (r, pid->pid, pid->id);
 	if(!p && (r->pidsnum < (RECV_MAX_PIDS-1))) {
+#if defined(RE)
+		r->pids[r->pidsnum].re = 0;
+#endif
 		r->pids[r->pidsnum]=*pid;
 		r->pids[++r->pidsnum].pid=-1;
 		update_mcg(r, 1);

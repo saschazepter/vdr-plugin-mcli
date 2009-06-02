@@ -18,6 +18,9 @@
 typedef struct {
   int pid;
   int id;
+#if 1
+  int re;
+#endif
 } dvb_pid_t;
 
 typedef struct pid_info

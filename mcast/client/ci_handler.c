@@ -41,7 +41,7 @@ static int ci_connect (ci_dev_t * c)
 
 	j = 1;
 	if (setsockopt (c->fd_ci, SOL_SOCKET, TCP_NODELAY, (_SOTYPE) & j, sizeof (j)) < 0) {
-		err ("setsockopt TCP_NODELAY\n");
+		warn ("setsockopt TCP_NODELAY\n");
 	}
 
 	inet_pton (AF_INET6, c->uuid, &nc);

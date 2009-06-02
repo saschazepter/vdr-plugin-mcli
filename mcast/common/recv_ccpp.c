@@ -468,9 +468,12 @@ void *recv_ten (void *arg)
 								inet_ntop (AF_INET6, &tra_info.tra->mcg, hostname, INET6_ADDRSTRLEN);
 								dbg ("Redirect for receiver %p: MCG is at %s\n", r, hostname);
 #endif								
-								recv_redirect (r, tra_info.tra->mcg);
-								free (tra_info.tra);
-								break;
+								int ret = recv_redirect (r, tra_info.tra->mcg);
+								if (!ret) {								
+									printf("Terminate recv_ten !\n");
+									free (tra_info.tra);
+									break;								
+								} 
 							}
 						}
 						free (tra_info.tra);

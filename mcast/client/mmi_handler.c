@@ -56,7 +56,7 @@ int mmi_open_menu_session(char *uuid, char *intf,int port, int cmd)
 
         j = 1;
         if (setsockopt (sockfd, SOL_SOCKET, TCP_NODELAY, (_SOTYPE) & j, sizeof (j)) < 0) {
-                err ("setsockopt TCP_NODELAY\n");
+                warn ("setsockopt TCP_NODELAY\n");
         }
         
         dbg ("Connect To: %s\n", uuid);
@@ -83,7 +83,7 @@ int mmi_open_menu_session(char *uuid, char *intf,int port, int cmd)
         int n = send(sockfd, buf, strlen(buf)+1,0);
         if (n < 0) {
             dbg("unable to sent mmi connection cmd !\n");	
-            close(sockfd);
+            closesocket(sockfd);
             return -1;
         }
         dbg("MMI SESSION : OK\n");
@@ -147,9 +147,9 @@ int mmi_poll_for_menu_text(UDPContext *s, mmi_info_t *m, int timeout)
         int n;
         n = udp_read (s, (unsigned char*)buf, sizeof(buf), timeout, NULL);
         if (n > 0) {
-              dbg("recv:\n%s \n", buf);
+              dbg ("recv:\n%s \n", buf);
               memset(m,0,sizeof(mmi_info_t));
-              mmi_get_data((xmlChar *)buf, sizeof(buf), m);
+              mmi_get_data((xmlChar *)buf, n, m);
         } 
         return n;
 }
@@ -257,7 +257,7 @@ int mmi_get_data(xmlChar * xmlbuff, int buffersize, mmi_info_t *mmi_info)
                                                               int sid;
                                                               mcg_get_id(&mcg,&sid);
                                                               mcg_set_id(&mcg,0);
-                                                              mmi_info->caids = realloc(mmi_info->caids,sizeof(caid_mcg_t)*(mmi_info->caid_num+1));
+                                                              mmi_info->caids = (caid_mcg_t *)realloc(mmi_info->caids,sizeof(caid_mcg_t)*(mmi_info->caid_num+1));
                                                               caid_mcg_t *cm = mmi_info->caids + mmi_info->caid_num;
                                                               cm->caid = sid;
                                                               cm->mcg = mcg;

@@ -28,7 +28,7 @@ $Id: crc32.h,v 1.2 2006/01/02 18:24:04 rasc Exp $
 #define __CRC32_H
 
 
-u_long dvb_crc32 (char *data, int len);
+uint32_t dvb_crc32 (char *data, int len);
 
 
 #endif
