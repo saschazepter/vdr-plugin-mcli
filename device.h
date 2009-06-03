@@ -7,7 +7,7 @@
  */
 
 /*
- *  $Id: device.h 1672 2009-05-16 14:01:40Z fliegl $
+ *  $Id: device.h 1751 2009-06-03 14:24:44Z bratfisch $
  */
 
 #ifndef VDR_MCLI_DEVICE_H
@@ -41,6 +41,9 @@ class cMyTSBuffer:public cThread
 	 ~cMyTSBuffer ();
 	uchar *Get (void);
 	int Put (const uchar * data, int len);
+#ifdef GET_TS_PACKETS
+    int Get(uchar*, int);
+#endif
 };
 
 class cMcliDevice:public cDevice
@@ -72,6 +75,9 @@ class cMcliDevice:public cDevice
 
 	virtual int OpenFilter (u_short Pid, u_char Tid, u_char Mask);
 	virtual void CloseFilter (int Handle);
+#ifdef GET_TS_PACKETS
+    virtual int GetTSPackets(uchar*, int);
+#endif
 
       public:
 	  cCondVar m_locked;
@@ -102,6 +108,9 @@ class cMcliDevice:public cDevice
 	{
 		return m_fetype == FE_DVBS2;
 	}
+#ifdef REELVDR
+    virtual bool HasInput(void) const { return true; }
+#endif
 #ifdef DEVICE_ATTRIBUTES
 	// Reel extension
 	virtual int GetAttribute(const char *attr_name, uint64_t *val);

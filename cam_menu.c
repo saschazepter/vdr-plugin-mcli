@@ -32,6 +32,7 @@ cCamMenu::cCamMenu(cmdline_t *cmd) : cOsdMenu(trVDR("Common Interface"), 18) {
     end = false;
     currentSelected = -1;
     pinCounter = 0;
+    alreadyReceived = false;
 
     for (int i=0; i<MAX_CAMS_IN_MENU; i++)
         cam_list[i].slot = -1;
@@ -60,7 +61,6 @@ void cCamMenu::OpenCamMenu() {
 
     Clear();
     mmi_session = CamMenuOpen(&cam_list[nrInCamList]);
-    char buf[MMI_TEXT_LENGTH];
     char buf2[MMI_TEXT_LENGTH*2];
     printf("mmi_session: %d\n", mmi_session);
     if (mmi_session > 0) {
@@ -94,13 +94,13 @@ void cCamMenu::OpenCamMenu() {
 void cCamMenu::Receive() {
     bool timeout = true;
     if (mmi_session > 0) {
-        Clear();
-        char buf[MMI_TEXT_LENGTH];
         char buf2[MMI_TEXT_LENGTH*2];
         time_t t = time(NULL);
         while((time(NULL)-t) < 10) {
             // receive the CAM MENU
-            if(CamMenuReceive(mmi_session, buf, MMI_TEXT_LENGTH) > 0) {
+            if(alreadyReceived || CamMenuReceive(mmi_session, buf, MMI_TEXT_LENGTH) > 0) {
+                Clear();
+                alreadyReceived = false;
                 printf("MMI: \"%s\"\n",buf);
                 if(!strncmp(buf, "blind = 0", 9))
                     inputRequested = eInputNotBlind;
@@ -258,7 +258,16 @@ eOSState cCamMenu::ProcessKey(eKeys Key) {
                 }
             }
             break;
-        default: break;
+        default:  int bla = 0;
+                  if(mmi_session > 0) {
+                    bla = CamMenuReceive(mmi_session, buf, MMI_TEXT_LENGTH);
+                    if(bla > 0) {
+                        alreadyReceived = true;
+                        printf("bla: %i\n", bla);
+                        Receive();
+                    }
+                  }
+                  break;
     }
     return ret;
 }

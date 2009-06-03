@@ -43,6 +43,8 @@ class cCamMenu : public cOsdMenu {
         eInputRequest inputRequested;
         char pin[32];
         int pinCounter;
+        char buf[MMI_TEXT_LENGTH];
+        bool alreadyReceived;
 
     public:
         cCamMenu(cmdline_t *m_cmd);
