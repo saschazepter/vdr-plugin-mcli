@@ -9,7 +9,7 @@
 /*
  * mcli.c: A plugin for the Video Disk Recorder
  *
- * $Id: mcli.c 1701 2009-05-26 11:22:58Z bratfisch $
+ * $Id: mcli.c 1759 2009-06-04 08:27:23Z fliegl $
  */
 
 #include <vdr/plugin.h>
@@ -384,7 +384,7 @@ bool cPluginMcli::Initialize (void)
 		api_init_done = 1;
 	}
 	m_cam_mmi = mmi_broadcast_client_init(m_cmd.port, m_cmd.iface);
-        if (!m_cam_mmi) {
+        if (m_cam_mmi>0) {
         	mmi_init_done = 1;
         }
 	return true;

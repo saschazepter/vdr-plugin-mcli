@@ -7,7 +7,7 @@
  */
 
 /*
- *  $Id: filter.h 1640 2009-05-08 20:57:27Z fliegl $
+ *  $Id: filter.h 1755 2009-06-03 22:50:42Z fliegl $
  */
 
 #ifndef VDR_STREAMDEV_FILTER_H
@@ -16,8 +16,8 @@
 #include <vdr/config.h>
 #include <vdr/tools.h>
 #include <vdr/thread.h>
+#include "packetbuffer.h"
 
-class cMyTSBuffer;
 class cMcliFilter;
 class cMcliPid;
 
@@ -31,7 +31,7 @@ public:
 
 class cMcliFilters: public cList<cMcliFilter>, public cThread {
 private:
-	cMyTSBuffer  *m_TSBuffer;
+	cMyPacketBuffer *m_PB;
 	cMcliPidList m_pl;
 
 protected:

@@ -7,7 +7,7 @@
  */
 
 /*
- *  $Id: device.c 1723 2009-05-28 20:37:55Z fliegl $
+ *  $Id: device.c 1755 2009-06-03 22:50:42Z fliegl $
  */
 
 #include "filter.h"
@@ -26,103 +26,24 @@
 
 using namespace std;
 
-// --- cMyTSBuffer -------------------------------------------------------------
-
-cMyTSBuffer::cMyTSBuffer (int Size, const char *desc, int CardIndex)
-{
-	char buf[80];
-	SetDescription ("%s (%d)", desc, CardIndex);
-	sprintf(buf, "%s (%d)", desc, CardIndex);
-	cardIndex = CardIndex;
-	delivered = false;
-	ringBuffer = new cRingBufferLinear (Size, TS_SIZE, true, buf);
-	ringBuffer->SetTimeouts (100, 100);
-}
-
-cMyTSBuffer::~cMyTSBuffer ()
-{
-	delete ringBuffer;
-}
-
-void cMyTSBuffer::Action (void)
-{
-}
-
-uchar *cMyTSBuffer::Get (void)
-{
-	int Count = 0;
-	if (delivered) {
-		ringBuffer->Del (TS_SIZE);
-		delivered = false;
-	}
-	uchar *p = ringBuffer->Get (Count);
-	if(p && *p!=TS_SYNC_BYTE) {
-		esyslog ("WARN: Get TS packet missing TS_SYNC_BYTE (%02x) with %d bytes left", *p, Count);
-	}
-	if (p && Count >= TS_SIZE) {
-		delivered = true;
-		return p;
-	}
-	return NULL;
-}
-
-#ifdef GET_TS_PACKETS
-int cMyTSBuffer::Get(uchar *Data, int count) {
-	int Count = 0;
-	uchar *p = ringBuffer->Get (Count);
-	count *= TS_SIZE;
-	if(Count > count) {
-		Count = count;
-	}
-	Count -= Count % TS_SIZE;
-	if(Count <= 0) {
-		return 0;
-	}
-	 memcpy(Data, p, Count);
-	 ringBuffer->Del (Count);
-
-	 return Count;
-} // cMyTSBuffer::Get
-#endif
-
-int cMyTSBuffer::Put (const uchar * data, int count)
-{
-	for(int i=0; i<count; i+=TS_SIZE) {
-		if(data[i]!=TS_SYNC_BYTE) {
-			esyslog ("WARN: Put TS packet missing TS_SYNC_BYTE at %d (%02x)", i, data[i]);
-		}
-	}
-	Lock();
-	int delivered=0;
-#if 0	
-	do{
-		delivered=ringBuffer->Put (data, count);
-		if(delivered < count) {
-			esyslog ("ERROR: could not deliver %d/%d bytes to ringbuffer of device %d", count-delivered, count, cardIndex);
-		}
-		count-=delivered;
-		data+=delivered;
-	} while (count);
-#else
-	int avail=ringBuffer->Free();
-	if(avail>=count) {
-		delivered=ringBuffer->Put (data, count);
-		if(delivered < count) {
-			esyslog ("ERROR: could not deliver %d/%d bytes to ringbuffer of device %d", count-delivered, count, cardIndex);
-		}
-	} else {
-//		esyslog ("WARN: packet to ringbuffer of device %d dropped (%d < %d)\n",cardIndex,avail,count);
-	}
-#endif	
-	Unlock();
-	return delivered;
-}
-
 static int handle_ts (unsigned char *buffer, size_t len, void *p)
 {
 	cMcliDevice *m = (cMcliDevice *) p;
-	m->m_TSB->Put (buffer, len);
 	m->m_filters->PutTS (buffer, len);
+#ifdef GET_TS_PACKETS
+	unsigned char *ptr=m->m_PB->PutStart(len);
+	memcpy(ptr, buffer, len);
+	m->m_PB->PutEnd(len, 0, 0);
+#else
+	unsigned int i;
+	for(i=0;i<len;i+=TS_SIZE) {
+		unsigned char *ptr=m->m_PB->PutStart(TS_SIZE);
+		if(ptr) {
+			memcpy(ptr, buffer+i, TS_SIZE);
+			m->m_PB->PutEnd(TS_SIZE, 0, 0);
+		}
+	}
+#endif	
 	return len;
 }
 
@@ -172,7 +93,9 @@ void cMcliDevice::SetFEType (fe_type_t val)
 cMcliDevice::cMcliDevice (void)
 {
 	StartSectionHandler ();
-	m_TSB = new cMyTSBuffer (10000*TS_SIZE, "Mcli TS buffer", CardIndex () + 1);
+	m_PB =  new cMyPacketBuffer(10000*TS_SIZE, 10000);
+	m_PB->SetTimeouts(0, 1000*20);
+	
 	m_filters = new cMcliFilters ();
 	printf ("cMcliDevice: got device number %d\n", CardIndex () + 1);
 	m_pidsnum = 0;
@@ -195,8 +118,8 @@ cMcliDevice::~cMcliDevice ()
 	register_ten_handler (m_r, NULL, NULL);
 	register_ts_handler (m_r, NULL, NULL);
 	recv_del (m_r);
-	DELETENULL (m_TSB);
 	DELETENULL (m_filters);
+	DELETENULL (m_PB);
 }
 
 bool cMcliDevice::ProvidesSource (int Source) const
@@ -414,9 +337,19 @@ void cMcliDevice::CloseDvr (void)
 #ifdef GET_TS_PACKETS
 int cMcliDevice::GetTSPackets(uchar *Data, int count) {
 	if (!m_enable || !m_dvr_open) {
-		return false;
+		return 0;
 	}
-	return m_TSB->Get (Data, count);
+	m_PB->GetEnd();
+	
+	int size;
+	uchar *buf=m_PB->GetStartMultiple(count,&size, 0, 0);
+	if (buf) {
+		memcpy(Data, buf, size);
+		m_PB->GetEnd();
+		return size;
+	} else {
+		return 0;
+	}
 } // cMcliDevice::GetTSPackets
 #endif
 
@@ -426,7 +359,11 @@ bool cMcliDevice::GetTSPacket (uchar * &Data)
 		return false;
 	}
 //      printf("GetTSPacket\n");
-	Data = m_TSB->Get ();
+	
+	m_PB->GetEnd();
+	
+	int size;
+	Data=m_PB->GetStart(&size, 0, 0);
 	return true;
 }
 

@@ -35,7 +35,7 @@ class cCamMenu : public cOsdMenu {
     	int CamPollText(mmi_info_t *text);
     	cmdline_t *m_cmd;
     	UDPContext *m_cam_mmi;
-        cam_list_t cam_list[MAX_CAMS];
+        cam_list_t cam_list[MAX_CAMS_IN_MENU];
         int mmi_session;
         bool inCamMenu;
         bool end;

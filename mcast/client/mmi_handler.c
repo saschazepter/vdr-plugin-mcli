@@ -47,6 +47,9 @@ int mmi_open_menu_session(char *uuid, char *intf,int port, int cmd)
           strncpy(iface, intf, sizeof(iface));
           iface[sizeof(iface)-1]=0;
 	}
+	if(!port) {
+	  port = 23013;
+	}
 
         sockfd = socket (PF_INET6, SOCK_STREAM, 0);
         j = 1;

@@ -33,6 +33,7 @@ cCamMenu::cCamMenu(cmdline_t *cmd) : cOsdMenu(trVDR("Common Interface"), 18) {
     currentSelected = -1;
     pinCounter = 0;
     alreadyReceived = false;
+    mmi_session = -1;
 
     for (int i=0; i<MAX_CAMS_IN_MENU; i++)
         cam_list[i].slot = -1;
@@ -40,7 +41,7 @@ cCamMenu::cCamMenu(cmdline_t *cmd) : cOsdMenu(trVDR("Common Interface"), 18) {
     SetNeedsFastResponse(true);
 
     // Find all operational CAMs.
-    int ret = CamFind(cam_list);
+    CamFind(cam_list);
 }
 
 cCamMenu::~cCamMenu() {
@@ -175,7 +176,7 @@ int cCamMenu::CamFind(cam_list_t *cam_list) {
 int cCamMenu::CamMenuOpen(cam_list_t *cam) {
     printf("Opening CAM Menu at NetCeiver %s Slot %d Current: %i\n", cam->uuid, cam->slot, currentSelected);
 
-    int mmi_session = mmi_open_menu_session(cam->uuid, m_cmd->iface, m_cmd->port, cam->slot);
+    int mmi_session = mmi_open_menu_session(cam->uuid, m_cmd->iface, 0, cam->slot);
     if(mmi_session > 0) {
         sleep(1);
         CamMenuSend(mmi_session, (char *)"00000000000000\n");

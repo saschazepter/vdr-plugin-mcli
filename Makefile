@@ -1,7 +1,7 @@
 #
 # Makefile for a Video Disk Recorder plugin
 #
-# $Id: Makefile 1723 2009-05-28 20:37:55Z fliegl $
+# $Id: Makefile 1761 2009-06-04 08:47:38Z bratfisch $
 
 # The official name of this plugin.
 # This name will be used in the '-P...' option of VDR to load the plugin.
@@ -75,12 +75,16 @@ DEFINES += -I$(HOME)/proj/dvbmcast/mcast/common/darwin/include/
 endif
 endif
 
+ifdef REELVDR
+DEFINES += -DREELVDR 
+endif
+
 DEFINES += -D_GNU_SOURCE -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -DCLIENT
 # -DDEVICE_ATTRIBUTES
 
 ### The object files (add further files here):
 
-OBJS = $(PLUGIN).o cam_menu.o device.o filter.o
+OBJS = $(PLUGIN).o cam_menu.o device.o filter.o packetbuffer.o
 
 ### The main target:
 

@@ -7,7 +7,7 @@
  */
 
 /*
- *  $Id: device.h 1751 2009-06-03 14:24:44Z bratfisch $
+ *  $Id: device.h 1755 2009-06-03 22:50:42Z fliegl $
  */
 
 #ifndef VDR_MCLI_DEVICE_H
@@ -29,22 +29,7 @@
 #include <mcast/client/api_server.h>
 #include <mcast/client/mmi_handler.h>
 
-class cMyTSBuffer:public cThread
-{
-      private:
-	bool delivered;
-	virtual void Action (void);
-	cRingBufferLinear *ringBuffer;
-      public:
-	int cardIndex;      
-	  cMyTSBuffer (int Size, const char *desc, int CardIndex);
-	 ~cMyTSBuffer ();
-	uchar *Get (void);
-	int Put (const uchar * data, int len);
-#ifdef GET_TS_PACKETS
-    int Get(uchar*, int);
-#endif
-};
+#include "packetbuffer.h"
 
 class cMcliDevice:public cDevice
 {
@@ -81,7 +66,7 @@ class cMcliDevice:public cDevice
 
       public:
 	  cCondVar m_locked;
-	cMyTSBuffer *m_TSB;
+	cMyPacketBuffer *m_PB;
 	cMcliFilters *m_filters;
 	  cMcliDevice (void);
 	  virtual ~ cMcliDevice ();

@@ -7,7 +7,7 @@
  */
 
 /*
- *  $Id: filter.c 1671 2009-05-15 17:22:22Z fliegl $
+ *  $Id: filter.c 1755 2009-06-03 22:50:42Z fliegl $
  */
 
 #include "filter.h"
@@ -200,7 +200,7 @@ bool cMcliFilter::IsClosed (void)
 cMcliFilters::cMcliFilters (void):
 cThread ("mcli: sections assembler")
 {
-	m_TSBuffer = NULL;
+	m_PB = NULL;
 }
 
 cMcliFilters::~cMcliFilters ()
@@ -210,8 +210,15 @@ cMcliFilters::~cMcliFilters ()
 int cMcliFilters::PutTS (const uchar * data, int len)
 {
 	u_short pid = (((u_short) data[1] & PID_MASK_HI) << 8) | data[2];
-	if (m_TSBuffer && WantPid (pid)) {
-		return m_TSBuffer->Put (data, len);
+	if (m_PB && WantPid (pid)) {
+        	int i;
+        	for(i=0; i<len; i+=TS_SIZE) {
+			unsigned char *ptr=m_PB->PutStart(TS_SIZE);
+			if(ptr) {
+				memcpy(ptr, data+i, TS_SIZE);
+				m_PB->PutEnd(TS_SIZE, 0, 0);
+			}
+		}
 	}
 	return 0;
 }
@@ -237,8 +244,9 @@ int cMcliFilters::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 		m_pl.SetPid (Pid, 0xffff);
 	}
 
-	if (!m_TSBuffer) {
-		m_TSBuffer = new cMyTSBuffer (MEGABYTE (1), "Mcli Section filter buffer", 1);
+	if (!m_PB) {
+		m_PB =  new cMyPacketBuffer(10000*TS_SIZE, 10000);
+		m_PB->SetTimeouts(0, 1000*20);
 	}
 	Start ();
 
@@ -347,7 +355,9 @@ void cMcliFilters::Action (void)
 {
 
 	while (Running ()) {
-		const uchar *block = m_TSBuffer->Get ();
+		m_PB->GetEnd();
+		int size;
+		const uchar *block = m_PB->GetStart (&size, 0, 0);
 		if (block) {
 			int tid = -1;
 			u_short pid = (((u_short) block[1] & PID_MASK_HI) << 8) | block[2];
@@ -387,6 +397,6 @@ void cMcliFilters::Action (void)
 		}
 	}
 
-	DELETENULL (m_TSBuffer);
+	DELETENULL (m_PB);
 	dsyslog ("McliFilters::Action() ended");
 }
