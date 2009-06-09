@@ -1,7 +1,7 @@
 #
 # Makefile for a Video Disk Recorder plugin
 #
-# $Id: Makefile 1761 2009-06-04 08:47:38Z bratfisch $
+# $Id: Makefile 1790 2009-06-09 12:51:57Z rollercoaster $
 
 # The official name of this plugin.
 # This name will be used in the '-P...' option of VDR to load the plugin.
@@ -32,19 +32,6 @@ VDRDIR = ../../..
 LIBDIR = ../../lib
 TMPDIR = /tmp
 
-ifdef RBMINI
-XML_INC:=-I/usr/arm-linux-gnueabi/include/libxml2
-XML_LIB:=-lxml2
-else
-XML_INC:=`xml2-config --cflags`
-XML_LIB:=`xml2-config --libs`  
-endif
-
-ifdef MCLI_SHARED
-LIBS = -lmcli $(XML_LIB)
-else
-LIBS = mcast/client/libmcli.a $(XML_LIB)
-endif
 
 ### Allow user defined options to overwrite defaults:
 
@@ -61,11 +48,24 @@ PACKAGE = vdr-$(ARCHIVE)
 
 ### Includes and Defines (add further entries here):
 
-INCLUDES += -I$(VDRDIR)/include -I. $(XML_INC)
+ifdef RBMINI
+  XML_INC := -I/usr/arm-linux-gnueabi/include/libxml2
+  XML_LIB := -lxml2
+else
+  XML_INC := `xml2-config --cflags`
+  XML_LIB := `xml2-config --libs`
+endif
+
 
 ifdef MCLI_SHARED
-INCLUDES +=-I$(HOME)/proj/dvbmcast/
+  LIBS = -lmcli $(XML_LIB)
+  INCLUDES +=-I$(HOME)/proj/dvbmcast/
+else
+  LIBS = mcast/client/libmcli.a $(XML_LIB)
 endif
+
+INCLUDES += -I$(VDRDIR)/include -I. $(XML_INC)
+
 
 ifeq ($(APPLE_DARWIN), 1)
 INCLUDES += -I/sw/include
@@ -76,7 +76,7 @@ endif
 endif
 
 ifdef REELVDR
-DEFINES += -DREELVDR 
+  DEFINES += -DREELVDR 
 endif
 
 DEFINES += -D_GNU_SOURCE -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -DCLIENT
@@ -139,6 +139,8 @@ $(I18Nmsgs): $(LOCALEDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
 .PHONY: i18n
 i18n: $(I18Nmsgs) $(I18Npot)
 
+i18n-dist: $(I18Nmsgs)
+
 ### Targets:
 
 libvdr-$(PLUGIN).so: $(OBJS)
@@ -159,4 +161,4 @@ dist: clean
 	@echo Distribution package created as $(PACKAGE).tgz
 
 clean:
-	@-rm -f $(OBJS) $(DEPFILE) *.so *.tgz core* *~ $(PODIR)/*.mo $(PODIR)/*.pot
+	@-rm -f $(OBJS) $(DEPFILE) *.so *.tgz core* *~ $(PODIR)/*.mo $(PODIR)/*.pot $(LIBDIR)/libvdr-$(PLUGIN).so.*

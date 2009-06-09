@@ -52,10 +52,6 @@ void cCamMenu::OpenCamMenu() {
     bool timeout = true;
     
     unsigned int nrInCamList = currentSelected-(currentSelected+3)/3; // minus the "netceiver <name>"-rows
-    if(nrInCamList%2) // swap upper and lower slot entries
-        nrInCamList--;
-    else
-        nrInCamList++;
 
     if(cam_list[nrInCamList].slot==-1) // just a sanity check
         return;
@@ -144,7 +140,7 @@ int cCamMenu::CamFind(cam_list_t *cam_list) {
         netceiver_info_t *nci = nc_list->nci + n;
         printf("\nFound NetCeiver: %s \n",nci->uuid);
         char buf[128];
-        snprintf(buf, 128, "%s: %s", tr("NetCeiver"),nci->uuid);
+        snprintf(buf, 128, "%s: %s", "NetCeiver", nci->uuid);
         Add(new cOsdItem(buf,osUnknown,false));
         printf("    CAMS [%d]: \n",nci->cam_num);
         for (i = nci->cam_num-1; i >=0 /*nci->cam_num*/; i--) {
@@ -158,14 +154,15 @@ int cCamMenu::CamFind(cam_list_t *cam_list) {
                         strcpy(cam_list[cnt].uuid, nci->uuid);
                         strcpy(cam_list[cnt].info, nci->cam[i].menu_string);
                     }
-                    cnt++;
                     break;
                 default:
+                    cam_list[cnt].slot=-1;
                     int len = strlen(nci->cam[i].menu_string);
                     /** TB: really uncool - "Error" is translated to "Kein CI-Modul" in german */
                     snprintf(buf, 128, "   %s:\t%s", nci->cam[i].slot==0 ? trVDR("lower slot") : trVDR("upper slot"), len==0 ? trVDR("Error") : nci->cam[i].menu_string);
                     Add(new cOsdItem(buf));
             }
+            cnt++;
         }
     }
     nc_unlock_list();

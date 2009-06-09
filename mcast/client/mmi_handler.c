@@ -82,7 +82,7 @@ int mmi_open_menu_session(char *uuid, char *intf,int port, int cmd)
         char buf[128];
         memset(buf,0,sizeof(buf));
         dbg("Request CAM slot %d \n",cmd);
-        sprintf(buf,"%d",cmd);
+        sprintf(buf,"%x",cmd);
         int n = send(sockfd, buf, strlen(buf)+1,0);
         if (n < 0) {
             dbg("unable to sent mmi connection cmd !\n");	
@@ -91,6 +91,18 @@ int mmi_open_menu_session(char *uuid, char *intf,int port, int cmd)
         }
         dbg("MMI SESSION : OK\n");
         return sockfd;
+}
+//---------------------------------------------------------------------------------------------
+int mmi_cam_reset(char *uuid, char *intf, int port, int slot)
+{        
+        int cmd  = (slot << 12) | 0xfff;
+        printf("Reseting slot %d (cmd %x)...\n", slot, cmd);
+        int sock = mmi_open_menu_session(uuid, intf, port, cmd);
+        if (sock < 1) {
+            printf("Unable to reset slot %d on netceiver %s...\n",slot, uuid);        
+        }
+        close(sock);
+        return 0;
 }
 //---------------------------------------------------------------------------------------------
 int mmi_get_menu_text(int sockfd, char *buf, int buf_len, int timeout)

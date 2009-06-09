@@ -1,3 +1,15 @@
+/*
+ * (c) BayCom GmbH, http://www.baycom.de, info@baycom.de
+ *
+ * See the COPYING file for copyright information and
+ * how to reach the author.
+ *
+ */
+
+/*
+ *  $Id$
+ */
+
 #include <vdr/plugin.h>
 #include <sys/time.h>
 #include "packetbuffer.h"

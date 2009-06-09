@@ -5,7 +5,10 @@
 #API_SOCK=1
 #VERBOSE=1
 #BACKTRACE=1
-#ARM=1
+
+ifdef RBMINI
+  ARMEL=1
+endif
 
 APPLE_DARWIN = $(shell gcc -dumpmachine | grep -q 'apple-darwin' && echo "1" || echo "0")
 CYGWIN = $(shell gcc -dumpmachine | grep -q 'cygwin' && echo "1" || echo "0")
@@ -23,16 +26,16 @@ DEFS:=$(DEFS) -I../common/darwin/include/ -DAPPLE
 APPLE=1
 endif
 
-LIBRARY_PATH=/usr/lib
+include ../../../../../Make.config
 
-ifdef ARM
-XML_INC:=-I/usr/arm-linux-gnueabi/include/libxml2
-XML_LIB:=-lxml2
-CC=arm-linux-gnueabi-gcc
-CXX=arm-linux-gnueabi-g++
+ifdef ARMEL
+  XML_INC := -I/usr/arm-linux-gnueabi/include/libxml2
+  XML_LIB := -lxml2
+  CROSS = arm-linux-gnueabi-
 else
 XML_INC:=`xml2-config --cflags`
 XML_LIB:=`xml2-config --libs`
+LIBRARY_PATH=/usr/lib
 endif
 
 ifeq ($(APPLE_DARWIN), 1)

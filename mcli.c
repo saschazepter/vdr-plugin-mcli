@@ -9,7 +9,7 @@
 /*
  * mcli.c: A plugin for the Video Disk Recorder
  *
- * $Id: mcli.c 1759 2009-06-04 08:27:23Z fliegl $
+ * $Id: mcli.c 1769 2009-06-04 18:32:48Z fliegl $
  */
 
 #include <vdr/plugin.h>
@@ -21,6 +21,7 @@
 
 static const char *VERSION = "0.0.1";
 static const char *DESCRIPTION = trNOOP("NetCeiver Client Application");
+
 #ifndef REELVDR
 static const char *MENUSETUPENTRY = trNOOP("NetCeiver Client Application");
 #endif
@@ -185,18 +186,16 @@ int cPluginMcli::CamGetMMIBroadcast(void)
 		printf("NetCeiver %s CAM slot %d Received %s valid for:\n", m.uuid, m.slot, m.mmi_text);
 		for(int i=0; i<m.caid_num; i++) {
 			caid_mcg_t *c=m.caids+i;
-			int sid;
 			int satpos;
 			fe_type_t type;
 			recv_sec_t sec;
 			struct dvb_frontend_parameters fep;
 			int vpid;
 			
-			mcg_get_id(&c->mcg, &sid);
 			mcg_get_satpos(&c->mcg, &satpos);
 			mcg_to_fe_parms(&c->mcg, &type, &sec, &fep, &vpid);
 			
-			printf("CAID:%04x, SatPos:%d Freqency:%d SID:%04x\n", c->caid, satpos, fep.frequency, sid);
+			printf("SID/Program Number:%04x, SatPos:%d Freqency:%d\n", c->caid, satpos, fep.frequency);
 		}
 		if(m.caid_num && m.caids) {
 			free(m.caids);
@@ -215,7 +214,7 @@ cPluginMcli::cPluginMcli (void)
 	// Initialize any member variables here.
 	// DON'T DO ANYTHING ELSE THAT MAY HAVE SIDE EFFECTS, REQUIRE GLOBAL
 	// VDR OBJECTS TO EXIST OR PRODUCE ANY OUTPUT!
-	printf ("cPluginMcli::cPluginMcli\n");
+	// printf ("cPluginMcli::cPluginMcli\n");
 	int i;
 	//init parameters
 	memset (&m_cmd, 0, sizeof (cmdline_t));
@@ -372,7 +371,7 @@ void cPluginMcli::Action (void)
 
 bool cPluginMcli::Initialize (void)
 {
-	printf ("cPluginMcli::Initialize\n");
+// printf ("cPluginMcli::Initialize\n");
 	// Initialize any background activities the plugin shall perform.
 	if (!recv_init (m_cmd.iface, m_cmd.port)) {
 		recv_init_done = 1;
@@ -411,7 +410,7 @@ void cPluginMcli::Stop (void)
 
 void cPluginMcli::Housekeeping (void)
 {
-	printf ("cPluginMcli::Housekeeping\n");
+	// printf ("cPluginMcli::Housekeeping\n");
 	// Perform any cleanup or other regular tasks.
 }
 
