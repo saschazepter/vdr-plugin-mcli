@@ -101,7 +101,7 @@ int mmi_cam_reset(char *uuid, char *intf, int port, int slot)
         if (sock < 1) {
             printf("Unable to reset slot %d on netceiver %s...\n",slot, uuid);        
         }
-        close(sock);
+        closesocket(sock);
         return 0;
 }
 //---------------------------------------------------------------------------------------------

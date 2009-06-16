@@ -88,7 +88,7 @@
         #define _SOTYPE void*
         #define SOCKET int
 
-	#if ! (defined __uClinux__ || defined APPLE)
+	#if ! (defined __uClinux__ || defined APPLE || defined MIPSEL)
 		#include <mcheck.h>
 		#include <ifaddrs.h>
 	#endif

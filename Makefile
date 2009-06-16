@@ -1,7 +1,7 @@
 #
 # Makefile for a Video Disk Recorder plugin
 #
-# $Id: Makefile 1790 2009-06-09 12:51:57Z rollercoaster $
+# $Id: Makefile 1794 2009-06-10 08:08:06Z fliegl $
 
 # The official name of this plugin.
 # This name will be used in the '-P...' option of VDR to load the plugin.
@@ -68,7 +68,7 @@ INCLUDES += -I$(VDRDIR)/include -I. $(XML_INC)
 
 
 ifeq ($(APPLE_DARWIN), 1)
-INCLUDES += -I/sw/include
+INCLUDES += -I/sw/include -Imcast/common/darwin/include/
 DEFINES += -DAPPLE
 ifdef MCLI_SHARED
 DEFINES += -I$(HOME)/proj/dvbmcast/mcast/common/darwin/include/

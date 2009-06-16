@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "netcvdiag", "netcvdiag\netc
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "netcvfuse", "netcvfuse\netcvfuse.vcproj", "{1D5EE01B-20A9-4E14-8C63-984AAAC3078A}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fusewin", "fusewin\fusewin.vcproj", "{42D513F1-60FA-4BDF-AB2A-E7B87B2FC7B7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -31,6 +33,10 @@ Global
 		{1D5EE01B-20A9-4E14-8C63-984AAAC3078A}.Debug|Win32.Build.0 = Debug|Win32
 		{1D5EE01B-20A9-4E14-8C63-984AAAC3078A}.Release|Win32.ActiveCfg = Release|Win32
 		{1D5EE01B-20A9-4E14-8C63-984AAAC3078A}.Release|Win32.Build.0 = Release|Win32
+		{42D513F1-60FA-4BDF-AB2A-E7B87B2FC7B7}.Debug|Win32.ActiveCfg = Debug|Win32
+		{42D513F1-60FA-4BDF-AB2A-E7B87B2FC7B7}.Debug|Win32.Build.0 = Debug|Win32
+		{42D513F1-60FA-4BDF-AB2A-E7B87B2FC7B7}.Release|Win32.ActiveCfg = Release|Win32
+		{42D513F1-60FA-4BDF-AB2A-E7B87B2FC7B7}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

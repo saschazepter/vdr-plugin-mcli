@@ -1,5 +1,5 @@
 #Comment this out to disable debugging output
-#DEBUG=1
+DEBUG=1
 #VERBOSE=1
 #WIN32=1
 #API_SOCK=1
@@ -10,8 +10,10 @@ ifdef RBMINI
   ARMEL=1
 endif
 
-APPLE_DARWIN = $(shell gcc -dumpmachine | grep -q 'apple-darwin' && echo "1" || echo "0")
-CYGWIN = $(shell gcc -dumpmachine | grep -q 'cygwin' && echo "1" || echo "0")
+MACHINE= $(shell $(CC) -dumpmachine)
+APPLE_DARWIN = $(shell echo $(MACHINE) | grep -q 'apple-darwin' && echo "1" || echo "0")
+CYGWIN = $(shell echo $(MACHINE) | grep -q 'cygwin' && echo "1" || echo "0")
+MIPSEL = $(shell echo $(MACHINE) | grep -q 'mipsel' && echo "1" || echo "0")
 
 DEFS=-DCLIENT -DLIBRARY -D_REENTRANT -D_GNU_SOURCE
 
@@ -26,18 +28,23 @@ DEFS:=$(DEFS) -I../common/darwin/include/ -DAPPLE
 APPLE=1
 endif
 
-include ../../../../../Make.config
+-include ../../../../../Make.config
 
 ifdef ARMEL
   XML_INC := -I/usr/arm-linux-gnueabi/include/libxml2
   XML_LIB := -lxml2
   CROSS = arm-linux-gnueabi-
 else
+ifeq ($(MIPSEL),1)
+DEFS:=$(DEFS) -DMIPSEL
+XML_INC:=-I../../libxml2/include
+XML_LIB:=-L../../libxml2/lib
+else
 XML_INC:=`xml2-config --cflags`
 XML_LIB:=`xml2-config --libs`
 LIBRARY_PATH=/usr/lib
 endif
-
+endif
 ifeq ($(APPLE_DARWIN), 1)
 CFLAGS:= $(CFLAGS) -fno-common -Wall -I../common $(DEFS)
 else
