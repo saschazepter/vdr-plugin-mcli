@@ -10,10 +10,10 @@ ifdef RBMINI
   ARMEL=1
 endif
 
-MACHINE= $(shell $(CC) -dumpmachine)
-APPLE_DARWIN = $(shell echo $(MACHINE) | grep -q 'apple-darwin' && echo "1" || echo "0")
-CYGWIN = $(shell echo $(MACHINE) | grep -q 'cygwin' && echo "1" || echo "0")
-MIPSEL = $(shell echo $(MACHINE) | grep -q 'mipsel' && echo "1" || echo "0")
+ARCH= $(shell $(CC) -dumpmachine)
+APPLE_DARWIN = $(shell echo $(ARCH) | grep -q 'apple-darwin' && echo "1" || echo "0")
+CYGWIN = $(shell echo $(ARCH) | grep -q 'cygwin' && echo "1" || echo "0")
+MIPSEL = $(shell echo $(ARCH) | grep -q 'mipsel' && echo "1" || echo "0")
 
 DEFS=-DCLIENT -DLIBRARY -D_REENTRANT -D_GNU_SOURCE
 
