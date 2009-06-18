@@ -92,6 +92,7 @@ void cMcliDevice::SetFEType (fe_type_t val)
 
 cMcliDevice::cMcliDevice (void)
 {
+	m_enable = false;
 	StartSectionHandler ();
 	m_PB =  new cMyPacketBuffer(10000*TS_SIZE, 10000);
 	m_PB->SetTimeouts(0, 1000*20);
@@ -102,7 +103,6 @@ cMcliDevice::cMcliDevice (void)
 	m_chan = NULL;
 	m_fetype = FE_QPSK;
 	m_r = recv_add ();
-	m_enable = 0;
 
 	register_ten_handler (m_r, handle_ten, this);
 	register_ts_handler (m_r, handle_ts, this);
@@ -297,7 +297,7 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 						break;
 					}
 				}
-				if (pi.pid == m_chan->Vpid() || set && pi.pid)
+				if (pi.pid == m_chan->Vpid() || (set && pi.pid))
 					pi.id = m_chan->Sid();
 				else 
 					pi.id = 0;								
@@ -386,7 +386,7 @@ int cMcliDevice::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 				break;
 			}
 		}
-		if (pi.pid == m_chan->Vpid() || set && pi.pid)
+		if (pi.pid == m_chan->Vpid() || (set && pi.pid))
 			pi.id = m_chan->Sid();
 		else 
 			pi.id = 0;
