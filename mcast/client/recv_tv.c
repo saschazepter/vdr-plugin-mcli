@@ -94,7 +94,7 @@ static void *recv_ts (void *arg)
 	p->run = 1;
 
 	while (p->run>0) {
-		n = udp_read (p->s, buf, sizeof (buf), 10000, NULL);
+		n = udp_read (p->s, buf, sizeof (buf), 1000, NULL);
 		if (n >0 ) {
 			ptr = buf;
 			if (n % 188) {
