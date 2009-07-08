@@ -488,7 +488,7 @@ typedef struct {
 
 bool cPluginMcli::Service (const char *Id, void *Data)
 {
-	printf ("cPluginMcli::Service\n");
+	//printf ("cPluginMcli::Service: \"%s\"\n", Id);
     mytuner_info_t *infos = (mytuner_info_t*)Data;
 
     if (Id && strcmp(Id, "GetTunerInfo") == 0) {
@@ -499,10 +499,14 @@ bool cPluginMcli::Service (const char *Id, void *Data)
             for (int i = 0; i < nci->tuner_num && i < MAX_TUNERS_IN_MENU; i++) {
                 strcpy(infos->name[i], nci->tuner[i].fe_info.name);
                 infos->type[i] = nci->tuner[i].fe_info.type;
-                printf("Tuner: %s\n", nci->tuner[i].fe_info.name);
+                //printf("Tuner: %s\n", nci->tuner[i].fe_info.name);
             }
         }
         nc_unlock_list();
+        return true;
+    } else if (Id && strcmp(Id, "Reinit") == 0) {
+      reconfigure();
+      return true;
     }
 	// Handle custom service requests from other plugins
 	return false;
@@ -512,14 +516,26 @@ const char **cPluginMcli::SVDRPHelpPages (void)
 {
 	printf ("cPluginMcli::SVDRPHelpPages\n");
 	// Return help text for SVDRP commands this plugin implements
-	return NULL;
+    static const char *HelpPages[] =
+    {
+        "REINIT\n"
+            "    Reinitalize the plugin",
+        NULL
+    };
+    return HelpPages;
 }
 
 cString cPluginMcli::SVDRPCommand (const char *Command, const char *Option, int &ReplyCode)
 {
 	printf ("cPluginMcli::SVDRPCommand\n");
 	// Process SVDRP commands this plugin implements
-	return NULL;
+
+    if (strcasecmp(Command, "REINIT") == 0) {
+        reconfigure();
+        return cString("Mcli-plugin: reconfiguring...");
+    }
+
+    return NULL;
 }
 
 VDRPLUGINCREATOR (cPluginMcli);	// Don't touch this!

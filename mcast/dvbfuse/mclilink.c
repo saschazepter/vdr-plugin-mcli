@@ -56,7 +56,12 @@ int lastwp = 0;
 int mcli_handle_ts (unsigned char *buffer, size_t len, void *p)
 {
 	stream_info_t *si = (stream_info_t *) p;
-	pthread_mutex_lock(&si->lock);
+	
+	if(si->stop) {
+		return len;
+	}
+	
+	pthread_mutex_lock(&si->lock_wr);
 
 	int wp = si->wp;
 	int olen = len;
@@ -165,7 +170,7 @@ again:
 		break;
 	}
 
-	pthread_mutex_unlock(&si->lock);
+	pthread_mutex_unlock(&si->lock_wr);
 	return olen;
 }
 
@@ -251,7 +256,8 @@ void *mcli_stream_setup (const char *path)
 
 	si->buffer = (char *) malloc (BUFFER_SIZE);
 	si->psi.buf = (unsigned char *) malloc (PSI_BUF_SIZE);
-	pthread_mutex_init (&si->lock, NULL);
+	pthread_mutex_init (&si->lock_wr, NULL);
+	pthread_mutex_init (&si->lock_rd, NULL);
 
 	r = recv_add ();
 	if (!r) {
@@ -271,8 +277,9 @@ void *mcli_stream_setup (const char *path)
 
 	if (si->cdata->source >= 0) {
 		fep.u.qpsk.symbol_rate = si->cdata->srate * 1000;
-		fep.u.qpsk.fec_inner = (fe_code_rate_t)si->cdata->coderateH;
+		fep.u.qpsk.fec_inner = (fe_code_rate_t)(si->cdata->coderateH | (si->cdata->modulation<<16));
 		fep.frequency *= 1000;
+		fep.inversion = (fe_spectral_inversion_t)si->cdata->inversion;
 
 		sec.voltage = (fe_sec_voltage_t)si->cdata->polarization;
 		sec.mini_cmd = (fe_sec_mini_cmd_t)0;
@@ -306,7 +313,7 @@ size_t mcli_stream_read (void *handle, char *buf, size_t maxlen, off_t offset)
 	int wp;
 
 //	printf("mcli_read %p\n",handle);
-	if (!handle)
+	if (!handle || si->stop)
 		return 0;
 #if 0
 	if (offset < si->offset) {
@@ -362,18 +369,20 @@ int mcli_stream_stop (void *handle)
 	if (handle) {
 		stream_info_t *si = (stream_info_t *) handle;
 		recv_info_t *r = si->r;
-
+		pthread_mutex_lock(&si->lock_rd);
 		if (pthread_exist(si->t)) {
 			si->stop = 1;
 			pthread_join (si->t, NULL);
 		}
-
-
+		pthread_mutex_unlock(&si->lock_rd);
+		
+		pthread_mutex_lock(&si->lock_wr);
 		if (r) {
 			register_ten_handler (r, NULL, NULL);
 			register_ts_handler (r, NULL, NULL);
 			recv_del (r);
 		}
+		pthread_mutex_unlock(&si->lock_wr);
 		if (si->buffer)
 			free (si->buffer);
 		if (si->psi.buf) {
@@ -385,6 +394,8 @@ int mcli_stream_stop (void *handle)
 	return 0;
 }
 
+cmdline_t cmd = { 0 };
+
 /*-------------------------------------------------------------------------*/
 void mcli_startup (void)
 {
@@ -392,17 +403,12 @@ void mcli_startup (void)
 	pthread_win32_process_attach_np();
 #endif
 	netceiver_info_list_t *nc_list = nc_get_list ();
-	cmdline_t cmd = { 0 };
-#ifdef WIN32
-	cmd.iface[0] = 0;
-	cmd.port = 0;
+
+#if defined WIN32 || defined APPLE
 	cmd.mld_start = 1;
-#else
-      strcpy(cmd.iface,"eth0");
-	cmd.port = 0;
 #endif
 
-	printf ("Using Interface %s\n", cmd.iface);
+//	printf ("Using Interface %s\n", cmd.iface);
 	recv_init (cmd.iface, cmd.port);
 
 	if (cmd.mld_start) {

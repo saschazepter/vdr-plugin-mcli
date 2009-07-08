@@ -211,8 +211,7 @@ void update_interfaces (struct intnode *intn)
 				intn=g_conf->ints+g_conf->maxinterfaces;
 				memset(intn, 0, sizeof(struct intnode));
 				
-				dbg ("\tAdapter name: %s\n", pCurrAddresses->AdapterName);
-				dbg ("\tDescription: %wS\n", pCurrAddresses->Description);
+				printf ("Interface: %s (%wS)\n", pCurrAddresses->AdapterName, pCurrAddresses->Description);
 				dbg ("\tFriendly name: %wS\n", pCurrAddresses->FriendlyName);
 				dbg ("\tFlags: %x\n", pCurrAddresses->Flags);
 				dbg ("\tIfType: %ld\n", pCurrAddresses->IfType);

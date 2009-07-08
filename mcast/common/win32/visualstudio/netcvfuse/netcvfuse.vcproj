@@ -216,6 +216,26 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath="..\..\getopt.c"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						CompileAs="2"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						CompileAs="2"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
 				RelativePath="..\..\..\..\dvbfuse\main.c"
 				>
 				<FileConfiguration
@@ -325,7 +345,7 @@
 			>
 		</Filter>
 		<File
-			RelativePath="..\..\lib\fusewin.lib"
+			RelativePath="..\Debug\fusewin.lib"
 			>
 		</File>
 		<File

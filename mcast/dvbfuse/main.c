@@ -62,17 +62,53 @@ channel_t *get_channel_data(int n)
 {	
 	return &channels[n];
 }
+extern cmdline_t cmd;
+void usage (void)
+{
+	printf("Usage: dvbfuse [-i <network interface>] [-c channels.conf] mountpoint\n");
+	exit(0);
+}
+
+
 /*-------------------------------------------------------------------------*/
 int main(int argc, char *argv[])
 {
-//	uint64_t h;
+	int argn=0;
+	char c;
+	char channels[_POSIX_PATH_MAX];
+	strcpy(channels, "channels.conf");
 
-	if (!read_channel_list("channels.conf"))
+	while(1) {
+		int ret = getopt(argc,argv, "i:hc:");
+		if (ret==-1)
+			break;
+			
+		char c=(char)ret;
+
+		switch (c) {
+			case 'i':
+				strncpy(cmd.iface, optarg, IFNAMSIZ-1);
+				cmd.iface[IFNAMSIZ]=0;
+				argn+=2;
+				break;
+			case 'c':
+				strncpy(channels, optarg, _POSIX_PATH_MAX-1);
+				channels[_POSIX_PATH_MAX]=0;
+				argn+=2;
+				break;
+			case 'h':
+				usage();
+				break;
+		}
+	}
+	argc-=argn;
+
+	if (!read_channel_list(channels))
 		exit(-1);
 
 	mcli_startup();
 	
-	start_fuse(argc, argv);
+	start_fuse(argc, argv+argn);
 	return 0;
 }
 /*-------------------------------------------------------------------------*/

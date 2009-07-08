@@ -283,12 +283,12 @@ int ParseLine (const char *s, channel_t * ch)
 #if ! (defined WIN32 || defined APPLE)
 		fields = sscanf (s, "%a[^:]:%d :%a[^:]:%a[^:] :%d :%a[^:]:%a[^:]:%d :%a[^:]:%d :%d :%d :%d ", &namebuf, &ch->frequency, &parambuf, &sourcebuf, &ch->srate, &vpidbuf, &apidbuf, &ch->tpid, &caidbuf, &ch->sid, &ch->nid, &ch->tid, &ch->rid);
 #else
-		namebuf = (char *) malloc (128);
-		parambuf = (char *) malloc (128);
-		sourcebuf = (char *) malloc (128);
-		vpidbuf = (char *) malloc (128);
-		apidbuf = (char *) malloc (128);
-		caidbuf = (char *) malloc (128);
+		namebuf = (char *) malloc (1024);
+		parambuf = (char *) malloc (1024);
+		sourcebuf = (char *) malloc (1024);
+		vpidbuf = (char *) malloc (1024);
+		apidbuf = (char *) malloc (1024);
+		caidbuf = (char *) malloc (1024);
 		fields = sscanf (s, "%[^:]:%d :%[^:]:%[^:] :%d :%[^:]:%[^:]:%d :%[^:]:%d :%d :%d :%d ", namebuf, &ch->frequency, parambuf, sourcebuf, &ch->srate, vpidbuf, apidbuf, &ch->tpid, caidbuf, &ch->sid, &ch->nid, &ch->tid, &ch->rid);
 
 #endif
@@ -308,7 +308,7 @@ int ParseLine (const char *s, channel_t * ch)
 			ok = false;
 			if (parambuf && sourcebuf && vpidbuf && apidbuf) {
 				char *p, *dpidbuf, *q, *strtok_next;
-				int NumApids;
+//				int NumApids;
 				ok = StringToParameters (parambuf, ch) && (ch->source = SourceFromString (sourcebuf)) >= 0;
 
 				p = strchr (vpidbuf, '+');
@@ -327,10 +327,10 @@ int ParseLine (const char *s, channel_t * ch)
 					*dpidbuf++ = 0;
 				p = apidbuf;
 
-				NumApids = 0;
+				ch->NumApids = 0;
 
 				while ((q = strtok_r (p, ",", &strtok_next)) != NULL) {
-					if (NumApids < MAXAPIDS) {
+					if (ch->NumApids < MAXAPIDS) {
 						char *l = strchr (q, '=');
 						ch->apids[ch->NumApids++] = strtol (q, NULL, 10);
 					} else

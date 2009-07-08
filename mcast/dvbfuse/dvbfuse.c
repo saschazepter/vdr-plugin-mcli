@@ -12,6 +12,7 @@
 #include "dvbfuse.h"
 #include <fuse/fuse.h>
 
+static pthread_mutex_t lock=PTHREAD_MUTEX_INITIALIZER;
 /*-------------------------------------------------------------------------*/
 
 static int dvbfuse_getattr (const char *path, struct stat *stbuf)
@@ -75,7 +76,8 @@ static int dvbfuse_open (const char *path, struct fuse_file_info *fi)
 
 	if ((fi->flags & 3) != O_RDONLY)
 		return -EACCES;
-
+	
+	pthread_mutex_lock(&lock);
 	// fh is not allowed to be overwritten later
 	// So reserve own memory
 
@@ -84,18 +86,18 @@ static int dvbfuse_open (const char *path, struct fuse_file_info *fi)
 	fi->fh=(uint64_t)fh;
 
 	printf ("open %s %lu %p\n", path, (unsigned int long)fi->fh, *(void **)fi->fh);
+	pthread_mutex_unlock(&lock);
 
-//      fi->nonseekable=1;
+//	fi->nonseekable=1;
 	return 0;
 }
 
 /*-------------------------------------------------------------------------*/
 static int dvbfuse_release (const char *path, struct fuse_file_info *fi)
 {
-
 	printf ("close %s %lu\n", path, (unsigned int long)fi->fh);
+	pthread_mutex_lock(&lock);
 	if (fi->fh) {
-		stream_info_t *si = (stream_info_t *) fi->fh;
 		void *handle;
 		handle=*(void**)fi->fh;
 		if (handle) {
@@ -104,6 +106,7 @@ static int dvbfuse_release (const char *path, struct fuse_file_info *fi)
 			fi->fh=0;
 		}
 	}
+	pthread_mutex_unlock(&lock);
 	return 0;
 }
 /*-------------------------------------------------------------------------*/
@@ -114,18 +117,28 @@ static int dvbfuse_read (const char *path, char *buf, size_t size, off_t offset,
 	int retries = 0;
 	void *handle;
 
+	if (!fi || !fi->fh) {
+		return -EACCES;
+	}
 //printf("read %lu %p\n", (unsigned int long)fi->fh, *(void **)fi->fh);
+	pthread_mutex_lock(&lock);
 
-	if (fi->fh && *(void**)fi->fh==NULL) {
+	if (*(void**)fi->fh==NULL) {
 		*(void**)fi->fh = mcli_stream_setup (path);
 //		printf ("mcli_stream_setup %p\n", *(void**)fi->fh);
 	}
 
 	handle=*(void**)fi->fh;
-	stream_info_t *si = (stream_info_t *) fi->fh;
 
-	if (!fi->fh || handle == 0)
+	stream_info_t *si = (stream_info_t *) handle;
+
+	pthread_mutex_lock(&si->lock_rd);
+	pthread_mutex_unlock(&lock);
+
+	if (si->stop)  {
+		pthread_mutex_unlock(&si->lock_rd);
 		return -EACCES;
+	}
 #if 1
 	while (retries < 50) {
 //		printf("si->closed %d\n",si->closed);
@@ -140,6 +153,7 @@ static int dvbfuse_read (const char *path, char *buf, size_t size, off_t offset,
 	len += mcli_stream_read (handle, buf + len, size - len);
 #endif
 //      printf("read %s %i, offset %i\n",path,(int)len,(int)offset);    
+	pthread_mutex_unlock(&si->lock_rd);
 	return len;
 }
 
@@ -148,7 +162,6 @@ static int dvbfuse_read (const char *path, char *buf, size_t size, off_t offset,
 static struct fuse_operations dvbfuse_oper;
 
 /*-------------------------------------------------------------------------*/
-
 int start_fuse (int argc, char *argv[])
 {
 	printf ("Starting fuse\n");
@@ -157,6 +170,5 @@ int start_fuse (int argc, char *argv[])
 	dvbfuse_oper.open = dvbfuse_open;
 	dvbfuse_oper.release = dvbfuse_release;
 	dvbfuse_oper.read = dvbfuse_read;
-
 	return fuse_main (argc, argv, &dvbfuse_oper, NULL);
 }

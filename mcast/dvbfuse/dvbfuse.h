@@ -63,7 +63,8 @@ typedef struct
 	pthread_t t;
 	int stop;
 	int ts_cnt;
-	pthread_mutex_t lock;
+	pthread_mutex_t lock_wr;
+	pthread_mutex_t lock_rd;
 } stream_info_t;
 
 
