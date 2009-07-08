@@ -505,7 +505,13 @@ bool cPluginMcli::Service (const char *Id, void *Data)
         nc_unlock_list();
         return true;
     } else if (Id && strcmp(Id, "Reinit") == 0) {
+      Stop();
+      if(Data && strlen((char*)Data) && (strncmp((char*)Data, "eth", 3) || strncmp((char*)Data, "br", 2))){
+        strncpy (m_cmd.iface, (char*)Data, IFNAMSIZ - 1);
+      }
+      Initialize();
       reconfigure();
+      Start();
       return true;
     }
 	// Handle custom service requests from other plugins
@@ -518,8 +524,8 @@ const char **cPluginMcli::SVDRPHelpPages (void)
 	// Return help text for SVDRP commands this plugin implements
     static const char *HelpPages[] =
     {
-        "REINIT\n"
-            "    Reinitalize the plugin",
+        "REINIT [dev]\n"
+            "    Reinitalize the plugin on a certain network device - e.g.: plug mcli REINIT eth0",
         NULL
     };
     return HelpPages;
@@ -531,7 +537,13 @@ cString cPluginMcli::SVDRPCommand (const char *Command, const char *Option, int 
 	// Process SVDRP commands this plugin implements
 
     if (strcasecmp(Command, "REINIT") == 0) {
+        Stop();
+        if(Option && (strncmp(Option, "eth", 3) || strncmp(Option, "br", 2))) {
+            strncpy (m_cmd.iface, (char*)Option, IFNAMSIZ - 1);
+        }
+        Initialize();
         reconfigure();
+        Start();
         return cString("Mcli-plugin: reconfiguring...");
     }
 
