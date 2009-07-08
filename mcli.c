@@ -356,6 +356,11 @@ void cPluginMcli::Action (void)
 					m->SetFEType (type);
 					m->SetEnable (true);
 					m_devs.Add (d);
+                    if(m_devs.Count() == 1) { // the first tuner that was found, so make VDR retune to the channel it wants...
+                        cChannel *ch = Channels.GetByNumber(cDevice::CurrentChannel());
+                        if(ch)
+                            cDevice::PrimaryDevice()->SwitchChannel(ch, true);
+                    }
 				}
 			}
 		}
