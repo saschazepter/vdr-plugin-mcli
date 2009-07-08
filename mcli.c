@@ -509,6 +509,7 @@ bool cPluginMcli::Service (const char *Id, void *Data)
         }
         nc_unlock_list();
         return true;
+#if 0 // doesn't work
     } else if (Id && strcmp(Id, "Reinit") == 0) {
       Stop();
       if(Data && strlen((char*)Data) && (strncmp((char*)Data, "eth", 3) || strncmp((char*)Data, "br", 2))){
@@ -517,6 +518,7 @@ bool cPluginMcli::Service (const char *Id, void *Data)
       Initialize();
       reconfigure();
       Start();
+#endif
       return true;
     }
 	// Handle custom service requests from other plugins
@@ -526,6 +528,7 @@ bool cPluginMcli::Service (const char *Id, void *Data)
 const char **cPluginMcli::SVDRPHelpPages (void)
 {
 	printf ("cPluginMcli::SVDRPHelpPages\n");
+#if 0 // doesn't work
 	// Return help text for SVDRP commands this plugin implements
     static const char *HelpPages[] =
     {
@@ -534,6 +537,9 @@ const char **cPluginMcli::SVDRPHelpPages (void)
         NULL
     };
     return HelpPages;
+#else
+    return NULL;
+#endif
 }
 
 cString cPluginMcli::SVDRPCommand (const char *Command, const char *Option, int &ReplyCode)
@@ -541,6 +547,7 @@ cString cPluginMcli::SVDRPCommand (const char *Command, const char *Option, int 
 	printf ("cPluginMcli::SVDRPCommand\n");
 	// Process SVDRP commands this plugin implements
 
+#if 0 // doesn't work
     if (strcasecmp(Command, "REINIT") == 0) {
         Stop();
         if(Option && (strncmp(Option, "eth", 3) || strncmp(Option, "br", 2))) {
@@ -551,6 +558,7 @@ cString cPluginMcli::SVDRPCommand (const char *Command, const char *Option, int 
         Start();
         return cString("Mcli-plugin: reconfiguring...");
     }
+#endif
 
     return NULL;
 }
