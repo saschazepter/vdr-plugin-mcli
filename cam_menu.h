@@ -29,6 +29,7 @@ class cCamMenu : public cOsdMenu {
     private:
         int CamFind(cam_list_t *cam_list);
     	int CamMenuOpen(cam_list_t *cam);
+    	int CamMenuOpen(mmi_info_t *mmi_info);
     	int CamMenuSend(int fd, const char *c);
     	int CamMenuReceive(int fd, char *buf, int bufsize);
     	void CamMenuClose(int fd);
@@ -38,6 +39,7 @@ class cCamMenu : public cOsdMenu {
         cam_list_t cam_list[MAX_CAMS_IN_MENU];
         int mmi_session;
         bool inCamMenu;
+        bool inMMIBroadcastMenu;
         bool end;
         int currentSelected;
         eInputRequest inputRequested;
@@ -48,6 +50,7 @@ class cCamMenu : public cOsdMenu {
 
     public:
         cCamMenu(cmdline_t *m_cmd);
+        cCamMenu(cmdline_t *m_cmd, mmi_info_t *mmi_info);
         ~cCamMenu();
         eOSState ProcessKey(eKeys Key);
         void OpenCamMenu();

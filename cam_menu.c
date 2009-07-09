@@ -28,6 +28,7 @@
 cCamMenu::cCamMenu(cmdline_t *cmd) : cOsdMenu(trVDR("Common Interface"), 18) {
     m_cmd = cmd;
     inCamMenu = false;
+    inMMIBroadcastMenu = false;
     inputRequested = eInputNone;
     end = false;
     currentSelected = -1;
@@ -43,6 +44,26 @@ cCamMenu::cCamMenu(cmdline_t *cmd) : cOsdMenu(trVDR("Common Interface"), 18) {
     // Find all operational CAMs.
     CamFind(cam_list);
 }
+
+cCamMenu::cCamMenu(cmdline_t *cmd, mmi_info_t *mmi_info) : cOsdMenu(trVDR("Common Interface"), 18) {
+    m_cmd = cmd;
+    inCamMenu = false;
+    inMMIBroadcastMenu = false;
+    inputRequested = eInputNone;
+    end = false;
+    currentSelected = -1;
+    pinCounter = 0;
+    alreadyReceived = false;
+    mmi_session = -1;
+
+    for (int i=0; i<MAX_CAMS_IN_MENU; i++)
+        cam_list[i].slot = -1;
+
+    SetNeedsFastResponse(true);
+
+    mmi_session = CamMenuOpen(mmi_info);
+}
+
 
 cCamMenu::~cCamMenu() {
     CamMenuClose(mmi_session);
@@ -83,8 +104,10 @@ void cCamMenu::OpenCamMenu() {
             }
         }
     }
-    if(timeout)
+    if(timeout) {
+        printf("%s: Error\n", __PRETTY_FUNCTION__);
         Add(new cOsdItem(trVDR("Error")));
+    }
     Display();
 }
 
@@ -125,8 +148,10 @@ void cCamMenu::Receive() {
             }
         }
     }
-    if(timeout)
+    if(timeout) {
+        printf("%s: mmi_session: %i\n", __PRETTY_FUNCTION__, mmi_session);
         Add(new cOsdItem(trVDR("Error")));
+    }
     Display();
 }
 
@@ -159,6 +184,7 @@ int cCamMenu::CamFind(cam_list_t *cam_list) {
                     cam_list[cnt].slot=-1;
                     int len = strlen(nci->cam[i].menu_string);
                     /** TB: really uncool - "Error" is translated to "Kein CI-Modul" in german */
+                    printf("%s: Error\n", __PRETTY_FUNCTION__);
                     snprintf(buf, 128, "   %s:\t%s", nci->cam[i].slot==0 ? trVDR("lower slot") : trVDR("upper slot"), len==0 ? trVDR("Error") : nci->cam[i].menu_string);
                     Add(new cOsdItem(buf));
             }
@@ -178,6 +204,36 @@ int cCamMenu::CamMenuOpen(cam_list_t *cam) {
         sleep(1);
         CamMenuSend(mmi_session, (char *)"00000000000000\n");
     } 
+    return mmi_session;
+}
+
+int cCamMenu::CamMenuOpen(mmi_info_t *mmi_info) {
+    printf("Opening CAM Menu at NetCeiver %s Slot %d\n", mmi_info->uuid, mmi_info->slot);
+
+    char buf[MMI_TEXT_LENGTH*2];
+
+    inMMIBroadcastMenu = true;
+    inCamMenu = true;
+    cCharSetConv conv = cCharSetConv("ISO-8859-1", "UTF-8");
+    conv.Convert(mmi_info->mmi_text, buf, MMI_TEXT_LENGTH*2);
+    printf("MMI-UTF8: \"%s\"\n",buf);
+    char *saveptr = NULL;
+    char *ret = strtok_r(buf, "\n", &saveptr);
+    if(ret) {
+        Add(new cOsdItem(ret)); 
+        while(ret != NULL) {
+           ret = strtok_r(NULL, "\n", &saveptr);
+            if(ret)
+                Add(new cOsdItem(ret));
+        }
+    }
+
+    int mmi_session = mmi_open_menu_session(mmi_info->uuid, m_cmd->iface, 0, mmi_info->slot);
+    if(mmi_session > 0) {
+        sleep(1);
+        CamMenuSend(mmi_session, (char *)"00000000000000\n");
+    } 
+    printf("CamMenuOpen: mmi_session: %i\n", mmi_session);
     return mmi_session;
 }
 
@@ -205,6 +261,8 @@ eOSState cCamMenu::ProcessKey(eKeys Key) {
     if (end) {
         end = false;
         inCamMenu = false;
+        if(inMMIBroadcastMenu)
+            return osEnd;
         CamMenuClose(mmi_session);
         CamFind(cam_list);
         return osContinue;
@@ -218,7 +276,10 @@ eOSState cCamMenu::ProcessKey(eKeys Key) {
                 printf("Sending pin: \"%s\"\n", pin);
                 CamMenuSend(mmi_session, pin);
                 Receive();
+            } else if (inMMIBroadcastMenu) {
+                return osEnd;
             } else if(inCamMenu) {
+                printf("Sending: \"%s\"\n", Get(Current())->Text());
                 CamMenuSend(mmi_session, Get(Current())->Text());
                 Receive();
             } else

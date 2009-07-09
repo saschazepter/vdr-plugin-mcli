@@ -173,10 +173,13 @@ class cPluginMcli:public cPlugin, public cThread
 	void reconfigure(void);
 
 	int CamPollText(mmi_info_t *text);
-	int CamGetMMIBroadcast(void);
+#ifdef REELVDR
+	virtual cOsdObject* AltMenuAction(void);
+#endif
 };
 
-int cPluginMcli::CamGetMMIBroadcast(void)
+#ifdef REELVDR
+cOsdObject *cPluginMcli::AltMenuAction(void)
 {
 	// Call this code periodically to find out if any CAM out there want's us to tell something.
 	// If it's relevant to us we need to check if any of our DVB-Devices gets programm from a NetCeiver with this UUID.
@@ -195,14 +198,21 @@ int cPluginMcli::CamGetMMIBroadcast(void)
 			mcg_get_satpos(&c->mcg, &satpos);
 			mcg_to_fe_parms(&c->mcg, &type, &sec, &fep, &vpid);
 			
+            for( int j = 0; j<m_devs.Count(); j++) {
+                cMcliDevice* dev = m_devs.Get(j)->d();
+                //printf("satpos: %i vpid: %i fep.freq: %i dev.freq: %i\n", satpos, vpid, fep.frequency, dev->CurChan()->Frequency());
+                if((int)fep.frequency/1000 == dev->CurChan()->Frequency())
+                    return new cCamMenu(&m_cmd, &m);
+            }
 			printf("SID/Program Number:%04x, SatPos:%d Freqency:%d\n", c->caid, satpos, fep.frequency);
 		}
 		if(m.caid_num && m.caids) {
 			free(m.caids);
 		}
 	}
-	return 0;
-}		
+	return NULL;
+}
+#endif
 
 int cPluginMcli::CamPollText(mmi_info_t *text)
 {
@@ -366,9 +376,6 @@ void cPluginMcli::Action (void)
 		}
 		nc_unlock_list ();
 		Unlock ();
-		if(mmi_init_done) {
-			CamGetMMIBroadcast();
-		}
 		
 		usleep (250 * 1000);
 	}

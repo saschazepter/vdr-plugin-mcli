@@ -71,6 +71,10 @@ class cMcliDevice:public cDevice
 	  cMcliDevice (void);
 	  virtual ~ cMcliDevice ();
 
+#ifdef REELVDR
+    const cChannel *CurChan() const { return m_chan; };
+#endif
+
 	virtual bool HasInternalCam (void)
 	{
 		return true;

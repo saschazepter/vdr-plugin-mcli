@@ -157,7 +157,7 @@ bool cMcliFilter::PutSection (const uchar * Data, int Length, bool Pusi)
 			if (write (m_Pipe[1], m_Buffer, length) < 0) {
 				if (errno == EAGAIN || errno == EWOULDBLOCK)
 					//dsyslog ("cMcliFilter::PutSection socket overflow, " "Pid %4d Tid %3d", m_Pid, m_Tid);
-					NULL;
+					;
 				else
 					return false;
 			}
