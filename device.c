@@ -181,6 +181,11 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	if(!m_enable) {
 		return false;
 	}
+	if(m_chan && Channel->Transponder () == m_chan->Transponder ()) {
+//		printf("Already tuned to transponder\n");
+		return true;
+	}
+	
 	LOCK_THREAD;
 	memset (&m_sec, 0, sizeof (recv_sec_t));
 	memset (&m_fep, 0, sizeof (struct dvb_frontend_parameters));
