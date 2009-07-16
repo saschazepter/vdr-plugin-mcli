@@ -215,7 +215,7 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	case FE_QAM:{		// DVB-C
 
 			// Frequency and symbol rate:
-			m_fep.frequency = Channel->Frequency () * 1000000;
+			m_fep.frequency = (Channel->Frequency () > 1000000) ? Channel->Frequency () : Channel->Frequency () * 1000000;
 			m_fep.inversion = fe_spectral_inversion_t (Channel->Inversion ());
 			m_fep.u.qam.symbol_rate = Channel->Srate () * 1000UL;
 			m_fep.u.qam.fec_inner = fe_code_rate_t (Channel->CoderateH ());
