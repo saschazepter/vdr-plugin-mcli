@@ -39,7 +39,7 @@ DLL_SYMBOL UDPContext *mmi_broadcast_client_init(int port, char *iface);
 DLL_SYMBOL void mmi_broadcast_client_exit(UDPContext *s);
 DLL_SYMBOL int mmi_poll_for_menu_text(UDPContext *s, mmi_info_t *m, int timeout);
 DLL_SYMBOL int mmi_open_menu_session(char *uuid, char *iface,int port, int cmd);
-DLL_SYMBOL int mmi_get_data(xmlChar * xmlbuff, int buffersize, mmi_info_t *mmi_info);
+DLL_SYMBOL void mmi_close_menu_session(int s);
 DLL_SYMBOL int mmi_cam_reset(char *uuid, char *intf, int port, int slot);
 
 #endif

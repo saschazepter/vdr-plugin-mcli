@@ -93,6 +93,11 @@ int mmi_open_menu_session(char *uuid, char *intf,int port, int cmd)
         return sockfd;
 }
 //---------------------------------------------------------------------------------------------
+void mmi_close_menu_session(int s)
+{
+  close(s);
+}
+//---------------------------------------------------------------------------------------------
 int mmi_cam_reset(char *uuid, char *intf, int port, int slot)
 {        
         int cmd  = (slot << 12) | 0xfff;

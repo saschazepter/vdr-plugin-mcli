@@ -464,6 +464,32 @@ void cPluginMcli::reconfigure(void)
 		m_devs.Del (d);
 		d = next;
 	}
+	if(mmi_init_done) {
+		mmi_broadcast_client_exit(m_cam_mmi);
+	}
+	if (api_init_done) {
+		api_sock_exit ();
+	}
+	if (mld_init_done) {
+		mld_client_exit ();
+	}
+	if (recv_init_done) {
+		recv_exit ();
+	}
+
+	if (!recv_init (m_cmd.iface, m_cmd.port)) {
+		recv_init_done = 1;
+	}
+	if (m_cmd.mld_start && !mld_client_init (m_cmd.iface)) {
+		mld_init_done = 1;
+	}
+	if (!api_sock_init (m_cmd.cmd_sock_path)) {
+		api_init_done = 1;
+	}
+	m_cam_mmi = mmi_broadcast_client_init(m_cmd.port, m_cmd.iface);
+        if (m_cam_mmi>0) {
+        	mmi_init_done = 1;
+        }
 }
 
 cOsdObject *cPluginMcli::MainMenuAction (void)

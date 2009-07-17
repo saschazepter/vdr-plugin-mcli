@@ -1,5 +1,5 @@
 #Comment this out to disable debugging output
-DEBUG=1
+#DEBUG=1
 #VERBOSE=1
 #WIN32=1
 #API_SOCK=1
