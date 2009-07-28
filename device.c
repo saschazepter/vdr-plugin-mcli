@@ -181,12 +181,15 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	if(!m_enable) {
 		return false;
 	}
+
+	LOCK_THREAD;
+
 	if(m_chan && Channel->Transponder () == m_chan->Transponder ()) {
 //		printf("Already tuned to transponder\n");
+		m_chan = Channel;
 		return true;
 	}
 	
-	LOCK_THREAD;
 	memset (&m_sec, 0, sizeof (recv_sec_t));
 	memset (&m_fep, 0, sizeof (struct dvb_frontend_parameters));
 	memset (&m_pids, 0, sizeof (m_pids));
@@ -194,7 +197,6 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 		memset (&m_ten, 0, sizeof (tra_t));
 	}
 	m_pidsnum = 0;
-
 	m_chan = Channel;
 
 	switch (m_fetype) {
@@ -305,11 +307,11 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 				if (pi.pid == m_chan->Vpid() || (set && pi.pid))
 					pi.id = m_chan->Sid();
 				else 
-					pi.id = 0;								
+					pi.id = 0;
 			} else {
 				pi.id = 0;
 			}
-//                      printf ("Add Pid: %d\n", Handle->pid);
+//                      printf ("Add Pid: %d Sid:%d Type:%d %d\n", pi.pid, pi.id, Type, m_chan->Ca(0));
 			recv_pid_add (m_r, &pi);
 		} else {
 //                      printf ("Del Pid: %d\n", Handle->pid);

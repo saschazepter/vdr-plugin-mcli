@@ -672,7 +672,7 @@ int ts2psi_data(unsigned char *buf,psi_buf_t *p,int len, int pid_req)
             return -1;
           }
           if (h.transport_scrambling_control) {
-            printf("Transprot scrambling flag set !\n");
+            printf("Transport scrambling flag set !\n");
             //return -1;
           }   
           
@@ -687,7 +687,11 @@ int ts2psi_data(unsigned char *buf,psi_buf_t *p,int len, int pid_req)
             int si_offset=b[0]+1; //always pointer field in first byte of TS packet payload with start indicator set
             b+=si_offset;
             len-=si_offset; 
-            //move to buffer
+            if (len < 0 || len > 184) {
+                  printf("WARNING 1: TS Packet damaged !\n");
+                  return -1;
+            }
+            //move to buffer              
             memcpy(p->buf,b,len);
             p->len=len;
             p->start=((b[1] << 8) | b[2]) & 0x0fff; //get section length, using start for length
@@ -719,7 +723,11 @@ int ts2psi_data(unsigned char *buf,psi_buf_t *p,int len, int pid_req)
               return -1;        
             }
             p->continuity=h.continuity_counter;
-            //data 
+            if (len < 0 || len > 184) {
+                  printf("WARNING 2: TS Packet damaged !\n");
+                  return -1;
+            }
+            //move to buffer
             memcpy(p->buf+p->len,b,len);      
             p->len+=len; //FIXME: circular buffer
             if (p->len + 188 > PSI_BUF_SIZE) {
@@ -739,7 +747,7 @@ int ts2psi_data(unsigned char *buf,psi_buf_t *p,int len, int pid_req)
         /*if (p->start+3 == len)  
               return 1;*/
 #endif  
-        
+
         return 0;
 }
 //TS packets handling end
