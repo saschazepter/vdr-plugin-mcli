@@ -543,7 +543,6 @@ bool cPluginMcli::Service (const char *Id, void *Data)
         nc_unlock_list();
         return true;
     } else if (Id && strcmp(Id, "Reinit") == 0) {
-      Stop();
       if(Data && strlen((char*)Data) && (strncmp((char*)Data, "eth", 3) || strncmp((char*)Data, "br", 2))){
         strncpy (m_cmd.iface, (char*)Data, IFNAMSIZ - 1);
       }
@@ -573,7 +572,6 @@ cString cPluginMcli::SVDRPCommand (const char *Command, const char *Option, int 
 	// Process SVDRP commands this plugin implements
 
     if (strcasecmp(Command, "REINIT") == 0) {
-        Stop();
         if(Option && (strncmp(Option, "eth", 3) || strncmp(Option, "br", 2))) {
             strncpy (m_cmd.iface, (char*)Option, IFNAMSIZ - 1);
         }
