@@ -302,7 +302,7 @@ UDPContext *client_udp_open (const struct in6_addr *mcg, int port, const char *i
 		}
 
 		if (udp_ipv6_join_multicast_group (recvfd, s->idx, (struct sockaddr *) &s->dest_addr) < 0) {
-			err ("Cannot join multicast group !\n");
+			warn ("Cannot join multicast group !\n");
 			goto error;
 		}
 		s->is_multicast = 1;
@@ -310,7 +310,7 @@ UDPContext *client_udp_open (const struct in6_addr *mcg, int port, const char *i
 
 	n = UDP_RX_BUF_SIZE;
 	if (setsockopt (recvfd, SOL_SOCKET, SO_RCVBUF, (_SOTYPE)&n, sizeof (n)) < 0) {
-		err ("setsockopt rcvbuf");
+		warn ("setsockopt rcvbuf");
 		goto error;
 	}
 
@@ -321,7 +321,7 @@ UDPContext *client_udp_open (const struct in6_addr *mcg, int port, const char *i
 
 	return s;
       error:
-	err ("socket error !\n");
+	warn ("socket error !\n");
 	if (s) {
 		free (s);
 	}

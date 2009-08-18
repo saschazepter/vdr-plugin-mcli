@@ -87,7 +87,7 @@ static void *recv_ts (void *arg)
 #endif
 	p->s = client_udp_open (&p->mcg, port, iface);
 	if (!p->s) {
-		err ("client_udp_open error !\n");
+		warn ("client_udp_open error !\n");
 		return NULL;
 	}
 

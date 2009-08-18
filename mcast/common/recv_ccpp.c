@@ -436,7 +436,7 @@ void *recv_ten (void *arg)
 
 	c.s = client_udp_open (&ten, port, iface);
 	if (!c.s) {
-		err ("client_udp_open error !\n");
+		warn ("client_udp_open error !\n");
 	} else {
 #ifdef DEBUG	
 		char host[INET6_ADDRSTRLEN];
@@ -535,7 +535,7 @@ void *recv_tra (void *arg)
 	
 	c.s = client_udp_open (&tra, port, iface);
 	if (!c.s) {
-		err ("client_udp_open error !\n");
+		warn ("client_udp_open error !\n");
 		return NULL;
 	}
 
@@ -1165,7 +1165,7 @@ void *recv_tca (void *arg)
 	
 	c.s = client_udp_open (&tca, port, iface);
 	if (!c.s) {
-		err ("client_udp_open error !\n");
+		warn ("client_udp_open error !\n");
 		return NULL;
 	}
 
