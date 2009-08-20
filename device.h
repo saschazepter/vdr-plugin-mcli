@@ -84,6 +84,7 @@ class cMcliDevice:public cDevice
 	virtual bool ProvidesChannel (const cChannel * Channel, int Priority = -1, bool * NeedsDetachReceivers = NULL) const;
 	virtual bool IsTunedToTransponder (const cChannel * Channel);
 
+	virtual int HandleTsData(unsigned char *buffer, size_t len);
 	void SetTenData (tra_t * ten);
 	void SetEnable (bool val = true);
 	void SetFEType (fe_type_t val);

@@ -337,6 +337,7 @@ void cPluginMcli::Action (void)
 				cMcliDeviceObject *d=m_devs.find_dev_by_uuid (nci->tuner[i].uuid);
 				if ((now-nci->lastseen)>MCLI_DEVICE_TIMEOUT) {
 					if(d) {
+						cPluginManager::CallAllServices("OnDelMcliDevice", d->d());
 						printf("Remove Tuner %s [%s]\n",nci->tuner[i].fe_info.name, nci->tuner[i].uuid);
 						d->d ()->SetEnable (false);
 #if VDRVERSNUM >= 10600
@@ -360,12 +361,14 @@ void cPluginMcli::Action (void)
 				if (!d) {
 					printf ("  Tuner: %s [%s], Type %d\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, type);
 					cMcliDevice *m = new cMcliDevice;
-					d = new cMcliDeviceObject (m);
-
-					m->SetUUID (nci->tuner[i].uuid);
-					m->SetFEType (type);
-					m->SetEnable (true);
-					m_devs.Add (d);
+					cPluginManager::CallAllServices("OnNewMcliDevice", &m);
+					if(m) {
+						m->SetUUID (nci->tuner[i].uuid);
+						m->SetFEType (type);
+						m->SetEnable (true);
+						d = new cMcliDeviceObject (m);
+						m_devs.Add (d);
+					} // if
                     if(m_devs.Count() == 1) { // the first tuner that was found, so make VDR retune to the channel it wants...
                         cChannel *ch = Channels.GetByNumber(cDevice::CurrentChannel());
                         if(ch)

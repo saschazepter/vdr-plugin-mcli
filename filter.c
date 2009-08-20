@@ -382,16 +382,14 @@ void cMcliFilters::Action (void)
 				cMcliFilter *next = Next (f);
 				if (tid != -1 && f->Matches (pid, tid)) {
 //                                      printf("Match!!!!");
-					if (f->PutSection (block + 4 + Pusi, len, Pusi))
-						break;
-
-					if (errno != ECONNREFUSED && errno != ECONNRESET && errno != EPIPE) {
-						printf ("mcli: couldn't send section packet\n");
-						esyslog ("mcli: couldn't send section packet");
-					}
-					Del (f);
-					// Filter was closed.
-					//  - need to check remaining filters for another match
+					if (!f->PutSection (block + 4 + Pusi, len, Pusi)) {
+						if (errno != ECONNREFUSED && errno != ECONNRESET && errno != EPIPE) {
+							esyslog ("mcli: couldn't send section packet");
+						}
+						Del (f);
+						// Filter was closed.
+						//  - need to check remaining filters for another match
+					} // if
 				}
 				f = next;
 			}

@@ -28,23 +28,7 @@ using namespace std;
 
 static int handle_ts (unsigned char *buffer, size_t len, void *p)
 {
-	cMcliDevice *m = (cMcliDevice *) p;
-	m->m_filters->PutTS (buffer, len);
-#ifdef GET_TS_PACKETS
-	unsigned char *ptr=m->m_PB->PutStart(len);
-	memcpy(ptr, buffer, len);
-	m->m_PB->PutEnd(len, 0, 0);
-#else
-	unsigned int i;
-	for(i=0;i<len;i+=TS_SIZE) {
-		unsigned char *ptr=m->m_PB->PutStart(TS_SIZE);
-		if(ptr) {
-			memcpy(ptr, buffer+i, TS_SIZE);
-			m->m_PB->PutEnd(TS_SIZE, 0, 0);
-		}
-	}
-#endif	
-	return len;
+	return p ? ((cMcliDevice *)p)->HandleTsData(buffer, len) : len;
 }
 
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -88,6 +72,25 @@ void cMcliDevice::SetEnable (bool val)
 void cMcliDevice::SetFEType (fe_type_t val)
 {
 	m_fetype = val;
+}
+
+int cMcliDevice::HandleTsData(unsigned char *buffer, size_t len) {
+	m_filters->PutTS (buffer, len);
+#ifdef GET_TS_PACKETS
+	unsigned char *ptr=m_PB->PutStart(len);
+	memcpy(ptr, buffer, len);
+	m_PB->PutEnd(len, 0, 0);
+#else
+	unsigned int i;
+	for(i=0;i<len;i+=TS_SIZE) {
+		unsigned char *ptr=m_PB->PutStart(TS_SIZE);
+		if(ptr) {
+			memcpy(ptr, buffer+i, TS_SIZE);
+			m_PB->PutEnd(TS_SIZE, 0, 0);
+		}
+	}
+#endif	
+	return len;
 }
 
 cMcliDevice::cMcliDevice (void)
@@ -415,10 +418,9 @@ void cMcliDevice::CloseFilter (int Handle)
 	LOCK_THREAD;
 //      printf ("CloseFilter Handle:%d \n", Handle);
 	int pid = m_filters->GetPid (Handle);
-	if (pid != -1) {
-		recv_pid_del (m_r, pid);
-	}
 	m_filters->CloseFilter (Handle);
+	if ((pid != -1) && !m_filters->WantPid(pid))
+		recv_pid_del (m_r, pid);
 }
 
 void cMcliDevice::SetUUID (const char *uuid)
@@ -463,6 +465,9 @@ int cMcliDevice::GetAttribute(const char *attr_name, uint64_t *val)
 	}
 	else if (!strcmp(attr_name,"fe.type")) {
 		rval=m_fetype;		
+	}
+	else if (!strcmp(attr_name,"is.mcli")) {
+		rval=1;
 	}
 	else
 		ret=-1;
