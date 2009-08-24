@@ -99,6 +99,7 @@ cMcliDevice::cMcliDevice (void)
 	StartSectionHandler ();
 	m_PB =  new cMyPacketBuffer(10000*TS_SIZE, 10000);
 	m_PB->SetTimeouts(0, 1000*20);
+	m_ca = true;
 	
 	m_filters = new cMcliFilters ();
 	printf ("cMcliDevice: got device number %d\n", CardIndex () + 1);
@@ -299,7 +300,7 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 		if (On) {
 			pi.re = 0;
 			pi.pid = Handle->pid;
-			if(m_chan && m_chan->Ca(0)) {
+			if(m_ca && m_chan && m_chan->Ca(0)) {
 				int set=0;
 				for (int i=0; i < MAXAPIDS; i++) {
 					if (pi.pid == m_chan->Apid(i)) {
@@ -314,7 +315,7 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 			} else {
 				pi.id = 0;
 			}
-//                      printf ("Add Pid: %d Sid:%d Type:%d %d\n", pi.pid, pi.id, Type, m_chan->Ca(0));
+//                      printf ("Add Pid: %d Sid:%d Type:%d %d\n", pi.pid, pi.id, Type, m_chan ? m_chan->Ca(0) : -1);
 			recv_pid_add (m_r, &pi);
 		} else {
 //                      printf ("Del Pid: %d\n", Handle->pid);
@@ -388,7 +389,7 @@ int cMcliDevice::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 
 	pi.re = 0;
 	pi.pid = Pid;
-	if(m_chan && m_chan->Ca(0)) {
+	if(m_ca && m_chan && m_chan->Ca(0)) {
 		int set=0;
 		for (int i=0; i < MAXAPIDS; i++) {
 			if (pi.pid == m_chan->Apid(i)) {
@@ -468,6 +469,9 @@ int cMcliDevice::GetAttribute(const char *attr_name, uint64_t *val)
 	}
 	else if (!strcmp(attr_name,"is.mcli")) {
 		rval=1;
+	}
+	else if (!strcmp(attr_name,"fe.lastseen")) {
+		rval=m_ten.lastseen;
 	}
 	else
 		ret=-1;

@@ -68,6 +68,7 @@ class cMcliDevice:public cDevice
 	  cCondVar m_locked;
 	cMyPacketBuffer *m_PB;
 	cMcliFilters *m_filters;
+	bool m_ca;
 	  cMcliDevice (void);
 	  virtual ~ cMcliDevice ();
 
