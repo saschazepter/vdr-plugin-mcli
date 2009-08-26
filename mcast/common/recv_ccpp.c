@@ -382,6 +382,7 @@ typedef struct ccpp_thread_context
 	UDPContext *s;
 	xmlChar *buf;
 	xmlChar *dst;
+	int run;
 } ccpp_thread_context_t;
 
 
@@ -536,35 +537,35 @@ void *recv_tra (void *arg)
 	c.s = client_udp_open (&tra, port, iface);
 	if (!c.s) {
 		warn ("client_udp_open error !\n");
-		return NULL;
-	}
-
+	} else {
+		c.run=1;
 #ifdef DEBUG
-	char host[INET6_ADDRSTRLEN];
-	inet_ntop (AF_INET6, &tra, (char *) host, INET6_ADDRSTRLEN);
-	dbg ("Start receive TRA at %s port %d %s\n",  host, port, iface);
+		char host[INET6_ADDRSTRLEN];
+		inet_ntop (AF_INET6, &tra, (char *) host, INET6_ADDRSTRLEN);
+		dbg ("Start receive TRA at %s port %d %s\n",  host, port, iface);
 #endif
-	while (1) {
-		if ((n = udp_read (c.s, c.buf, XML_BUFLEN, 500000, NULL)) > 0) {
-			dstlen = XML_BUFLEN*5;
-			if (!gunzip (c.dst, &dstlen, c.buf, n)) {
-				memset (&tra_info, 0, sizeof (tra_info_t));
-				tra_info.magic=MCLI_MAGIC;
-				tra_info.version=MCLI_VERSION;
+		while (c.run) {
+			if ((n = udp_read (c.s, c.buf, XML_BUFLEN, 500000, NULL)) > 0) {
+				dstlen = XML_BUFLEN*5;
+				if (!gunzip (c.dst, &dstlen, c.buf, n)) {
+					memset (&tra_info, 0, sizeof (tra_info_t));
+					tra_info.magic=MCLI_MAGIC;
+					tra_info.version=MCLI_VERSION;
 				
-				pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
-				if (get_tra_data (c.dst, dstlen, &tra_info)) {
-					handle_tra (&tra_info);
+					pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
+					if (get_tra_data (c.dst, dstlen, &tra_info)) {
+						handle_tra (&tra_info);
+					}
+					pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+					} else {
+					dbg ("uncompress failed\n");
 				}
-				pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
-			} else {
-				dbg ("uncompress failed\n");
-			}
-		} 
+			} 
 #ifdef DEBUG
-		dbg ("Stop receive TRA on %s %d %s len:%d\n", host, port, iface, n);
+			dbg ("Stop receive TRA on %s %d %s len:%d\n", host, port, iface, n);
 #endif
-		pthread_testcancel();
+			pthread_testcancel();
+		}
 	}
 	pthread_cleanup_pop (1);
 	return NULL;
@@ -1166,32 +1167,30 @@ void *recv_tca (void *arg)
 	c.s = client_udp_open (&tca, port, iface);
 	if (!c.s) {
 		warn ("client_udp_open error !\n");
-		return NULL;
-	}
-
+	} else {
+		c.run=1;
 #ifdef DEBUG
-	char host[INET6_ADDRSTRLEN];
-	inet_ntop (AF_INET6, &tca, (char *) host, INET6_ADDRSTRLEN);
-	dbg ("Start Receive TCA on interface %s port %d\n", iface, port);
+		char host[INET6_ADDRSTRLEN];
+		inet_ntop (AF_INET6, &tca, (char *) host, INET6_ADDRSTRLEN);
+		dbg ("Start Receive TCA on interface %s port %d\n", iface, port);
 #endif
-	while (1) {
-		if ((n = udp_read (c.s, c.buf, XML_BUFLEN, 500000, NULL)) > 0) {
-			dstlen = XML_BUFLEN * 5;
-			if (!gunzip (c.dst, &dstlen, c.buf, n)) {
-				memset (&nc_info, 0, sizeof (netceiver_info_t));
-
-				pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
-				get_tca_data (c.dst, dstlen, &nc_info);
-				handle_tca (&nc_info);
-				pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
-			} else {
-				dbg ("uncompress failed\n");
+		while (c.run) {
+			if ((n = udp_read (c.s, c.buf, XML_BUFLEN, 500000, NULL)) > 0) {
+				dstlen = XML_BUFLEN * 5;
+				if (!gunzip (c.dst, &dstlen, c.buf, n)) {
+					memset (&nc_info, 0, sizeof (netceiver_info_t));
+				
+					pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
+					get_tca_data (c.dst, dstlen, &nc_info);
+					handle_tca (&nc_info);
+					pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+				} else {
+					dbg ("uncompress failed\n");
+				}
 			}
+			pthread_testcancel();		
 		}
-		pthread_testcancel();		
 	}
-	
-
 	pthread_cleanup_pop (1);
 	return NULL;
 }

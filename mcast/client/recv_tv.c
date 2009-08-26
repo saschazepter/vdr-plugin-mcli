@@ -88,11 +88,9 @@ static void *recv_ts (void *arg)
 	p->s = client_udp_open (&p->mcg, port, iface);
 	if (!p->s) {
 		warn ("client_udp_open error !\n");
-		return NULL;
+	} else {
+		p->run = 1;
 	}
-
-	p->run = 1;
-
 	while (p->run>0) {
 		n = udp_read (p->s, buf, sizeof (buf), 1000, NULL);
 		if (n >0 ) {
@@ -706,7 +704,7 @@ int recv_init(char *intf, int p)
 #ifdef WIN32
 	WSADATA wsaData;
 	if (WSAStartup (MAKEWORD (2, 2), &wsaData) != 0) {
-		err("WSAStartup failed\n");
+		err ("WSAStartup failed\n");
 	}
 #endif
 

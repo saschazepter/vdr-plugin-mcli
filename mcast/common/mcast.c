@@ -185,18 +185,17 @@ UDPContext *server_udp_open (const struct in6_addr *mcg, int port, const char *i
 
 	if ((udp_ipv6_is_multicast_address ((struct sockaddr *) &s->dest_addr))) {
 		if (ifname && strlen (ifname) && (mcast_set_if (sendfd, ifname, 0) < 0)) {
-			err ("mcast_set_if error\n");
+			warn ("mcast_set_if error\n");
 			goto error;
 		}
 		if (udp_ipv6_set_multicast_ttl (sendfd, MCAST_TTL, (struct sockaddr *) &s->dest_addr) < 0) {
-			err ("udp_ipv6_set_multicast_ttl");
+			warn ("udp_ipv6_set_multicast_ttl");
 		}
 	}
 	
 	n = UDP_TX_BUF_SIZE;
 	if (setsockopt (sendfd, SOL_SOCKET, SO_SNDBUF, (_SOTYPE)&n, sizeof (n)) < 0) {
-		err ("setsockopt sndbuf");
-		goto error;
+		warn ("setsockopt sndbuf");
 	}
 	s->is_multicast = 0;	//server
 	s->udp_fd = sendfd;
@@ -262,14 +261,12 @@ UDPContext *client_udp_open (const struct in6_addr *mcg, int port, const char *i
 #  endif
         n = 10 /*PROTECTION_LEVEL_UNRESTRICTED*/;
         if(setsockopt( recvfd, IPPROTO_IPV6, IPV6_PROTECTION_LEVEL, (_SOTYPE)&n, sizeof(n) ) < 0 ) {
-        	err ("setsockopt IPV6_PROTECTION_LEVEL\n");
-        	goto error;
+        	warn ("setsockopt IPV6_PROTECTION_LEVEL\n");
         }
 #endif                                    
 	n = 1;
 	if (setsockopt (recvfd, SOL_SOCKET, SO_REUSEADDR, (_SOTYPE)&n, sizeof (n)) < 0) {
-		err ("setsockopt REUSEADDR\n");
-		goto error;
+		warn ("setsockopt REUSEADDR\n");
 	}
 
 #if ! (defined WIN32 || defined APPLE)
@@ -278,7 +275,7 @@ UDPContext *client_udp_open (const struct in6_addr *mcg, int port, const char *i
 	}
 #endif
 	if (bind (recvfd, (struct sockaddr *) &s->dest_addr, s->dest_addr_len) < 0) {
-		err ("bind failed\n");
+		warn ("bind failed\n");
 		goto error;
 	}
 #ifdef WIN32
@@ -287,7 +284,7 @@ UDPContext *client_udp_open (const struct in6_addr *mcg, int port, const char *i
 	if (udp_ipv6_is_multicast_address ((struct sockaddr *) &s->dest_addr)) {
 #if 0
 		if (ifname && strlen (ifname) && (mcast_set_if (recvfd, ifname, 0) < 0)) {
-			err ("mcast_set_if error \n");
+			warn ("mcast_set_if error \n");
 			goto error;
 		}
 #endif

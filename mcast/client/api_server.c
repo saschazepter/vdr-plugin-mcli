@@ -335,7 +335,7 @@ void *api_listen_loop(void *p)
 					NULL);                    // default security attribute 
 
 		if (hPipe == INVALID_HANDLE_VALUE) {
-			err("CreatePipe failed"); 
+			err ("CreatePipe failed"); 
 			return NULL;
 		}
 		pthread_testcancel();
@@ -343,7 +343,7 @@ void *api_listen_loop(void *p)
  
 		if (fConnected) { 
 			if(pthread_create(&api_cmd_loop_thread, NULL, api_cmd_loop, hPipe)) {
-				err("CreateThread failed"); 
+				err ("CreateThread failed"); 
 				return NULL;
 			} else { 
 				pthread_detach(api_cmd_loop_thread);

@@ -67,7 +67,7 @@ static void *mld_send_reports (void *arg)
 	struct intnode *intn = int_find_name (iface);
 	
 	if( !c.mld_mca_add || !c.mld_mca_drop) {
-		err("Cannot get memory for add/drop list\n");
+		err ("Cannot get memory for add/drop list\n");
 	}
 	mld_start=1;	
 	while (mld_start) {
@@ -102,7 +102,7 @@ static void *mld_send_reports (void *arg)
 			}
 		}
 		if(grec_num_drop > maxpids) {
-			err("Wrong number of pids: %d>%d\n", grec_num_drop, maxpids);
+			err ("Wrong number of pids: %d>%d\n", grec_num_drop, maxpids);
 		}
 		grec_num_add=0;
 		//Send listener reports for all current MCG in use
@@ -120,7 +120,7 @@ static void *mld_send_reports (void *arg)
 		}
 
 		if(grec_num_add > maxpids) {
-			err("Wrong number of pids: %d>%d\n", grec_num_add, maxpids);
+			err ("Wrong number of pids: %d>%d\n", grec_num_add, maxpids);
 		}
 
 		pthread_mutex_unlock (&lock);

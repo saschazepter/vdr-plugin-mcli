@@ -274,7 +274,7 @@ void update_interfaces (struct intnode *intn)
 	char buf[64];
 
 	if (getifaddrs(&myaddrs)) {
-		err("getifaddrs");
+		err ("getifaddrs");
 	}
 	
 	for (ifa = myaddrs; ifa != NULL; ifa = ifa->ifa_next) {

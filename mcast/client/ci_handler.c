@@ -36,7 +36,7 @@ static int ci_connect (ci_dev_t * c)
 	c->fd_ci = socket (PF_INET6, SOCK_STREAM, 0);
 	j = 1;
 	if (setsockopt (c->fd_ci, SOL_SOCKET, SO_REUSEADDR, (_SOTYPE) & j, sizeof (j)) < 0) {
-		err ("setsockopt REUSEADDR\n");
+		warn ("setsockopt REUSEADDR\n");
 	}
 
 	j = 1;
