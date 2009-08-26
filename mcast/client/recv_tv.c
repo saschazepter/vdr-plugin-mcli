@@ -624,7 +624,7 @@ int recv_pid_del (recv_info_t * r, int pid)
 	if(pid>=0) {
 		for (i = 0; i < r->pidsnum; i++) {
 			if(r->pids[i].pid==pid || ret) {
-				r->pids[i].pid=r->pids[i+1].pid;
+				r->pids[i]=r->pids[i+1];
 				ret=1;
 			}
 		}
