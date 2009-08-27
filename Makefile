@@ -1,7 +1,7 @@
 #
 # Makefile for a Video Disk Recorder plugin
 #
-# $Id: Makefile 1883 2009-08-26 14:25:47Z fliegl $
+# $Id: Makefile 1886 2009-08-26 16:38:16Z rollercoaster $
 
 # The official name of this plugin.
 # This name will be used in the '-P...' option of VDR to load the plugin.
@@ -9,7 +9,7 @@
 # IMPORTANT: the presence of this macro is important for the Make.config
 # file. So it must be defined, even if it is not used here!
 #
-#MCLI_SHARED=1
+MCLI_SHARED=1
 PLUGIN = mcli
 APPLE_DARWIN = $(shell gcc -dumpmachine | grep -q 'apple-darwin' && echo "1" || echo "0")
 
@@ -58,7 +58,7 @@ endif
 
 
 ifdef MCLI_SHARED
-  LIBS = -lmcli $(XML_LIB)
+  LIBS = -lmcli -Lmcast/client $(XML_LIB)
 else
   LIBS = mcast/client/libmcli.a $(XML_LIB)
 endif
@@ -87,13 +87,9 @@ OBJS = $(PLUGIN).o cam_menu.o device.o filter.o packetbuffer.o
 
 ### The main target:
 
-plug: all
+plug: libmcli.so libvdr-$(PLUGIN).so
 
-ifdef MCLI_SHARED
-all: libvdr-$(PLUGIN).so i18n
-else
 all: libmcli.so libvdr-$(PLUGIN).so i18n
-endif
 
 libmcli.so:
 	$(MAKE) -C mcast/client/
@@ -150,6 +146,13 @@ else
 	$(CXX) $(CXXFLAGS) -shared $(OBJS) $(LIBS) -o $@
 	@cp --remove-destination $@ $(LIBDIR)/$@.$(APIVERSION)
 endif
+
+install:
+ifdef MCLI_SHARED
+	install -m 755 -D mcast/client/libmcli.so /usr/sbin
+endif
+	install -m 755 -D libvdr-$(PLUGIN).so $(PLUGINLIBDIR)/libvdr-$(PLUGIN).so.$(APIVERSION)
+
 
 dist: clean
 	@-rm -rf $(TMPDIR)/$(ARCHIVE)
