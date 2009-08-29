@@ -95,6 +95,8 @@ class cMcliDevice:public cDevice
 	};
 	void SetUUID (const char *uuid);
 	const char *GetUUID (void);
+	void InitMcli(void);
+	void ExitMcli(void);
 	virtual bool ProvidesS2() const
 	{
 		return m_fetype == FE_DVBS2;

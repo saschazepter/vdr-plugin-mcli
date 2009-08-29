@@ -170,6 +170,8 @@ class cPluginMcli:public cPlugin, public cThread
 	virtual const char **SVDRPHelpPages (void);
 	virtual cString SVDRPCommand (const char *Command, const char *Option, int &ReplyCode);
 	virtual void Action (void);
+	void ExitMcli(void);
+	bool InitMcli (void);
 	void reconfigure(void);
 
 	int CamPollText(mmi_info_t *text);
@@ -216,7 +218,11 @@ cOsdObject *cPluginMcli::AltMenuAction(void)
 
 int cPluginMcli::CamPollText(mmi_info_t *text)
 {
-	return mmi_poll_for_menu_text(m_cam_mmi, text, 10);
+        if(mmi_init_done && !reconf) {
+          return mmi_poll_for_menu_text(m_cam_mmi, text, 10);
+        } else {
+          return 0;
+        }
 }
 
 cPluginMcli::cPluginMcli (void)
@@ -240,7 +246,30 @@ cPluginMcli::cPluginMcli (void)
 cPluginMcli::~cPluginMcli ()
 {
 	printf ("cPluginMcli::~cPluginMcli\n");
+	ExitMcli();
 	
+}
+
+bool cPluginMcli::InitMcli (void)
+{
+	if (!recv_init (m_cmd.iface, m_cmd.port)) {
+		recv_init_done = 1;
+	}
+	if (m_cmd.mld_start && !mld_client_init (m_cmd.iface)) {
+		mld_init_done = 1;
+	}
+	if (!api_sock_init (m_cmd.cmd_sock_path)) {
+		api_init_done = 1;
+	}
+	m_cam_mmi = mmi_broadcast_client_init(m_cmd.port, m_cmd.iface);
+        if (m_cam_mmi>0) {
+        	mmi_init_done = 1;
+        }
+	return true;
+}
+
+void cPluginMcli::ExitMcli (void) 
+{
 	if(mmi_init_done) {
 		mmi_broadcast_client_exit(m_cam_mmi);
 	}
@@ -253,7 +282,6 @@ cPluginMcli::~cPluginMcli ()
 	if (recv_init_done) {
 		recv_exit ();
 	}
-	// Clean up after yourself!
 }
 
 const char *cPluginMcli::CommandLineHelp (void)
@@ -386,22 +414,7 @@ void cPluginMcli::Action (void)
 
 bool cPluginMcli::Initialize (void)
 {
-// printf ("cPluginMcli::Initialize\n");
-	// Initialize any background activities the plugin shall perform.
-	if (!recv_init (m_cmd.iface, m_cmd.port)) {
-		recv_init_done = 1;
-	}
-	if (m_cmd.mld_start && !mld_client_init (m_cmd.iface)) {
-		mld_init_done = 1;
-	}
-	if (!api_sock_init (m_cmd.cmd_sock_path)) {
-		api_init_done = 1;
-	}
-	m_cam_mmi = mmi_broadcast_client_init(m_cmd.port, m_cmd.iface);
-        if (m_cam_mmi>0) {
-        	mmi_init_done = 1;
-        }
-	return true;
+	return InitMcli();
 }
 
 
@@ -457,42 +470,19 @@ time_t cPluginMcli::WakeupTime (void)
 void cPluginMcli::reconfigure(void)
 {
 	LOCK_THREAD;
-	for (cMcliDeviceObject * d = m_devs.First (); d;) {
-		cMcliDeviceObject *next = m_devs.Next (d);
+	for (cMcliDeviceObject * d = m_devs.First (); d; d = m_devs.Next (d)) {
 		d->d ()->SetEnable (false);
-#if VDRVERSNUM >= 10600
-		d->d ()->SetAvoidDevice (d->d ());
-#endif
-		delete d->d ();
-		m_devs.Del (d);
-		d = next;
-	}
-	if(mmi_init_done) {
-		mmi_broadcast_client_exit(m_cam_mmi);
-	}
-	if (api_init_done) {
-		api_sock_exit ();
-	}
-	if (mld_init_done) {
-		mld_client_exit ();
-	}
-	if (recv_init_done) {
-		recv_exit ();
+                d->d ()->ExitMcli();
+//		delete d->d ();
+//		m_devs.Del (d);
 	}
 
-	if (!recv_init (m_cmd.iface, m_cmd.port)) {
-		recv_init_done = 1;
+	ExitMcli();
+	InitMcli();
+	for (cMcliDeviceObject * d = m_devs.First (); d; d = m_devs.Next (d)) {
+                d->d ()->InitMcli();
+		d->d ()->SetEnable (true);
 	}
-	if (m_cmd.mld_start && !mld_client_init (m_cmd.iface)) {
-		mld_init_done = 1;
-	}
-	if (!api_sock_init (m_cmd.cmd_sock_path)) {
-		api_init_done = 1;
-	}
-	m_cam_mmi = mmi_broadcast_client_init(m_cmd.port, m_cmd.iface);
-        if (m_cam_mmi>0) {
-        	mmi_init_done = 1;
-        }
 }
 
 cOsdObject *cPluginMcli::MainMenuAction (void)

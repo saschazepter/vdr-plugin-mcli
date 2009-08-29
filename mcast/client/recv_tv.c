@@ -308,15 +308,18 @@ static pid_info_t *allocate_slot (recv_info_t * r, struct in6_addr *mcg, dvb_pid
 #if defined(RE)
 	if (!check_if_already_redirected(r, pid->id)) {
 		//printf("PID %d not red. ===> SETTING ID to %d\n",pid->pid,pid->id);	
-		mcg_set_id (&p->mcg, pid->id);	
+		mcg_set_id (&p->mcg, pid->id);
+		mcg_set_priority(&p->mcg, pid->priority);
 	} else {
 		set_redirected(r, pid->id);	
 		//printf("send pid %d to noid mcg !\n",pid->pid);
 		mcg_set_id(&p->mcg, 0);
+		mcg_set_priority(&p->mcg, 0);
 	}
 	//mcg_set_id(&p->mcg,pid->id);
 #else
 	mcg_set_id (&p->mcg, pid->id);
+	mcg_set_priority(&p->mcg, pid->priority);
 #endif
 
 

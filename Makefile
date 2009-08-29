@@ -1,7 +1,7 @@
 #
 # Makefile for a Video Disk Recorder plugin
 #
-# $Id: Makefile 1886 2009-08-26 16:38:16Z rollercoaster $
+# $Id: Makefile 1887 2009-08-27 08:38:49Z rollercoaster $
 
 # The official name of this plugin.
 # This name will be used in the '-P...' option of VDR to load the plugin.
@@ -149,7 +149,7 @@ endif
 
 install:
 ifdef MCLI_SHARED
-	install -m 755 -D mcast/client/libmcli.so /usr/sbin
+	install -m 755 -D mcast/client/libmcli.so /usr/lib
 endif
 	install -m 755 -D libvdr-$(PLUGIN).so $(PLUGINLIBDIR)/libvdr-$(PLUGIN).so.$(APIVERSION)
 

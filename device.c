@@ -106,10 +106,21 @@ cMcliDevice::cMcliDevice (void)
 	m_pidsnum = 0;
 	m_chan = NULL;
 	m_fetype = FE_QPSK;
+	InitMcli();
+}
+
+void cMcliDevice::InitMcli(void) {
 	m_r = recv_add ();
 
 	register_ten_handler (m_r, handle_ten, this);
 	register_ts_handler (m_r, handle_ts, this);
+}
+
+void cMcliDevice::ExitMcli(void) {
+	register_ten_handler (m_r, NULL, NULL);
+	register_ts_handler (m_r, NULL, NULL);
+	recv_del (m_r);
+	m_r=NULL;
 }
 
 cMcliDevice::~cMcliDevice ()
@@ -119,9 +130,7 @@ cMcliDevice::~cMcliDevice ()
 	printf ("Device %d gets destructed\n", CardIndex()+1);
 	Cancel (0);
 	m_locked.Broadcast ();
-	register_ten_handler (m_r, NULL, NULL);
-	register_ts_handler (m_r, NULL, NULL);
-	recv_del (m_r);
+	ExitMcli();
 	DELETENULL (m_filters);
 	DELETENULL (m_PB);
 }
@@ -283,6 +292,7 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 {
 //      printf ("SetPid, Pid=%d, Type=%d, On=%d, used=%d\n", Handle->pid, Type, On, Handle->used);
 	dvb_pid_t pi;
+	memset(&pi, 0, sizeof(dvb_pid_t));
 	if(!m_enable) {
 		return false;
 	}
@@ -308,10 +318,14 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 						break;
 					}
 				}
-				if (pi.pid == m_chan->Vpid() || (set && pi.pid))
+				if (pi.pid == m_chan->Vpid() || (set && pi.pid)) {
 					pi.id = m_chan->Sid();
-				else 
+					if(m_chan->Ca(0)<=0xf) {
+						pi.priority=m_chan->Ca(0)&3;
+					}
+				} else {
 					pi.id = 0;
+				}
 			} else {
 				pi.id = 0;
 			}
@@ -386,6 +400,7 @@ int cMcliDevice::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 	LOCK_THREAD;
 //      printf ("OpenFilter pid:%d tid:%d mask:%04x\n", Pid, Tid, Mask);
 	dvb_pid_t pi;
+	memset(&pi,0,sizeof(dvb_pid_t));
 
 	pi.re = 0;
 	pi.pid = Pid;
@@ -397,10 +412,12 @@ int cMcliDevice::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 				break;
 			}
 		}
-		if (pi.pid == m_chan->Vpid() || (set && pi.pid))
+		if (pi.pid == m_chan->Vpid() || (set && pi.pid)) {
 			pi.id = m_chan->Sid();
-		else 
+		}
+		else {
 			pi.id = 0;
+		}
 	} else {
 		pi.id = 0;
 	}

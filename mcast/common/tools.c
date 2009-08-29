@@ -486,6 +486,21 @@ void mcg_init_streaming_group (struct in6_addr *mcg, streaming_group_t Streaming
 
 }
 
+void mcg_get_priority (struct in6_addr *mcg, int *priority)
+{
+	if (priority) {
+		*priority = (ntohs (mcg->s6_addr16[1])>>8) & 0xf;
+	}
+}
+
+void mcg_set_priority (struct in6_addr *mcg, int priority)
+{
+	mcg->s6_addr16[1] = ntohs (mcg->s6_addr16[1]);
+	mcg->s6_addr16[1] &= 0xf0ff;
+	mcg->s6_addr16[1] |= (priority & 0xf) << 8;
+	mcg->s6_addr16[1] = htons (mcg->s6_addr16[1]);
+}
+
 void mcg_get_satpos (struct in6_addr *mcg, int *satpos)
 {
 	if (satpos) {

@@ -18,6 +18,7 @@
 typedef struct {
   int pid;
   int id;
+  int priority;
 #if 1
   int re;
 #endif

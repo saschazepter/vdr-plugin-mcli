@@ -85,6 +85,9 @@ DLL_SYMBOL void mcg_init_streaming_group (struct in6_addr *mcg, streaming_group_
 DLL_SYMBOL void mcg_set_pid (struct in6_addr *mcg, int pid);
 DLL_SYMBOL void mcg_get_pid (struct in6_addr *mcg, int *pid);
 
+DLL_SYMBOL void mcg_get_priority (struct in6_addr *mcg, int *priority);
+DLL_SYMBOL void mcg_set_priority (struct in6_addr *mcg, int priority);
+                                
 DLL_SYMBOL void mcg_get_satpos (struct in6_addr *mcg, int *satpos);
 DLL_SYMBOL void mcg_set_satpos (struct in6_addr *mcg, int satpos);
 
