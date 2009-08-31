@@ -106,6 +106,7 @@ cMcliDevice::cMcliDevice (void)
 	m_pidsnum = 0;
 	m_chan = NULL;
 	m_fetype = FE_QPSK;
+	memset(m_pids, 0, sizeof(m_pids));
 	InitMcli();
 }
 
@@ -114,6 +115,10 @@ void cMcliDevice::InitMcli(void) {
 
 	register_ten_handler (m_r, handle_ten, this);
 	register_ts_handler (m_r, handle_ts, this);
+	if(m_chan) {
+		isyslog ("reinit: tuning and setting pids again");
+		recv_tune (m_r, m_fetype, m_pos, &m_sec, &m_fep, m_pids);
+	}
 }
 
 void cMcliDevice::ExitMcli(void) {
@@ -336,11 +341,14 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 			recv_pid_del (m_r, Handle->pid);
 		}
 	}
-	int pidsnum = recv_pids_get (m_r, m_pids);
-//      printf ("Pidsnum: %d m_pidsnum: %d\n", pidsnum, m_pidsnum);
+	int pidsnum;
+	pidsnum = recv_pids_get (m_r, m_pids);
+#if 0	
+        printf ("Pidsnum: %d m_pidsnum: %d\n", pidsnum, m_pidsnum);
 	for (int i = 0; i < pidsnum; i++) {
-//              printf ("Pid: %d\n", m_pids[i].pid);
+              printf ("Pid: %d\n", m_pids[i].pid);
 	}
+#endif	
 	return true;
 }
 
@@ -380,15 +388,14 @@ int cMcliDevice::GetTSPackets(uchar *Data, int count) {
 
 bool cMcliDevice::GetTSPacket (uchar * &Data)
 {
-	if (!m_enable || !m_dvr_open) {
-		return false;
+	if (m_enable && m_dvr_open) {
+	      printf("GetTSPacket\n");
+	
+	      m_PB->GetEnd();
+	
+		int size;
+		Data=m_PB->GetStart(&size, 0, 0);
 	}
-//      printf("GetTSPacket\n");
-	
-	m_PB->GetEnd();
-	
-	int size;
-	Data=m_PB->GetStart(&size, 0, 0);
 	return true;
 }
 
@@ -423,7 +430,14 @@ int cMcliDevice::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 	}
 //      printf ("Add Pid: %d\n", pi.pid);
 	recv_pid_add (m_r, &pi);
-
+	int pidsnum;
+	pidsnum = recv_pids_get (m_r, m_pids);
+#if 0	
+        printf ("Pidsnum: %d m_pidsnum: %d\n", pidsnum, m_pidsnum);
+	for (int i = 0; i < pidsnum; i++) {
+              printf ("Pid: %d\n", m_pids[i].pid);
+	}
+#endif	
 	return m_filters->OpenFilter (Pid, Tid, Mask);
 }
 

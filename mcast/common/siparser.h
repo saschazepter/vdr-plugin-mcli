@@ -211,6 +211,7 @@ int si_get_audio_pid(unsigned char *esi_buf, int size, int *apid);
 int get_pmt_es_pids(unsigned char *esi_buf, int size, int *es_pids, int all);
 void print_pat(pat_t *p, pat_list_t *pl, int pmt_num);
 void printhex_buf(char *msg,unsigned char *buf,int len);
+void writehex_buf(FILE *f,char *msg,unsigned char *buf,int len);
 void print_cad_lst(si_cad_t *l, int ts_id);
 void print_ca_bytes(si_desc_t *p);
 void get_time_mjd (unsigned long mjd, long *year , long *month, long *day);

@@ -37,6 +37,39 @@ void printhex_buf(char *msg,unsigned char *buf,int len)
   printf("---------------------------------------------------------------\n");    
 }
 //-----------------------------------------------------------------------------------
+void writehex_buf(FILE *f, char *msg,unsigned char *buf,int len)
+{
+  int i,j,k;
+  int width=8;
+
+  i=k=0;
+  fprintf(f,"%s: %d bytes (0x%04x)\n",msg,len,len);
+  fprintf(f,"---------------------------------------------------------------\n");    
+  while(len) {
+    fprintf(f,"%04x	",k++*width*2);
+    j=i;
+    for(;i < j + width ; i++){ 
+      if (i >= len) break; 
+      fprintf(f,"%02x ",buf[i]);  
+    }
+    if (i >= len) {
+      fprintf(f,"\n");
+      break;
+    }
+    fprintf(f,"	");
+    j=i;
+    for(;i < j + width ; i++){
+      if (i >= len) break;
+      fprintf(f,"%02x ",buf[i]);      
+    }
+    fprintf(f,"\n");
+    if (i >= len) break;
+  }    
+  fprintf(f,"---------------------------------------------------------------\n");    
+
+
+}
+//-----------------------------------------------------------------------------------
 void print_ts_header(ts_packet_hdr_t *p)
 {
   printf("--------------------------------------------------------------\n");
