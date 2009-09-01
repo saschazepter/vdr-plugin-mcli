@@ -72,7 +72,7 @@ cCamMenu::~cCamMenu() {
 void cCamMenu::OpenCamMenu() {
     bool timeout = true;
     
-    unsigned int nrInCamList = currentSelected-(currentSelected+3)/3; // minus the "netceiver <name>"-rows
+    unsigned int nrInCamList = currentSelected - ((int)currentSelected/5)*3 - 3; // minus the empty rows
 
     if(cam_list[nrInCamList].slot==-1) // just a sanity check
         return;
@@ -165,8 +165,10 @@ int cCamMenu::CamFind(cam_list_t *cam_list) {
         netceiver_info_t *nci = nc_list->nci + n;
         printf("\nFound NetCeiver: %s \n",nci->uuid);
         char buf[128];
-        snprintf(buf, 128, "%s: %s", "NetCeiver", nci->uuid);
+        Add(new cOsdItem("Netceiver", osUnknown, false));
+        snprintf(buf, 128, "    %s: %s", "ID", nci->uuid);
         Add(new cOsdItem(buf,osUnknown,false));
+        Add(new cOsdItem("", osUnknown, false));
         printf("    CAMS [%d]: \n",nci->cam_num);
         for (i = nci->cam_num-1; i >=0 /*nci->cam_num*/; i--) {
             switch(nci->cam[i].status) {
