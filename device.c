@@ -143,8 +143,8 @@ cMcliDevice::~cMcliDevice ()
 	DELETENULL (m_PB);
 }
 
-     bool cMcliDevice::ProvidesSource (int Source) const const const
-     {
+bool cMcliDevice::ProvidesSource (int Source) const
+{
 //      printf ("ProvidesSource, Source=%d\n", Source);
 	     if (!m_enable)
 	     {
@@ -152,15 +152,15 @@ cMcliDevice::~cMcliDevice ()
 	     }
 	     int type = Source & cSource::st_Mask;
 	     return type == cSource::stNone || (type == cSource::stCable && m_fetype == FE_QAM) || (type == cSource::stSat && m_fetype == FE_QPSK) || (type == cSource::stSat && m_fetype == FE_DVBS2) || (type == cSource::stTerr && m_fetype == FE_OFDM);
-     }
+}
 
-     bool cMcliDevice::ProvidesTransponder (const cChannel * Channel) const const const
-     {
+bool cMcliDevice::ProvidesTransponder (const cChannel * Channel) const
+{
 //      printf ("ProvidesTransponder %s\n", Channel->Name ());
 	     return ProvidesSource (Channel->Source ());
-     }
+}
 
-     bool cMcliDevice::IsTunedToTransponder (const cChannel * Channel)
+bool cMcliDevice::IsTunedToTransponder (const cChannel * Channel)
 {
 //      printf ("IsTunedToTransponder %s == %s \n", Channel->Name (), m_chan ? m_chan->Name () : "");
 
@@ -172,8 +172,8 @@ cMcliDevice::~cMcliDevice ()
 	return false;
 }
 
-     bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool * NeedsDetachReceivers) const const const
-     {
+bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool * NeedsDetachReceivers) const
+{
 	     bool result = false;
 	     bool hasPriority = Priority < 0 || Priority > this->Priority ();
 	     bool needsDetachReceivers = false;
@@ -198,7 +198,7 @@ cMcliDevice::~cMcliDevice ()
 		     *NeedsDetachReceivers = needsDetachReceivers;
 	     }
 	     return result;
-     }
+}
 
 bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 {
@@ -247,7 +247,6 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 			m_fep.u.qam.symbol_rate = Channel->Srate () * 1000UL;
 			m_fep.u.qam.fec_inner = fe_code_rate_t (Channel->CoderateH ());
 			m_fep.u.qam.modulation = fe_modulation_t (Channel->Modulation ());
-			printf ("DVB-C Freq: %d vs. %d\n", m_fep.frequency, Channel->Frequency ());
 		}
 		break;
 	case FE_OFDM:{		// DVB-T
