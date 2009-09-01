@@ -20,18 +20,19 @@
 #define MCLI_DEVICE_TIMEOUT 120
 
 static const char *VERSION = "0.0.1";
-static const char *DESCRIPTION = trNOOP("NetCeiver Client Application");
+static const char *DESCRIPTION = trNOOP ("NetCeiver Client Application");
 
 #ifndef REELVDR
-static const char *MENUSETUPENTRY = trNOOP("NetCeiver Client Application");
+static const char *MENUSETUPENTRY = trNOOP ("NetCeiver Client Application");
 #endif
-static const char *MAINMENUENTRY = trNOOP("Common Interface");
+static const char *MAINMENUENTRY = trNOOP ("Common Interface");
 
 static int recv_init_done = 0;
 static int mld_init_done = 0;
 static int api_init_done = 0;
 static int devices = 0;
 static int reconf = 0;
+static int reconf_full = 0;
 static int mmi_init_done = 0;
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -105,7 +106,7 @@ cMenuSetupMcli::cMenuSetupMcli (cmdline_t * cmd)
 	Add (new cMenuEditIntItem (tr ("DVB-C"), &m_cmd->tuner_type_limit[FE_QAM]));
 	Add (new cMenuEditIntItem (tr ("DVB-T"), &m_cmd->tuner_type_limit[FE_OFDM]));
 	Add (new cMenuEditIntItem (tr ("DVB-S"), &m_cmd->tuner_type_limit[FE_QPSK]));
-	Add (new cMenuEditIntItem (tr ("DVB-S2"), &m_cmd->tuner_type_limit[FE_DVBS2]));		
+	Add (new cMenuEditIntItem (tr ("DVB-S2"), &m_cmd->tuner_type_limit[FE_DVBS2]));
 }
 
 void cMenuSetupMcli::Store (void)
@@ -114,7 +115,8 @@ void cMenuSetupMcli::Store (void)
 	SetupStore ("DVB-T", m_cmd->tuner_type_limit[FE_OFDM]);
 	SetupStore ("DVB-S", m_cmd->tuner_type_limit[FE_QPSK]);
 	SetupStore ("DVB-S2", m_cmd->tuner_type_limit[FE_DVBS2]);
-	reconf=1;
+	reconf = 1;
+	reconf_full = 1;
 }
 
 class cPluginMcli:public cPlugin, public cThread
@@ -146,23 +148,23 @@ class cPluginMcli:public cPlugin, public cThread
 	virtual cString Active (void);
 	virtual time_t WakeupTime (void);
 #ifdef REELVDR
-    virtual bool HasSetupOptions(void)
-    {
-        return false;
-    }
+	virtual bool HasSetupOptions (void)
+	{
+		return false;
+	}
 #endif
-    virtual const char *MenuSetupPluginEntry(void)
-    { 
+	virtual const char *MenuSetupPluginEntry (void)
+	{
 #ifdef REELVDR
-        return NULL;
+		return NULL;
 #else
-       return tr(MENUSETUPENTRY);
+		return tr (MENUSETUPENTRY);
 #endif
 	}
-  	virtual const char *MainMenuEntry (void)
-  	{
-                return tr(MAINMENUENTRY);
-  	}
+	virtual const char *MainMenuEntry (void)
+	{
+		return tr (MAINMENUENTRY);
+	}
 	virtual cOsdObject *MainMenuAction (void);
 	virtual cMenuSetupPage *SetupMenu (void);
 	virtual bool SetupParse (const char *Name, const char *Value);
@@ -170,66 +172,63 @@ class cPluginMcli:public cPlugin, public cThread
 	virtual const char **SVDRPHelpPages (void);
 	virtual cString SVDRPCommand (const char *Command, const char *Option, int &ReplyCode);
 	virtual void Action (void);
-	void ExitMcli(void);
+	void ExitMcli (void);
 	bool InitMcli (void);
-	void reconfigure(void);
+	void reconfigure (void);
 
-	int CamPollText(mmi_info_t *text);
+	int CamPollText (mmi_info_t * text);
 #ifdef REELVDR
-	virtual cOsdObject* AltMenuAction(void);
+	virtual cOsdObject *AltMenuAction (void);
 #endif
 };
 
 #ifdef REELVDR
-cOsdObject *cPluginMcli::AltMenuAction(void)
+cOsdObject *cPluginMcli::AltMenuAction (void)
 {
 	// Call this code periodically to find out if any CAM out there want's us to tell something.
 	// If it's relevant to us we need to check if any of our DVB-Devices gets programm from a NetCeiver with this UUID.
 	// The text received should pop up via OSD with a CAM-Session opened afterwards (CamMenuOpen...CamMenuReceive...CamMenuSend...CamMenuClose).
 	mmi_info_t m;
-	if(CamPollText(&m)>0) {
-		printf("NetCeiver %s CAM slot %d Received %s valid for:\n", m.uuid, m.slot, m.mmi_text);
-		for(int i=0; i<m.caid_num; i++) {
-			caid_mcg_t *c=m.caids+i;
+	if (CamPollText (&m) > 0) {
+		printf ("NetCeiver %s CAM slot %d Received %s valid for:\n", m.uuid, m.slot, m.mmi_text);
+		for (int i = 0; i < m.caid_num; i++) {
+			caid_mcg_t *c = m.caids + i;
 			int satpos;
 			fe_type_t type;
 			recv_sec_t sec;
 			struct dvb_frontend_parameters fep;
 			int vpid;
-			
-			mcg_get_satpos(&c->mcg, &satpos);
-			mcg_to_fe_parms(&c->mcg, &type, &sec, &fep, &vpid);
-			
-            for( int j = 0; j<m_devs.Count(); j++) {
-                cMcliDevice* dev = m_devs.Get(j)->d();
-                //printf("satpos: %i vpid: %i fep.freq: %i dev.freq: %i\n", satpos, vpid, fep.frequency, dev->CurChan()->Frequency());
-                if((int)fep.frequency/1000 == dev->CurChan()->Frequency())
-                    return new cCamMenu(&m_cmd, &m);
-            }
-			printf("SID/Program Number:%04x, SatPos:%d Freqency:%d\n", c->caid, satpos, fep.frequency);
+
+			mcg_get_satpos (&c->mcg, &satpos);
+			mcg_to_fe_parms (&c->mcg, &type, &sec, &fep, &vpid);
+
+			for (int j = 0; j < m_devs.Count (); j++) {
+				cMcliDevice *dev = m_devs.Get (j)->d ();
+				//printf("satpos: %i vpid: %i fep.freq: %i dev.freq: %i\n", satpos, vpid, fep.frequency, dev->CurChan()->Frequency());
+				if ((int) fep.frequency / 1000 == dev->CurChan ()->Frequency ())
+					return new cCamMenu (&m_cmd, &m);
+			}
+			printf ("SID/Program Number:%04x, SatPos:%d Freqency:%d\n", c->caid, satpos, fep.frequency);
 		}
-		if(m.caid_num && m.caids) {
-			free(m.caids);
+		if (m.caid_num && m.caids) {
+			free (m.caids);
 		}
 	}
 	return NULL;
 }
 #endif
 
-int cPluginMcli::CamPollText(mmi_info_t *text)
+int cPluginMcli::CamPollText (mmi_info_t * text)
 {
-        if(mmi_init_done && !reconf) {
-          return mmi_poll_for_menu_text(m_cam_mmi, text, 10);
-        } else {
-          return 0;
-        }
+	if (mmi_init_done && !reconf) {
+		return mmi_poll_for_menu_text (m_cam_mmi, text, 10);
+	} else {
+		return 0;
+	}
 }
 
 cPluginMcli::cPluginMcli (void)
 {
-	// Initialize any member variables here.
-	// DON'T DO ANYTHING ELSE THAT MAY HAVE SIDE EFFECTS, REQUIRE GLOBAL
-	// VDR OBJECTS TO EXIST OR PRODUCE ANY OUTPUT!
 	// printf ("cPluginMcli::cPluginMcli\n");
 	int i;
 	//init parameters
@@ -246,8 +245,8 @@ cPluginMcli::cPluginMcli (void)
 cPluginMcli::~cPluginMcli ()
 {
 	printf ("cPluginMcli::~cPluginMcli\n");
-	ExitMcli();
-	
+	ExitMcli ();
+
 }
 
 bool cPluginMcli::InitMcli (void)
@@ -261,17 +260,17 @@ bool cPluginMcli::InitMcli (void)
 	if (!api_sock_init (m_cmd.cmd_sock_path)) {
 		api_init_done = 1;
 	}
-	m_cam_mmi = mmi_broadcast_client_init(m_cmd.port, m_cmd.iface);
-        if (m_cam_mmi>0) {
-        	mmi_init_done = 1;
-        }
+	m_cam_mmi = mmi_broadcast_client_init (m_cmd.port, m_cmd.iface);
+	if (m_cam_mmi > 0) {
+		mmi_init_done = 1;
+	}
 	return true;
 }
 
-void cPluginMcli::ExitMcli (void) 
+void cPluginMcli::ExitMcli (void)
 {
-	if(mmi_init_done) {
-		mmi_broadcast_client_exit(m_cam_mmi);
+	if (mmi_init_done) {
+		mmi_broadcast_client_exit (m_cam_mmi);
 	}
 	if (api_init_done) {
 		api_sock_exit ();
@@ -292,7 +291,7 @@ const char *cPluginMcli::CommandLineHelp (void)
 bool cPluginMcli::ProcessArgs (int argc, char *argv[])
 {
 	printf ("cPluginMcli::ProcessArgs\n");
-	int tuners = 0,i;
+	int tuners = 0, i;
 	char c;
 	int ret;
 
@@ -302,13 +301,13 @@ bool cPluginMcli::ProcessArgs (int argc, char *argv[])
 		static struct option long_options[] = {
 			{"port", 1, 0, 0},	//0
 			{"ifname", 1, 0, 0},	//1
-			{"dvb-s", 1, 0, 0},	//3
-			{"dvb-c", 1, 0, 0},	//4
-			{"dvb-t", 1, 0, 0},	//5
-			{"atsc", 1, 0, 0},	//6
-			{"dvb-s2", 1, 0, 0},	//7
-			{"mld-reporter-disable", 0, 0, 0},	//9
-			{"sock-path", 1, 0, 0},	//10
+			{"dvb-s", 1, 0, 0},	//2
+			{"dvb-c", 1, 0, 0},	//3
+			{"dvb-t", 1, 0, 0},	//4
+			{"atsc", 1, 0, 0},	//5
+			{"dvb-s2", 1, 0, 0},	//6
+			{"mld-reporter-disable", 0, 0, 0},	//7
+			{"sock-path", 1, 0, 0},	//8
 			{NULL, 0, 0, 0}
 		};
 
@@ -358,15 +357,15 @@ void cPluginMcli::Action (void)
 	while (Running ()) {
 		Lock ();
 		nc_lock_list ();
-		time_t now=time(NULL);
+		time_t now = time (NULL);
 		for (int n = 0; n < nc_list->nci_num; n++) {
 			netceiver_info_t *nci = nc_list->nci + n;
 			for (int i = 0; i < nci->tuner_num; i++) {
-				cMcliDeviceObject *d=m_devs.find_dev_by_uuid (nci->tuner[i].uuid);
-				if ((now-nci->lastseen)>MCLI_DEVICE_TIMEOUT) {
-					if(d) {
-						cPluginManager::CallAllServices("OnDelMcliDevice", d->d());
-						printf("Remove Tuner %s [%s]\n",nci->tuner[i].fe_info.name, nci->tuner[i].uuid);
+				cMcliDeviceObject *d = m_devs.find_dev_by_uuid (nci->tuner[i].uuid);
+				if ((now - nci->lastseen) > MCLI_DEVICE_TIMEOUT) {
+					if (d) {
+						cPluginManager::CallAllServices ("OnDelMcliDevice", d->d ());
+						printf ("Remove Tuner %s [%s]\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid);
 						d->d ()->SetEnable (false);
 #if VDRVERSNUM >= 10600
 						d->d ()->SetAvoidDevice (d->d ());
@@ -376,7 +375,7 @@ void cPluginMcli::Action (void)
 					}
 					continue;
 				}
-				
+
 				if (devices >= MCLI_MAX_DEVICES) {
 //                                      printf("MCLI_MAX_DEVICES reached\n");
 					continue;
@@ -389,32 +388,33 @@ void cPluginMcli::Action (void)
 				if (!d) {
 					printf ("  Tuner: %s [%s], Type %d\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, type);
 					cMcliDevice *m = new cMcliDevice;
-					cPluginManager::CallAllServices("OnNewMcliDevice", &m);
-					if(m) {
+					cPluginManager::CallAllServices ("OnNewMcliDevice", &m);
+					if (m) {
 						m->SetUUID (nci->tuner[i].uuid);
 						m->SetFEType (type);
 						m->SetEnable (true);
 						d = new cMcliDeviceObject (m);
 						m_devs.Add (d);
-					} // if
-                    if(m_devs.Count() == 1) { // the first tuner that was found, so make VDR retune to the channel it wants...
-                        cChannel *ch = Channels.GetByNumber(cDevice::CurrentChannel());
-                        if(ch)
-                            cDevice::PrimaryDevice()->SwitchChannel(ch, true);
-                    }
+					}	// if
+					if (m_devs.Count () == 1) {	// the first tuner that was found, so make VDR retune to the channel it wants...
+						cChannel *ch = Channels.GetByNumber (cDevice::CurrentChannel ());
+						if (ch) {
+							cDevice::PrimaryDevice ()->SwitchChannel (ch, true);
+						}
+					}
 				}
 			}
 		}
 		nc_unlock_list ();
 		Unlock ();
-		
+
 		usleep (250 * 1000);
 	}
 }
 
 bool cPluginMcli::Initialize (void)
 {
-	return InitMcli();
+	return InitMcli ();
 }
 
 
@@ -439,17 +439,15 @@ void cPluginMcli::Stop (void)
 void cPluginMcli::Housekeeping (void)
 {
 	// printf ("cPluginMcli::Housekeeping\n");
-	// Perform any cleanup or other regular tasks.
 }
 
 void cPluginMcli::MainThreadHook (void)
 {
-	// Perform actions in the context of the main program thread.
-	// WARNING: Use with great care - see PLUGINS.html!
 //      printf("cPluginMcli::MainThreadHook\n");
-	if(reconf) {
-		reconfigure();
-		reconf=0;
+	if (reconf) {
+		reconfigure ();
+		reconf = 0;
+		reconf_full = 0;
 	}
 }
 
@@ -467,20 +465,24 @@ time_t cPluginMcli::WakeupTime (void)
 	return 0;
 }
 
-void cPluginMcli::reconfigure(void)
+void cPluginMcli::reconfigure (void)
 {
 	LOCK_THREAD;
-	for (cMcliDeviceObject * d = m_devs.First (); d; d = m_devs.Next (d)) {
+	for (cMcliDeviceObject * d = m_devs.First (); d;) {
+		cMcliDeviceObject *next = m_devs.Next (d);
 		d->d ()->SetEnable (false);
-                d->d ()->ExitMcli();
-//		delete d->d ();
-//		m_devs.Del (d);
+		d->d ()->ExitMcli ();
+		if (reconf_full) {
+			delete d->d ();
+			m_devs.Del (d);
+		}
+		d = next;
 	}
 
-	ExitMcli();
-	InitMcli();
+	ExitMcli ();
+	InitMcli ();
 	for (cMcliDeviceObject * d = m_devs.First (); d; d = m_devs.Next (d)) {
-                d->d ()->InitMcli();
+		d->d ()->InitMcli ();
 		d->d ()->SetEnable (true);
 	}
 }
@@ -489,7 +491,7 @@ cOsdObject *cPluginMcli::MainMenuAction (void)
 {
 	printf ("cPluginMcli::MainMenuAction\n");
 	// Perform the action when selected from the main VDR menu.
-	return new cCamMenu(&m_cmd);
+	return new cCamMenu (&m_cmd);
 }
 
 
@@ -497,51 +499,57 @@ cMenuSetupPage *cPluginMcli::SetupMenu (void)
 {
 	printf ("cPluginMcli::SetupMenu\n");
 	// Return a setup menu in case the plugin supports one.
-	return new cMenuSetupMcli(&m_cmd);
+	return new cMenuSetupMcli (&m_cmd);
 }
 
 bool cPluginMcli::SetupParse (const char *Name, const char *Value)
 {
 	printf ("cPluginMcli::SetupParse\n");
-	if(!strcasecmp(Name, "DVB-C") && m_cmd.tuner_type_limit[FE_QAM]==MCLI_MAX_DEVICES ) m_cmd.tuner_type_limit[FE_QAM]=atoi(Value);
-	else if(!strcasecmp(Name, "DVB-T") && m_cmd.tuner_type_limit[FE_OFDM]==MCLI_MAX_DEVICES ) m_cmd.tuner_type_limit[FE_OFDM]=atoi(Value);
-	else if(!strcasecmp(Name, "DVB-S") && m_cmd.tuner_type_limit[FE_QPSK]==MCLI_MAX_DEVICES ) m_cmd.tuner_type_limit[FE_QPSK]=atoi(Value);
-	else if(!strcasecmp(Name, "DVB-S2") && m_cmd.tuner_type_limit[FE_DVBS2]==MCLI_MAX_DEVICES ) m_cmd.tuner_type_limit[FE_DVBS2]=atoi(Value);
-	else return false;
+	if (!strcasecmp (Name, "DVB-C") && m_cmd.tuner_type_limit[FE_QAM] == MCLI_MAX_DEVICES)
+		m_cmd.tuner_type_limit[FE_QAM] = atoi (Value);
+	else if (!strcasecmp (Name, "DVB-T") && m_cmd.tuner_type_limit[FE_OFDM] == MCLI_MAX_DEVICES)
+		m_cmd.tuner_type_limit[FE_OFDM] = atoi (Value);
+	else if (!strcasecmp (Name, "DVB-S") && m_cmd.tuner_type_limit[FE_QPSK] == MCLI_MAX_DEVICES)
+		m_cmd.tuner_type_limit[FE_QPSK] = atoi (Value);
+	else if (!strcasecmp (Name, "DVB-S2") && m_cmd.tuner_type_limit[FE_DVBS2] == MCLI_MAX_DEVICES)
+		m_cmd.tuner_type_limit[FE_DVBS2] = atoi (Value);
+	else
+		return false;
 	return true;
 }
 
 #define MAX_TUNERS_IN_MENU 16
-typedef struct {
-    int type[MAX_TUNERS_IN_MENU];
-       char name[MAX_TUNERS_IN_MENU][128];
+typedef struct
+{
+	int type[MAX_TUNERS_IN_MENU];
+	char name[MAX_TUNERS_IN_MENU][128];
 } mytuner_info_t;
 
 bool cPluginMcli::Service (const char *Id, void *Data)
 {
 	//printf ("cPluginMcli::Service: \"%s\"\n", Id);
-    mytuner_info_t *infos = (mytuner_info_t*)Data;
+	mytuner_info_t *infos = (mytuner_info_t *) Data;
 
-    if (Id && strcmp(Id, "GetTunerInfo") == 0) {
-        netceiver_info_list_t *nc_list = nc_get_list();
-        nc_lock_list();
-        for(int n = 0; n < nc_list->nci_num; n++) {
-            netceiver_info_t *nci = nc_list->nci + n;
-            for (int i = 0; i < nci->tuner_num && i < MAX_TUNERS_IN_MENU; i++) {
-                strcpy(infos->name[i], nci->tuner[i].fe_info.name);
-                infos->type[i] = nci->tuner[i].fe_info.type;
-                //printf("Tuner: %s\n", nci->tuner[i].fe_info.name);
-            }
-        }
-        nc_unlock_list();
-        return true;
-    } else if (Id && strcmp(Id, "Reinit") == 0) {
-      if(Data && strlen((char*)Data) && (strncmp((char*)Data, "eth", 3) || strncmp((char*)Data, "br", 2))){
-        strncpy (m_cmd.iface, (char*)Data, IFNAMSIZ - 1);
-      }
-      reconfigure();
-      return true;
-    }
+	if (Id && strcmp (Id, "GetTunerInfo") == 0) {
+		netceiver_info_list_t *nc_list = nc_get_list ();
+		nc_lock_list ();
+		for (int n = 0; n < nc_list->nci_num; n++) {
+			netceiver_info_t *nci = nc_list->nci + n;
+			for (int i = 0; i < nci->tuner_num && i < MAX_TUNERS_IN_MENU; i++) {
+				strcpy (infos->name[i], nci->tuner[i].fe_info.name);
+				infos->type[i] = nci->tuner[i].fe_info.type;
+				//printf("Tuner: %s\n", nci->tuner[i].fe_info.name);
+			}
+		}
+		nc_unlock_list ();
+		return true;
+	} else if (Id && strcmp (Id, "Reinit") == 0) {
+		if (Data && strlen ((char *) Data) && (strncmp ((char *) Data, "eth", 3) || strncmp ((char *) Data, "br", 2))) {
+			strncpy (m_cmd.iface, (char *) Data, IFNAMSIZ - 1);
+		}
+		reconfigure ();
+		return true;
+	}
 	// Handle custom service requests from other plugins
 	return false;
 }
@@ -550,13 +558,11 @@ const char **cPluginMcli::SVDRPHelpPages (void)
 {
 	printf ("cPluginMcli::SVDRPHelpPages\n");
 	// Return help text for SVDRP commands this plugin implements
-    static const char *HelpPages[] =
-    {
-        "REINIT [dev]\n"
-            "    Reinitalize the plugin on a certain network device - e.g.: plug mcli REINIT eth0",
-        NULL
-    };
-    return HelpPages;
+	static const char *HelpPages[] = {
+		"REINIT [dev]\n" "    Reinitalize the plugin on a certain network device - e.g.: plug mcli REINIT eth0",
+		NULL
+	};
+	return HelpPages;
 }
 
 cString cPluginMcli::SVDRPCommand (const char *Command, const char *Option, int &ReplyCode)
@@ -564,15 +570,15 @@ cString cPluginMcli::SVDRPCommand (const char *Command, const char *Option, int 
 	printf ("cPluginMcli::SVDRPCommand\n");
 	// Process SVDRP commands this plugin implements
 
-    if (strcasecmp(Command, "REINIT") == 0) {
-        if(Option && (strncmp(Option, "eth", 3) || strncmp(Option, "br", 2))) {
-            strncpy (m_cmd.iface, (char*)Option, IFNAMSIZ - 1);
-        }
-        reconfigure();
-        return cString("Mcli-plugin: reconfiguring...");
-    }
+	if (strcasecmp (Command, "REINIT") == 0) {
+		if (Option && (strncmp (Option, "eth", 3) || strncmp (Option, "br", 2))) {
+			strncpy (m_cmd.iface, (char *) Option, IFNAMSIZ - 1);
+		}
+		reconfigure ();
+		return cString ("Mcli-plugin: reconfiguring...");
+	}
 
-    return NULL;
+	return NULL;
 }
 
 VDRPLUGINCREATOR (cPluginMcli);	// Don't touch this!

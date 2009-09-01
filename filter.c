@@ -136,7 +136,7 @@ bool cMcliFilter::PutSection (const uchar * Data, int Length, bool Pusi)
 		return true;
 	}
 	if (m_Used && Pusi) {	/* reset at payload unit start */
-//		int length = (((m_Buffer[1] & 0x0F) << 8) | m_Buffer[2]) + 3;
+//              int length = (((m_Buffer[1] & 0x0F) << 8) | m_Buffer[2]) + 3;
 //              printf("RESET expect %d got %d for pid %d tid %d mask %02x \n",length, m_Used, Pid(), Tid(), Mask());
 		Reset ();
 	}
@@ -212,12 +212,12 @@ int cMcliFilters::PutTS (const uchar * data, int len)
 {
 	u_short pid = (((u_short) data[1] & PID_MASK_HI) << 8) | data[2];
 	if (m_PB && WantPid (pid)) {
-        	int i;
-        	for(i=0; i<len; i+=TS_SIZE) {
-			unsigned char *ptr=m_PB->PutStart(TS_SIZE);
-			if(ptr) {
-				memcpy(ptr, data+i, TS_SIZE);
-				m_PB->PutEnd(TS_SIZE, 0, 0);
+		int i;
+		for (i = 0; i < len; i += TS_SIZE) {
+			unsigned char *ptr = m_PB->PutStart (TS_SIZE);
+			if (ptr) {
+				memcpy (ptr, data + i, TS_SIZE);
+				m_PB->PutEnd (TS_SIZE, 0, 0);
 			}
 		}
 	}
@@ -246,8 +246,8 @@ int cMcliFilters::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 	}
 
 	if (!m_PB) {
-		m_PB =  new cMyPacketBuffer(10000*TS_SIZE, 10000);
-		m_PB->SetTimeouts(0, 1000*20);
+		m_PB = new cMyPacketBuffer (10000 * TS_SIZE, 10000);
+		m_PB->SetTimeouts (0, 1000 * 20);
 	}
 	Start ();
 
@@ -356,7 +356,7 @@ void cMcliFilters::Action (void)
 {
 
 	while (Running ()) {
-		m_PB->GetEnd();
+		m_PB->GetEnd ();
 		int size;
 		const uchar *block = m_PB->GetStart (&size, 0, 0);
 		if (block) {
@@ -389,7 +389,7 @@ void cMcliFilters::Action (void)
 						Del (f);
 						// Filter was closed.
 						//  - need to check remaining filters for another match
-					} // if
+					}	// if
 				}
 				f = next;
 			}

@@ -61,7 +61,7 @@ class cMcliDevice:public cDevice
 	virtual int OpenFilter (u_short Pid, u_char Tid, u_char Mask);
 	virtual void CloseFilter (int Handle);
 #ifdef GET_TS_PACKETS
-    virtual int GetTSPackets(uchar*, int);
+	virtual int GetTSPackets (uchar *, int);
 #endif
 
       public:
@@ -73,9 +73,17 @@ class cMcliDevice:public cDevice
 	  virtual ~ cMcliDevice ();
 
 #ifdef REELVDR
-    const cChannel *CurChan() const { return m_chan; };
+	const cChannel *CurChan () const
+	{
+		return m_chan;
+	};
 #endif
-
+	unsigned int FrequencyToHz (unsigned int f)
+	{
+		while (f && f < 1000000)
+			f *= 1000;
+		return f;
+	}
 	virtual bool HasInternalCam (void)
 	{
 		return true;
@@ -85,29 +93,32 @@ class cMcliDevice:public cDevice
 	virtual bool ProvidesChannel (const cChannel * Channel, int Priority = -1, bool * NeedsDetachReceivers = NULL) const;
 	virtual bool IsTunedToTransponder (const cChannel * Channel);
 
-	virtual int HandleTsData(unsigned char *buffer, size_t len);
+	virtual int HandleTsData (unsigned char *buffer, size_t len);
 	void SetTenData (tra_t * ten);
 	void SetEnable (bool val = true);
 	void SetFEType (fe_type_t val);
 	fe_type_t GetFEType (void)
-	{ 
+	{
 		return m_fetype;
 	};
 	void SetUUID (const char *uuid);
 	const char *GetUUID (void);
-	void InitMcli(void);
-	void ExitMcli(void);
-	virtual bool ProvidesS2() const
+	void InitMcli (void);
+	void ExitMcli (void);
+	virtual bool ProvidesS2 () const
 	{
 		return m_fetype == FE_DVBS2;
 	}
 #ifdef REELVDR
-    virtual bool HasInput(void) const { return m_enable; }
+	virtual bool HasInput (void) const
+	{
+		return m_enable;
+	}
 #endif
 #ifdef DEVICE_ATTRIBUTES
 	// Reel extension
-	virtual int GetAttribute(const char *attr_name, uint64_t *val);
-	virtual int GetAttribute(const char *attr_name, char *val, int maxret);
+	virtual int GetAttribute (const char *attr_name, uint64_t * val);
+	virtual int GetAttribute (const char *attr_name, char *val, int maxret);
 #endif
 };
 
