@@ -354,6 +354,8 @@ void cPluginMcli::Action (void)
 {
 	netceiver_info_list_t *nc_list = nc_get_list ();
 	printf ("Looking for netceivers out there....\n");
+	bool channel_switch_ok=false;
+	
 	while (Running ()) {
 		Lock ();
 		nc_lock_list ();
@@ -396,10 +398,10 @@ void cPluginMcli::Action (void)
 						d = new cMcliDeviceObject (m);
 						m_devs.Add (d);
 					}	// if
-					if (m_devs.Count () == 1) {	// the first tuner that was found, so make VDR retune to the channel it wants...
+					if (!channel_switch_ok) {	// the first tuner that was found, so make VDR retune to the channel it wants...
 						cChannel *ch = Channels.GetByNumber (cDevice::CurrentChannel ());
 						if (ch) {
-							cDevice::PrimaryDevice ()->SwitchChannel (ch, true);
+							channel_switch_ok=cDevice::PrimaryDevice ()->SwitchChannel (ch, true);
 						}
 					}
 				}

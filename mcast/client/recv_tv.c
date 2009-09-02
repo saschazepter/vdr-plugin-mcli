@@ -558,11 +558,11 @@ int recv_count_pids(recv_info_t * r)
 static int recv_copy_pids(dvb_pid_t *dst, dvb_pid_t *src)
 {
 	int i;
-	for (i=0; (src[i].pid!=-1) && (i<RECV_MAX_PIDS); i++) {
+	for (i=0; (src[i].pid!=-1) && (i<(RECV_MAX_PIDS-1)); i++) {
 		dst[i]=src[i];
 	}
-	if(i==RECV_MAX_PIDS) {
-		warn("Cannot receive more than %d pids\n", RECV_MAX_PIDS);
+	if(i==(RECV_MAX_PIDS-1)) {
+		warn("Cannot receive more than %d pids\n", RECV_MAX_PIDS-1);
 	}
 	return i;
 }
@@ -587,6 +587,7 @@ int recv_pids_get (recv_info_t *r, dvb_pid_t *pids)
 	pthread_mutex_lock (&lock);
 	if(pids) {
 		memcpy(pids, r->pids, sizeof(dvb_pid_t)*r->pidsnum);
+		pids[r->pidsnum].pid=-1;
 	}
 	pthread_mutex_unlock (&lock);
 	return r->pidsnum;
@@ -600,7 +601,7 @@ int recv_pid_add (recv_info_t * r, dvb_pid_t *pid)
 	
 	pthread_mutex_lock (&lock);
 	pid_info_t *p=find_slot_by_pid (r, pid->pid, pid->id);
-	if(!p && (r->pidsnum < (RECV_MAX_PIDS-1))) {
+	if(!p && (r->pidsnum < (RECV_MAX_PIDS-2))) {
 #if defined(RE)
 		r->pids[r->pidsnum].re = 0;
 #endif

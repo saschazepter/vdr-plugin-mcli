@@ -36,6 +36,7 @@ class cMcliDevice:public cDevice
 
       private:
 	int m_pidsnum;
+	int m_mcpidsnum;
 	bool m_dvr_open;
 	recv_info_t *m_r;
 	recv_sec_t m_sec;

@@ -24,6 +24,8 @@
 #define st_Pos  0x07FF
 #define st_Neg  0x0800
 
+//#define DEBUG_PIDS 
+
 using namespace std;
 
 static int handle_ts (unsigned char *buffer, size_t len, void *p)
@@ -105,9 +107,11 @@ cMcliDevice::cMcliDevice (void)
 	m_filters = new cMcliFilters ();
 	printf ("cMcliDevice: got device number %d\n", CardIndex () + 1);
 	m_pidsnum = 0;
+	m_mcpidsnum = 0;
 	m_chan = NULL;
 	m_fetype = FE_QPSK;
 	memset (m_pids, 0, sizeof (m_pids));
+	m_pids[0].pid=-1;
 	InitMcli ();
 }
 
@@ -217,11 +221,11 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 
 	memset (&m_sec, 0, sizeof (recv_sec_t));
 	memset (&m_fep, 0, sizeof (struct dvb_frontend_parameters));
-	memset (&m_pids, 0, sizeof (m_pids));
+//	memset (&m_pids, 0, sizeof (m_pids));
 	if (!IsTunedToTransponder (Channel)) {
 		memset (&m_ten, 0, sizeof (tra_t));
 	}
-	m_pidsnum = 0;
+//	m_pidsnum = 0;
 	m_chan = Channel;
 
 	switch (m_fetype) {
@@ -277,7 +281,13 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 		m_pos = NO_SAT_POS;
 	}
 
-	recv_tune (m_r, m_fetype, m_pos, &m_sec, &m_fep, NULL);
+	recv_tune (m_r, m_fetype, m_pos, &m_sec, &m_fep, m_pids);
+#if DEBUG_PIDS
+	printf ("%p SetChannelDevice: Pidsnum: %d m_pidsnum: %d\n", m_r, m_mcpidsnum, m_pidsnum);
+	for (int i = 0; i < m_mcpidsnum; i++) {
+		printf ("Pid: %d\n", m_pids[i].pid);
+	}
+#endif
 
 	return true;
 }
@@ -330,10 +340,10 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 						break;
 					}
 				}
-				if (pi.pid == m_chan->Vpid () || (set && pi.pid)) {
-					pi.id = m_chan->Sid ();
-					if (m_chan->Ca (0) <= 0xf) {
-						pi.priority = m_chan->Ca (0) & 3;
+				if (pi.pid == m_chan->Vpid() || (set && pi.pid)) {
+					pi.id = m_chan->Sid();
+					if(m_chan->Ca(0)<=0xff) {
+						pi.priority=m_chan->Ca(0)&0x03;
 					}
 				} else {
 					pi.id = 0;
@@ -348,11 +358,10 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 			recv_pid_del (m_r, Handle->pid);
 		}
 	}
-	int pidsnum;
-	pidsnum = recv_pids_get (m_r, m_pids);
-#if 0
-	printf ("Pidsnum: %d m_pidsnum: %d\n", pidsnum, m_pidsnum);
-	for (int i = 0; i < pidsnum; i++) {
+	m_mcpidsnum = recv_pids_get (m_r, m_pids);
+#if DEBUG_PIDS
+	printf ("%p SetPid: Pidsnum: %d m_pidsnum: %d\n", m_r, m_mcpidsnum, m_pidsnum);
+	for (int i = 0; i < m_mcpidsnum; i++) {
 		printf ("Pid: %d\n", m_pids[i].pid);
 	}
 #endif
@@ -435,11 +444,10 @@ int cMcliDevice::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 	}
 //      printf ("Add Pid: %d\n", pi.pid);
 	recv_pid_add (m_r, &pi);
-	int pidsnum;
-	pidsnum = recv_pids_get (m_r, m_pids);
-#if 0
-	printf ("Pidsnum: %d m_pidsnum: %d\n", pidsnum, m_pidsnum);
-	for (int i = 0; i < pidsnum; i++) {
+	m_mcpidsnum = recv_pids_get (m_r, m_pids);
+#if DEBUG_PIDS
+	printf ("%p OpenFilter: Pidsnum: %d m_pidsnum: %d\n", m_r, m_mcpidsnum, m_pidsnum);
+	for (int i = 0; i < m_mcpidsnum; i++) {
 		printf ("Pid: %d\n", m_pids[i].pid);
 	}
 #endif
