@@ -44,6 +44,7 @@ typedef enum
 	STREAMING_TRA = 2,
 	STREAMING_PID = 3,
 	STREAMING_TEN = 4,
+	STREAMING_LOG = 5,
 } streaming_group_t;
 
 
@@ -99,4 +100,9 @@ int gzip (Bytef * dest, unsigned int *destLen, const Bytef * source, unsigned in
 int gunzip (Bytef * dest, unsigned int *destLen, const Bytef * source, unsigned int sourceLen);
 void print_trace (void);
 void SignalHandlerCrash(int signum);
+
+int syslog_init(void);
+int syslog_write(char *s);
+void syslog_exit(void);
+
 #endif

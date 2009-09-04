@@ -743,3 +743,25 @@ void SignalHandlerCrash(int signum)
 	}
 }
 #endif
+
+UDPContext * syslog_fd = NULL;
+
+int syslog_init(void)
+{
+	struct in6_addr mcglog;
+	mcg_init_streaming_group (&mcglog, STREAMING_LOG);
+	syslog_fd = server_udp_open (&mcglog, 23000, NULL);
+	return syslog_fd>=0?0:-1;
+}
+
+int syslog_write(char *s)
+{
+	return udp_write (syslog_fd, (uint8_t *)s, strlen(s)+1);
+}
+
+void syslog_exit(void)
+{
+	if(syslog_fd) {
+		udp_close(syslog_fd);
+	}
+}

@@ -237,8 +237,18 @@ typedef struct recv_festatus
 
 #define UUID_SIZE 256
 #ifndef WIN32
+
+#ifdef SYSLOG
 #ifdef DEBUG
-  #define dbg(format, arg...) printf("%s:%d " format , __FILE__ , __LINE__ , ## arg)
+  #define dbg(format, arg...) {char str[1024]; sprintf(str, "%s:%d " format , __FILE__ , __LINE__ , ## arg); syslog_write(str);}
+#else
+  #define dbg(format, arg...) do {} while (0)
+#endif 
+  #define err(format, arg...) {char str[1024]; sprintf(str, "err:%s:%d: %s (%d): " format , __FILE__ , __LINE__ ,strerror(errno), errno, ## arg); fprintf(stdout, "%s", str); syslog_write(str);abort();}	
+  #define info(format, arg...){char str[1024]; sprintf(str, format ,## arg); fprintf(stdout, "%s", str); syslog_write(str);}
+  #define warn(format, arg...){char str[1024]; sprintf(str, format ,## arg); fprintf(stdout, "%s", str); syslog_write(str);}
+#elif defined DEBUG
+  #define dbg(format, arg...) {printf("%s:%d " format , __FILE__ , __LINE__ , ## arg)}
   #define err(format, arg...) {fprintf(stderr,"err:%s:%d: %s (%d): " format , __FILE__ , __LINE__ ,strerror(errno), errno, ## arg);print_trace();abort();}	
   #define info(format, arg...) printf("%s:%d: " format , __FILE__ , __LINE__ ,## arg)
   #define warn(format, arg...) fprintf(stderr,"%s:%d: " format , __FILE__ , __LINE__ ,## arg)
@@ -248,6 +258,7 @@ typedef struct recv_festatus
   #define info(format, arg...) printf(format , ## arg)
   #define warn(format, arg...) fprintf(stderr, format , ## arg)
 #endif
+
 #else
 	#ifdef DEBUG
 		static void inline dbg (char *format, ...) 

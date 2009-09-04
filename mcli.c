@@ -407,6 +407,9 @@ void cPluginMcli::Action (void)
 				}
 			}
 		}
+		if (!m_devs.Count()) {
+			channel_switch_ok=0;
+		}
 		nc_unlock_list ();
 		Unlock ();
 
