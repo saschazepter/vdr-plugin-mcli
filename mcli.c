@@ -205,7 +205,15 @@ cOsdObject *cPluginMcli::AltMenuAction (void)
 			for (cMcliDeviceObject * dev = m_devs.First (); dev; dev = m_devs.Next (dev)) {
 				cMcliDevice *d = dev->d();
 				//printf("satpos: %i vpid: %i fep.freq: %i dev.freq: %i\n", satpos, vpid, fep.frequency, dev->CurChan()->Frequency());
-				if (!memcmp(&c->mcg, &d->GetTenData()->mcg, sizeof(struct in6_addr)))
+#if 1 //def DEBUG
+	char str[INET6_ADDRSTRLEN];
+	inet_ntop (AF_INET6, &c->mcg, str, INET6_ADDRSTRLEN);
+	printf ("MCG from MMI: %s\n", str);
+	inet_ntop (AF_INET6, &d->GetTenData()->mcg, str, INET6_ADDRSTRLEN);
+	printf ("MCG from DEV: %s\n", str);
+#endif
+				
+				if (IN6_IS_ADDR_UNSPECIFIED(&c->mcg) || !memcmp(&c->mcg, &d->GetTenData()->mcg, sizeof(struct in6_addr)))
 					return new cCamMenu (&m_cmd, &m);
 			}
 			printf ("SID/Program Number:%04x, SatPos:%d Freqency:%d\n", c->caid, satpos, fep.frequency);

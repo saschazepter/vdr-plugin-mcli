@@ -111,6 +111,7 @@ cMcliDevice::cMcliDevice (void)
 	m_chan = NULL;
 	m_fetype = FE_QPSK;
 	memset (m_pids, 0, sizeof (m_pids));
+	memset (&m_ten, 0, sizeof (tra_t));
 	m_pids[0].pid=-1;
 	InitMcli ();
 }
