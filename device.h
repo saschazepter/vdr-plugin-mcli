@@ -95,6 +95,9 @@ class cMcliDevice:public cDevice
 	virtual bool IsTunedToTransponder (const cChannel * Channel);
 
 	virtual int HandleTsData (unsigned char *buffer, size_t len);
+	tra_t *GetTenData (void) {
+		return &m_ten;
+	}
 	void SetTenData (tra_t * ten);
 	void SetEnable (bool val = true);
 	void SetFEType (fe_type_t val);

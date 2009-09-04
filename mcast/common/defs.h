@@ -240,13 +240,13 @@ typedef struct recv_festatus
 
 #ifdef SYSLOG
 #ifdef DEBUG
-  #define dbg(format, arg...) {char str[1024]; sprintf(str, "%s:%d " format , __FILE__ , __LINE__ , ## arg); syslog_write(str);}
+  #define dbg(format, arg...) {char _str[1024]; sprintf(_str, "%s:%d " format , __FILE__ , __LINE__ , ## arg); syslog_write(_str);}
 #else
   #define dbg(format, arg...) do {} while (0)
 #endif 
-  #define err(format, arg...) {char str[1024]; sprintf(str, "err:%s:%d: %s (%d): " format , __FILE__ , __LINE__ ,strerror(errno), errno, ## arg); fprintf(stdout, "%s", str); syslog_write(str);abort();}	
-  #define info(format, arg...){char str[1024]; sprintf(str, format ,## arg); fprintf(stdout, "%s", str); syslog_write(str);}
-  #define warn(format, arg...){char str[1024]; sprintf(str, format ,## arg); fprintf(stdout, "%s", str); syslog_write(str);}
+  #define err(format, arg...) {char _str[1024]; sprintf(_str, "err:%s:%d: %s (%d): " format , __FILE__ , __LINE__ ,strerror(errno), errno, ## arg); fprintf(stdout, "%s", _str); syslog_write(_str);abort();}	
+  #define info(format, arg...){char _str[1024]; sprintf(_str, format ,## arg); fprintf(stdout, "%s", _str); syslog_write(_str);}
+  #define warn(format, arg...){char _str[1024]; sprintf(_str, format ,## arg); fprintf(stdout, "%s", _str); syslog_write(_str);}
 #elif defined DEBUG
   #define dbg(format, arg...) {printf("%s:%d " format , __FILE__ , __LINE__ , ## arg)}
   #define err(format, arg...) {fprintf(stderr,"err:%s:%d: %s (%d): " format , __FILE__ , __LINE__ ,strerror(errno), errno, ## arg);print_trace();abort();}	

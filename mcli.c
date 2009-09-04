@@ -202,10 +202,10 @@ cOsdObject *cPluginMcli::AltMenuAction (void)
 			mcg_get_satpos (&c->mcg, &satpos);
 			mcg_to_fe_parms (&c->mcg, &type, &sec, &fep, &vpid);
 
-			for (int j = 0; j < m_devs.Count (); j++) {
-				cMcliDevice *dev = m_devs.Get (j)->d ();
+			for (cMcliDeviceObject * dev = m_devs.First (); dev; dev = m_devs.Next (dev)) {
+				cMcliDevice *d = dev->d();
 				//printf("satpos: %i vpid: %i fep.freq: %i dev.freq: %i\n", satpos, vpid, fep.frequency, dev->CurChan()->Frequency());
-				if ((int) fep.frequency / 1000 == dev->CurChan ()->Frequency ())
+				if (!memcmp(&c->mcg, &d->GetTenData()->mcg, sizeof(struct in6_addr)))
 					return new cCamMenu (&m_cmd, &m);
 			}
 			printf ("SID/Program Number:%04x, SatPos:%d Freqency:%d\n", c->caid, satpos, fep.frequency);
