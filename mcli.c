@@ -406,12 +406,15 @@ void cPluginMcli::Action (void)
 						d = new cMcliDeviceObject (m);
 						m_devs.Add (d);
 					}	// if
+//TB: reelvdr itself tunes if the first tuner appears, don't do it twice
+#ifndef REELVDR
 					if (!channel_switch_ok) {	// the first tuner that was found, so make VDR retune to the channel it wants...
 						cChannel *ch = Channels.GetByNumber (cDevice::CurrentChannel ());
 						if (ch) {
 							channel_switch_ok=cDevice::PrimaryDevice ()->SwitchChannel (ch, true);
 						}
 					}
+#endif
 				}
 			}
 		}
