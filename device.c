@@ -67,7 +67,7 @@ void cMcliDevice::SetEnable (bool val)
 	if (!m_enable) {
 		recv_stop (m_r);
 	} else {
-		recv_tune (m_r, m_fetype, m_pos, &m_sec, &m_fep, NULL);
+		recv_tune (m_r, m_fetype, m_pos, &m_sec, &m_fep, m_pids);
 	}
 }
 
