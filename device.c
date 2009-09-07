@@ -67,7 +67,9 @@ void cMcliDevice::SetEnable (bool val)
 	if (!m_enable) {
 		recv_stop (m_r);
 	} else {
-		recv_tune (m_r, m_fetype, m_pos, &m_sec, &m_fep, m_pids);
+		if (m_chan) {
+			recv_tune (m_r, m_fetype, m_pos, &m_sec, &m_fep, m_pids);
+		}
 	}
 }
 
@@ -122,10 +124,6 @@ void cMcliDevice::InitMcli (void)
 
 	register_ten_handler (m_r, handle_ten, this);
 	register_ts_handler (m_r, handle_ts, this);
-	if (m_chan) {
-		isyslog ("reinit: tuning and setting pids again");
-		recv_tune (m_r, m_fetype, m_pos, &m_sec, &m_fep, m_pids);
-	}
 }
 
 void cMcliDevice::ExitMcli (void)
