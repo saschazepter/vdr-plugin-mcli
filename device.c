@@ -218,7 +218,7 @@ bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool 
 
 bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 {
-	int is_scan=(Channel->Source () == 16384) && !strlen(Channel->Name()) && !strlen(Channel->Provider());
+	int is_scan=((Channel->Source () == 0x4000)||(Channel->Source () == 0xc000)) && !strlen(Channel->Name()) && !strlen(Channel->Provider());
 //	printf ("SetChannelDevice Channel(%p): %s, Provider: %s, Source: %d, LiveView: %s, IsScan: %d\n", Channel, Channel->Name (), Channel->Provider (), Channel->Source (), LiveView ? "true" : "false", is_scan);
 	
 	if (!m_enable) {
