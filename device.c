@@ -26,7 +26,7 @@
 
 //#define DEBUG_PIDS 
 
-#define TEMP_DISABLE_TIMEOUT (10)
+#define TEMP_DISABLE_TIMEOUT (30)
 
 using namespace std;
 
@@ -301,7 +301,7 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 		memset(&pi, 0, sizeof(dvb_pid_t));
 		recv_pid_add (m_r, &pi);
 	}
-#if DEBUG_PIDS
+#ifdef DEBUG_PIDS
 	printf ("%p SetChannelDevice: Pidsnum: %d m_pidsnum: %d\n", m_r, m_mcpidsnum, m_pidsnum);
 	for (int i = 0; i < m_mcpidsnum; i++) {
 		printf ("Pid: %d\n", m_pids[i].pid);
@@ -378,7 +378,7 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 		}
 	}
 	m_mcpidsnum = recv_pids_get (m_r, m_pids);
-#if DEBUG_PIDS
+#ifdef DEBUG_PIDS
 	printf ("%p SetPid: Pidsnum: %d m_pidsnum: %d\n", m_r, m_mcpidsnum, m_pidsnum);
 	for (int i = 0; i < m_mcpidsnum; i++) {
 		printf ("Pid: %d\n", m_pids[i].pid);
@@ -465,7 +465,7 @@ int cMcliDevice::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 //      printf ("Add Pid: %d\n", pi.pid);
 	recv_pid_add (m_r, &pi);
 	m_mcpidsnum = recv_pids_get (m_r, m_pids);
-#if DEBUG_PIDS
+#ifdef DEBUG_PIDS
 	printf ("%p OpenFilter: Pidsnum: %d m_pidsnum: %d\n", m_r, m_mcpidsnum, m_pidsnum);
 	for (int i = 0; i < m_mcpidsnum; i++) {
 		printf ("Pid: %d\n", m_pids[i].pid);
