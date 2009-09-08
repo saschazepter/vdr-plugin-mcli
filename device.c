@@ -219,7 +219,7 @@ bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool 
 bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 {
 	int is_scan=/*((Channel->Source () == 0x4000)||(Channel->Source () == 0xc000)) &&*/ !strlen(Channel->Name()) && !strlen(Channel->Provider());
-//	printf ("SetChannelDevice Channel(%p): %s, Provider: %s, Source: %d, LiveView: %s, IsScan: %d\n", Channel, Channel->Name (), Channel->Provider (), Channel->Source (), LiveView ? "true" : "false", is_scan);
+	printf ("SetChannelDevice Channel(%p): %s, Provider: %s, Source: %d, LiveView: %s, IsScan: %d\n", Channel, Channel->Name (), Channel->Provider (), Channel->Source (), LiveView ? "true" : "false", is_scan);
 	
 	if (!m_enable) {
 		return false;
@@ -296,7 +296,7 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	}
 
 	recv_tune (m_r, m_fetype, m_pos, &m_sec, &m_fep, m_pids);
-	if(is_scan && (m_pids[0].pid==-1)) {
+	if(/*is_scan &&*/ (m_pids[0].pid==-1)) {
 		dvb_pid_t pi;
 		memset(&pi, 0, sizeof(dvb_pid_t));
 		recv_pid_add (m_r, &pi);
