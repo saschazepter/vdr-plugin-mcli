@@ -26,6 +26,8 @@
 
 //#define DEBUG_PIDS 
 
+#define TEMP_DISABLE_TIMEOUT (10)
+
 using namespace std;
 
 static int handle_ts (unsigned char *buffer, size_t len, void *p)
@@ -73,12 +75,14 @@ void cMcliDevice::SetEnable (bool val)
 	}
 }
 
-void cMcliDevice::SetTempDisable (void)
+bool cMcliDevice::SetTempDisable (void)
 {
 	LOCK_THREAD;
-	if(!Receiving (true)) {
+	if(!Receiving (true) && (time(NULL)-m_last>=TEMP_DISABLE_TIMEOUT)) {
 		recv_stop (m_r);
+		return true;
 	}
+	return false;
 }
 
 void cMcliDevice::SetFEType (fe_type_t val)
@@ -120,6 +124,7 @@ cMcliDevice::cMcliDevice (void)
 	m_mcpidsnum = 0;
 	m_chan = NULL;
 	m_fetype = FE_QPSK;
+	m_last = 0;
 	memset (m_pids, 0, sizeof (m_pids));
 	memset (&m_ten, 0, sizeof (tra_t));
 	m_pids[0].pid=-1;
@@ -295,7 +300,7 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 		printf ("Pid: %d\n", m_pids[i].pid);
 	}
 #endif
-
+	m_last=time(NULL);
 	return true;
 }
 
@@ -372,6 +377,7 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 		printf ("Pid: %d\n", m_pids[i].pid);
 	}
 #endif
+	m_last=time(NULL);
 	return true;
 }
 
@@ -458,6 +464,7 @@ int cMcliDevice::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 		printf ("Pid: %d\n", m_pids[i].pid);
 	}
 #endif
+	m_last=time(NULL);
 	return m_filters->OpenFilter (Pid, Tid, Mask);
 }
 

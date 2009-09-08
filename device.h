@@ -50,6 +50,7 @@ class cMcliDevice:public cDevice
 	const cChannel *m_chan;
 	cMutex mutex;
 	bool m_enable;
+	time_t m_last;
 
       protected:
 	virtual bool SetChannelDevice (const cChannel * Channel, bool LiveView);
@@ -100,7 +101,7 @@ class cMcliDevice:public cDevice
 	}
 	void SetTenData (tra_t * ten);
 	void SetEnable (bool val = true);
-	void SetTempDisable (void);
+	bool SetTempDisable (void);
 	void SetFEType (fe_type_t val);
 	fe_type_t GetFEType (void)
 	{
