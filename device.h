@@ -52,7 +52,7 @@ class cMcliDevice:public cDevice
 	bool m_enable;
 
       protected:
-	  virtual bool SetChannelDevice (const cChannel * Channel, bool LiveView);
+	virtual bool SetChannelDevice (const cChannel * Channel, bool LiveView);
 	virtual bool HasLock (int TimeoutMs);
 	virtual bool SetPid (cPidHandle * Handle, int Type, bool On);
 	virtual bool OpenDvr (void);
@@ -100,6 +100,7 @@ class cMcliDevice:public cDevice
 	}
 	void SetTenData (tra_t * ten);
 	void SetEnable (bool val = true);
+	void SetTempDisable (void);
 	void SetFEType (fe_type_t val);
 	fe_type_t GetFEType (void)
 	{

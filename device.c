@@ -73,6 +73,14 @@ void cMcliDevice::SetEnable (bool val)
 	}
 }
 
+void cMcliDevice::SetTempDisable (void)
+{
+	LOCK_THREAD;
+	if(!Receiving (true)) {
+		recv_stop (m_r);
+	}
+}
+
 void cMcliDevice::SetFEType (fe_type_t val)
 {
 	m_fetype = val;

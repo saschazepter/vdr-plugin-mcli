@@ -18,6 +18,7 @@
 #include "cam_menu.h"
 #define MCLI_MAX_DEVICES 8
 #define MCLI_DEVICE_TIMEOUT 120
+#define TEMP_DISABLE_DEVICE
 
 static const char *VERSION = "0.0.1";
 static const char *DESCRIPTION = trNOOP ("NetCeiver Client Application");
@@ -422,8 +423,12 @@ void cPluginMcli::Action (void)
 			channel_switch_ok=0;
 		}
 		nc_unlock_list ();
+#ifdef TEMP_DISABLE_DEVICE		
+		for (cMcliDeviceObject * d = m_devs.First (); d; d = m_devs.Next (d)) {
+			d->d ()->SetTempDisable ();
+		}
+#endif		
 		Unlock ();
-
 		usleep (250 * 1000);
 	}
 }
