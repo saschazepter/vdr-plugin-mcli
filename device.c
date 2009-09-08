@@ -78,7 +78,7 @@ void cMcliDevice::SetEnable (bool val)
 bool cMcliDevice::SetTempDisable (void)
 {
 	LOCK_THREAD;
-	if(!Receiving (true) && (time(NULL)-m_last>=TEMP_DISABLE_TIMEOUT)) {
+	if(!Receiving (true) && ((time(NULL)-m_last)>=TEMP_DISABLE_TIMEOUT)) {
 		recv_stop (m_r);
 		return true;
 	}
@@ -464,7 +464,7 @@ int cMcliDevice::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 		printf ("Pid: %d\n", m_pids[i].pid);
 	}
 #endif
-	m_last=time(NULL);
+//	m_last=time(NULL);
 	return m_filters->OpenFilter (Pid, Tid, Mask);
 }
 
