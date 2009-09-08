@@ -218,14 +218,16 @@ bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool 
 
 bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 {
-//      printf ("SetChannelDevice Channel: %s, Provider: %s, Source: %d, LiveView: %s\n", Channel->Name (), Channel->Provider (), Channel->Source (), LiveView ? "true" : "false");
+	int is_scan=(Channel->Source () == 16384) && !strlen(Channel->Name()) && !strlen(Channel->Provider());
+//	printf ("SetChannelDevice Channel(%p): %s, Provider: %s, Source: %d, LiveView: %s, IsScan: %d\n", Channel, Channel->Name (), Channel->Provider (), Channel->Source (), LiveView ? "true" : "false", is_scan);
+	
 	if (!m_enable) {
 		return false;
 	}
 
 	LOCK_THREAD;
-
-	if (m_chan && Channel->Transponder () == m_chan->Transponder ()) {
+	
+	if (m_chan && Channel->Transponder () == m_chan->Transponder () && !is_scan) {
 //              printf("Already tuned to transponder\n");
 		m_chan = Channel;
 		return true;
@@ -294,6 +296,11 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	}
 
 	recv_tune (m_r, m_fetype, m_pos, &m_sec, &m_fep, m_pids);
+	if(is_scan && (m_pids[0].pid==-1)) {
+		dvb_pid_t pi;
+		memset(&pi, 0, sizeof(dvb_pid_t));
+		recv_pid_add (m_r, &pi);
+	}
 #if DEBUG_PIDS
 	printf ("%p SetChannelDevice: Pidsnum: %d m_pidsnum: %d\n", m_r, m_mcpidsnum, m_pidsnum);
 	for (int i = 0; i < m_mcpidsnum; i++) {
