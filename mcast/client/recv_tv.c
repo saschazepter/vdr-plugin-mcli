@@ -106,7 +106,7 @@ static void *recv_ts (void *arg)
 				int pid = ((ts[1] << 8) | ts[2]) & 0x1fff;
 				int transport_error_indicator = ts[1]&0x80;
 	
-				if ((adaption_field & 1) && (((cont_old + 1) & 0xf) != cont) && cont_old >= 0) {
+				if (pid != 8191 && (adaption_field & 1) && (((cont_old + 1) & 0xf) != cont) && cont_old >= 0) {
 					warn ("Discontinuity on receiver %p for pid %d: %d->%d at pos %d/%d\n", r, pid, cont_old, cont, i, n / 188);
 				}
 				if (transport_error_indicator) {
