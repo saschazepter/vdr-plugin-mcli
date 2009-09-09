@@ -122,13 +122,7 @@ cMcliFilter::cMcliFilter (u_short Pid, u_char Tid, u_char Mask)
 cMcliFilter::~cMcliFilter ()
 {
 //      printf ("~cMcliFilter %p\n", this);
-
-	// ownership of handle m_Pipe[0] has been transferred to VDR section handler
-	//if (m_Pipe[0] >= 0)
-	//      close(m_Pipe[0]);
-	if (m_Pipe[1] >= 0) {
-		close (m_Pipe[1]);
-	}
+	Close();
 }
 
 
@@ -204,8 +198,14 @@ bool cMcliFilter::IsClosed (void)
 
 void cMcliFilter::Close (void)
 {
-	close (m_Pipe[1]);
-	m_Pipe[1]=-1;
+	if(m_Pipe[0]==-1) {
+		close (m_Pipe[0]);
+		m_Pipe[0]=-1;
+	}
+	if(m_Pipe[1]==-1) {
+		close (m_Pipe[1]);
+		m_Pipe[1]=-1;
+	}
 	m_closed=true;
 }
 
