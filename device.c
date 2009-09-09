@@ -163,23 +163,28 @@ cMcliDevice::~cMcliDevice ()
 bool cMcliDevice::ProvidesSource (int Source) const
 {
 //      printf ("ProvidesSource, Source=%d\n", Source);
-	     if (!m_enable)
-	     {
-		     return false;
-	     }
-	     int type = Source & cSource::st_Mask;
-	     return type == cSource::stNone || (type == cSource::stCable && m_fetype == FE_QAM) || (type == cSource::stSat && m_fetype == FE_QPSK) || (type == cSource::stSat && m_fetype == FE_DVBS2) || (type == cSource::stTerr && m_fetype == FE_OFDM);
+	if (!m_enable) {
+		return false;
+	}
+	int type = Source & cSource::st_Mask;
+	return type == cSource::stNone || (type == cSource::stCable && m_fetype == FE_QAM) || (type == cSource::stSat && m_fetype == FE_QPSK) || (type == cSource::stSat && m_fetype == FE_DVBS2) || (type == cSource::stTerr && m_fetype == FE_OFDM);
 }
 
 bool cMcliDevice::ProvidesTransponder (const cChannel * Channel) const
 {
 //      printf ("ProvidesTransponder %s\n", Channel->Name ());
+	if (!m_enable) {
+		return false;
+	}
 	     return ProvidesSource (Channel->Source ());
 }
 
 bool cMcliDevice::IsTunedToTransponder (const cChannel * Channel)
 {
 //      printf ("IsTunedToTransponder %s == %s \n", Channel->Name (), m_chan ? m_chan->Name () : "");
+	if (!m_enable) {
+		return false;
+	}
 
 	if (m_chan && (Channel->Transponder () == m_chan->Transponder ())) {
 //              printf ("Yes!!!");
@@ -191,9 +196,12 @@ bool cMcliDevice::IsTunedToTransponder (const cChannel * Channel)
 
 bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool * NeedsDetachReceivers) const
 {
-	     bool result = false;
-	     bool hasPriority = Priority < 0 || Priority > this->Priority ();
-	     bool needsDetachReceivers = false;
+	bool result = false;
+	bool hasPriority = Priority < 0 || Priority > this->Priority ();
+	bool needsDetachReceivers = false;
+	if (!m_enable) {
+		return false;
+	}
 
 //      printf ("ProvidesChannel, Channel=%s, Prio=%d this->Prio=%d\n", Channel->Name (), Priority, this->Priority ());
 	     if (ProvidesSource (Channel->Source ()))

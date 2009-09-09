@@ -243,6 +243,8 @@ int cMcliFilters::PutTS (const uchar * data, int len)
 int cMcliFilters::CloseFilter (int Handle)
 {
 //      printf("cMcliFilters::CloseFilter: %d\n", Handle);
+	GarbageCollect ();
+
 	int pid = GetPid (Handle);
 	if (pid != -1) {
 		m_pl.SetPid (pid, -1);
@@ -259,6 +261,7 @@ int cMcliFilters::CloseFilter (int Handle)
 int cMcliFilters::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 {
 //      printf("cMcliFilters::OpenFilter: %d %d %02x\n", Pid, Tid, Mask);
+	GarbageCollect ();
 
 	if (!WantPid (Pid)) {
 		m_pl.SetPid (Pid, 0xffff);
@@ -429,8 +432,6 @@ void cMcliFilters::Action (void)
 				f = next;
 			}
 		}
-		GarbageCollect ();
-		usleep (5 * 1000);
 	}
 
 	DELETENULL (m_PB);
