@@ -427,6 +427,7 @@ void cMcliFilters::Action (void)
 			}
 		}
 		GarbageCollect ();
+		usleep (5 * 1000);
 	}
 
 	DELETENULL (m_PB);
