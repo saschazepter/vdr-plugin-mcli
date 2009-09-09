@@ -51,6 +51,7 @@ class cMcliDevice:public cDevice
 	cMutex mutex;
 	bool m_enable;
 	time_t m_last;
+	int m_filternum;
 
       protected:
 	virtual bool SetChannelDevice (const cChannel * Channel, bool LiveView);

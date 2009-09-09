@@ -122,6 +122,7 @@ cMcliDevice::cMcliDevice (void)
 	printf ("cMcliDevice: got device number %d\n", CardIndex () + 1);
 	m_pidsnum = 0;
 	m_mcpidsnum = 0;
+	m_filternum = 0;
 	m_chan = NULL;
 	m_fetype = FE_QPSK;
 	m_last = 0;
@@ -440,28 +441,11 @@ int cMcliDevice::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 		return -1;
 	}
 	LOCK_THREAD;
-//      printf ("OpenFilter pid:%d tid:%d mask:%04x\n", Pid, Tid, Mask);
+	m_filternum++;
+//	printf ("OpenFilter (%d/%d/%d) pid:%d tid:%d mask:%04x %s\n", m_filternum, m_pidsnum, m_mcpidsnum, Pid, Tid, Mask, ((m_filternum+m_pidsnum) < m_mcpidsnum) ? "PROBLEM!!!":"");
 	dvb_pid_t pi;
 	memset (&pi, 0, sizeof (dvb_pid_t));
-
-	pi.re = 0;
 	pi.pid = Pid;
-	if (m_ca && m_chan && m_chan->Ca (0)) {
-		int set = 0;
-		for (int i = 0; i < MAXAPIDS; i++) {
-			if (pi.pid == m_chan->Apid (i)) {
-				set = 1;
-				break;
-			}
-		}
-		if (pi.pid == m_chan->Vpid () || (set && pi.pid)) {
-			pi.id = m_chan->Sid ();
-		} else {
-			pi.id = 0;
-		}
-	} else {
-		pi.id = 0;
-	}
 //      printf ("Add Pid: %d\n", pi.pid);
 	recv_pid_add (m_r, &pi);
 	m_mcpidsnum = recv_pids_get (m_r, m_pids);
@@ -482,11 +466,15 @@ void cMcliDevice::CloseFilter (int Handle)
 	}
 
 	LOCK_THREAD;
-//      printf ("CloseFilter Handle:%d \n", Handle);
-	int pid = m_filters->GetPid (Handle);
-	m_filters->CloseFilter (Handle);
-	if ((pid != -1) && !m_filters->WantPid (pid))
+	int pid = m_filters->CloseFilter (Handle);
+	
+	if ( pid != -1) {
+//		printf("CloseFilter FULL\n");
 		recv_pid_del (m_r, pid);
+		m_mcpidsnum = recv_pids_get (m_r, m_pids);
+	}
+	m_filternum--;
+//	printf ("CloseFilter(%d/%d/%d) pid:%d %s\n", m_filternum, m_pidsnum, m_mcpidsnum, pid, pid==-1?"PID STILL USED":"");
 }
 
 void cMcliDevice::SetUUID (const char *uuid)

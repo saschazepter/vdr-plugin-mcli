@@ -54,6 +54,7 @@ class cMcliFilter:public cListObject
       private:
 	uchar m_Buffer[65536];
 	int m_Used;
+	bool m_closed;
 	int m_Pipe[2];
 	u_short m_Pid;
 	u_char m_Tid;
@@ -71,6 +72,7 @@ class cMcliFilter:public cListObject
 	}
 
 	bool IsClosed (void);
+	void Close (void);
 	void Reset (void);
 
 	u_short Pid (void) const
@@ -100,6 +102,7 @@ cMcliFilter::cMcliFilter (u_short Pid, u_char Tid, u_char Mask)
 	m_Tid = Tid;
 	m_Mask = Mask;
 	m_Pipe[0] = m_Pipe[1] = -1;
+	m_closed = false;
 
 #ifdef SOCK_SEQPACKET
 	// SOCK_SEQPACKET (since kernel 2.6.4)
@@ -123,8 +126,9 @@ cMcliFilter::~cMcliFilter ()
 	// ownership of handle m_Pipe[0] has been transferred to VDR section handler
 	//if (m_Pipe[0] >= 0)
 	//      close(m_Pipe[0]);
-	if (m_Pipe[1] >= 0)
+	if (m_Pipe[1] >= 0) {
 		close (m_Pipe[1]);
+	}
 }
 
 
@@ -158,8 +162,10 @@ bool cMcliFilter::PutSection (const uchar * Data, int Length, bool Pusi)
 				if (errno == EAGAIN || errno == EWOULDBLOCK)
 					//dsyslog ("cMcliFilter::PutSection socket overflow, " "Pid %4d Tid %3d", m_Pid, m_Tid);
 					;
-				else
+				else {
+					m_closed=true;
 					return false;
+				}
 			}
 		}
 
@@ -184,16 +190,23 @@ void cMcliFilter::Reset (void)
 bool cMcliFilter::IsClosed (void)
 {
 	char m_Buffer[3] = { 0, 0, 0 };	/* tid 0, 0 bytes */
-
+	
 	// Test if pipe/socket has been closed by writing empty section
-	if (write (m_Pipe[1], m_Buffer, 3) < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+	if (m_closed || (write (m_Pipe[1], m_Buffer, 3) < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
 		if (errno != ECONNREFUSED && errno != ECONNRESET && errno != EPIPE)
 			esyslog ("cMcliFilter::IsClosed failed: %m");
-
+		m_closed = true;
 		return true;
 	}
 
 	return false;
+}
+
+void cMcliFilter::Close (void)
+{
+	close (m_Pipe[1]);
+	m_Pipe[1]=-1;
+	m_closed=true;
 }
 
 // --- cMcliFilters -----------------------------------------------------
@@ -224,21 +237,24 @@ int cMcliFilters::PutTS (const uchar * data, int len)
 	return 0;
 }
 
-void cMcliFilters::CloseFilter (int Handle)
+int cMcliFilters::CloseFilter (int Handle)
 {
 //      printf("cMcliFilters::CloseFilter: %d\n", Handle);
-
-	close (Handle);
-	GarbageCollect ();
 	int pid = GetPid (Handle);
 	if (pid != -1) {
 		m_pl.SetPid (pid, -1);
 	}
+	cMcliFilter *f=GetFilter(Handle);
+	if(f) {
+		LOCK_THREAD;
+		f->Close();
+		Del(f);	
+	}
+	return pid;
 }
 
 int cMcliFilters::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 {
-	GarbageCollect ();
 //      printf("cMcliFilters::OpenFilter: %d %d %02x\n", Pid, Tid, Mask);
 
 	if (!WantPid (Pid)) {
@@ -307,16 +323,32 @@ int cMcliFilters::GetPid (int Handle)
 	for (cMcliFilter * fi = First (); fi; fi = Next (fi)) {
 		if (fi->ReadPipe () == Handle) {
 			pid = fi->Pid ();
-			used++;
-		} else if (pid != -1 && (pid == fi->Pid ())) {
-			used++;
 			break;
 		}
 	}
-	if (used == 1) {
+	if(pid != -1) {
+		for (cMcliFilter * fi = First (); fi; fi = Next (fi)) {
+			if (pid == fi->Pid ()) {
+				used++;
+			}
+		}
+	}
+//	printf("Pid %d used %dx\n", pid, used);
+	if (used==1) {
 		return pid;
 	}
 	return -1;
+}
+
+cMcliFilter *cMcliFilters::GetFilter (int Handle)
+{
+	LOCK_THREAD;
+	for (cMcliFilter * fi = First (); fi; fi = Next (fi)) {
+		if (fi->ReadPipe () == Handle) {
+			return fi;
+		}
+	}
+	return NULL;
 }
 
 bool cMcliFilters::WantPid (int pid)
@@ -370,7 +402,7 @@ void cMcliFilters::Action (void)
 			} else {
 				tid = m_pl.GetTidFromPid (pid);
 				if (tid == -1) {
-					printf ("Failed to get tid for pid %d\n", pid);
+//					printf ("Failed to get tid for pid %d\n", pid);
 				}
 			}
 			int len = 188 - 4 - Pusi;	//(block[5+Pusi]&0xf)<<8|block[6+Pusi];
@@ -394,6 +426,7 @@ void cMcliFilters::Action (void)
 				f = next;
 			}
 		}
+		GarbageCollect ();
 	}
 
 	DELETENULL (m_PB);

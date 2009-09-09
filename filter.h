@@ -38,6 +38,7 @@ class cMcliFilters:public cList < cMcliFilter >, public cThread
       private:
 	cMyPacketBuffer * m_PB;
 	cMcliPidList m_pl;
+	bool m_closed;
 
       protected:
 	  virtual void Action (void);
@@ -49,9 +50,10 @@ class cMcliFilters:public cList < cMcliFilter >, public cThread
 	bool WantPid (int pid);
 	int GetTidFromPid (int pid);
 	int GetPid (int Handle);
+	cMcliFilter *GetFilter (int Handle);
 	int PutTS (const uchar * data, int len);
 	int OpenFilter (u_short Pid, u_char Tid, u_char Mask);
-	void CloseFilter (int Handle);
+	int CloseFilter (int Handle);
 };
 
 #endif // VDR_STREAMDEV_FILTER_H

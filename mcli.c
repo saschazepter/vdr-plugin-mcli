@@ -525,7 +525,7 @@ cMenuSetupPage *cPluginMcli::SetupMenu (void)
 
 bool cPluginMcli::SetupParse (const char *Name, const char *Value)
 {
-	printf ("cPluginMcli::SetupParse\n");
+//	printf ("cPluginMcli::SetupParse\n");
 	if (!strcasecmp (Name, "DVB-C") && m_cmd.tuner_type_limit[FE_QAM] == MCLI_MAX_DEVICES)
 		m_cmd.tuner_type_limit[FE_QAM] = atoi (Value);
 	else if (!strcasecmp (Name, "DVB-T") && m_cmd.tuner_type_limit[FE_OFDM] == MCLI_MAX_DEVICES)
