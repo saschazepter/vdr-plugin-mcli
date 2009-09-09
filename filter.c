@@ -184,9 +184,12 @@ void cMcliFilter::Reset (void)
 bool cMcliFilter::IsClosed (void)
 {
 	char m_Buffer[3] = { 0, 0, 0 };	/* tid 0, 0 bytes */
+	if(m_closed) {
+		return m_closed;
+	}
 	
 	// Test if pipe/socket has been closed by writing empty section
-	if (m_closed || (write (m_Pipe[1], m_Buffer, 3) < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
+	if ((write (m_Pipe[1], m_Buffer, 3) < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
 		if (errno != ECONNREFUSED && errno != ECONNRESET && errno != EPIPE)
 			esyslog ("cMcliFilter::IsClosed failed: %m");
 		m_closed = true;
@@ -198,11 +201,11 @@ bool cMcliFilter::IsClosed (void)
 
 void cMcliFilter::Close (void)
 {
-	if(m_Pipe[0]==-1) {
+	if(m_Pipe[0]>=0) {
 		close (m_Pipe[0]);
 		m_Pipe[0]=-1;
 	}
-	if(m_Pipe[1]==-1) {
+	if(m_Pipe[1]>=0) {
 		close (m_Pipe[1]);
 		m_Pipe[1]=-1;
 	}
