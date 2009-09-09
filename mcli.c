@@ -391,6 +391,10 @@ void cPluginMcli::Action (void)
 //                                      printf("MCLI_MAX_DEVICES reached\n");
 					continue;
 				}
+				char *uuid = nci->tuner[i].uuid;
+				if (nci->tuner[i].preference < 0 || !strlen (uuid)) {
+					continue;
+				}
 				fe_type_t type = nci->tuner[i].fe_info.type;
 				if (m_devs.count_dev_by_type (type) == m_cmd.tuner_type_limit[type]) {
 //                                      printf("Limit: %d %d>%d\n", type, m_devs.count_dev_by_type (type), m_cmd.tuner_type_limit[type]);
