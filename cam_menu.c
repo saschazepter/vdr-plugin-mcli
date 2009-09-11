@@ -37,8 +37,12 @@ cCamMenu::cCamMenu (cmdline_t * cmd):cOsdMenu (trVDR ("Common Interface"), 18)
 	alreadyReceived = false;
 	mmi_session = -1;
 
-	for (int i = 0; i < MAX_CAMS_IN_MENU; i++)
+	for (int i = 0; i < MAX_CAMS_IN_MENU; i++) {
 		cam_list[i].slot = -1;
+        cam_list[i].info[0] = '\0';
+    }
+
+    SetHelp(trVDR("Reset"), NULL, NULL, NULL);
 
 	SetNeedsFastResponse (true);
 
@@ -58,10 +62,14 @@ cCamMenu::cCamMenu (cmdline_t * cmd, mmi_info_t * mmi_info):cOsdMenu (trVDR ("Co
 	alreadyReceived = false;
 	mmi_session = -1;
 
-	for (int i = 0; i < MAX_CAMS_IN_MENU; i++)
+	for (int i = 0; i < MAX_CAMS_IN_MENU; i++) {
 		cam_list[i].slot = -1;
+        cam_list[i].info[0] = '\0';
+    }
 
 	SetNeedsFastResponse (true);
+
+    SetHelp(trVDR("Reset"), NULL, NULL, NULL);
 
 	mmi_session = CamMenuOpen (mmi_info);
 }
@@ -192,7 +200,6 @@ int cCamMenu::CamFind (cam_list_t * cam_list)
 			default:
 				cam_list[cnt].slot = -1;
 				int len = strlen (nci->cam[i].menu_string);
-		    /** TB: really uncool - "Error" is translated to "Kein CI-Modul" in german */
 				printf ("%s: Error\n", __PRETTY_FUNCTION__);
 				snprintf (buf, 128, "   %s:\t%s", nci->cam[i].slot == 0 ? trVDR ("lower slot") : trVDR ("upper slot"), len == 0 ? trVDR ("Error") : nci->cam[i].menu_string);
 				Add (new cOsdItem (buf));
@@ -284,6 +291,25 @@ eOSState cCamMenu::ProcessKey (eKeys Key)
 		return osContinue;
 	}
 	switch (Key) {
+#if 0
+    case kUp:
+    case kDown:
+        {
+      	unsigned int nrInCamList = currentSelected - ((int) currentSelected / 5) * 3 - 3;	// minus the empty rows
+        if(strlen(cam_list[nrInCamList].info))
+            SetHelp(trVDR("Reset"), NULL, NULL, NULL);
+        else
+            SetHelp(NULL, NULL, NULL, NULL);
+        break;
+        }
+#endif
+    case kRed:
+        {
+      	unsigned int nrInCamList = currentSelected - ((int) currentSelected / 5) * 3 - 3;	// minus the empty rows
+        if(cam_list[nrInCamList].slot != -1 && strlen(cam_list[nrInCamList].info))
+            mmi_cam_reset(cam_list[nrInCamList].uuid, m_cmd->iface, 0, cam_list[nrInCamList].slot);
+        break;
+        }
 	case kOk:
 		SetStatus ("");
 		pinCounter = 0;	// reset pin
@@ -296,7 +322,8 @@ eOSState cCamMenu::ProcessKey (eKeys Key)
 			return osEnd;
 		} else if (inCamMenu) {
 			printf ("Sending: \"%s\"\n", Get (Current ())->Text ());
-			CamMenuSend (mmi_session, Get (Current ())->Text ());
+            if (strcmp(Get ( Current ())->Text(), trVDR("Error"))) // never send Error...
+			    CamMenuSend (mmi_session, Get (Current ())->Text ());
 			Receive ();
 		} else
 			OpenCamMenu ();

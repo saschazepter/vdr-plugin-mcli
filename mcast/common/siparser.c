@@ -12,29 +12,29 @@ void printhex_buf(char *msg,unsigned char *buf,int len)
   int width=8;
 
   i=k=0;
-  printf("%s: %d bytes (0x%04x)\n",msg,len,len);
-  printf("---------------------------------------------------------------\n");    
+  info ("%s: %d bytes (0x%04x)\n",msg,len,len);
+  info ("---------------------------------------------------------------\n");    
   while(len) {
-    printf("%04x	",k++*width*2);
+    info ("%04x	",k++*width*2);
     j=i;
     for(;i < j + width ; i++){ 
       if (i >= len) break; 
-      printf("%02x ",buf[i]);  
+      info ("%02x ",buf[i]);  
     }
     if (i >= len) {
-      printf("\n");
+      info ("\n");
       break;
     }
-    printf("	");
+    info("	");
     j=i;
     for(;i < j + width ; i++){
       if (i >= len) break;
-      printf("%02x ",buf[i]);      
+      info("%02x ",buf[i]);      
     }
-    printf("\n");
+    info("\n");
     if (i >= len) break;
   }    
-  printf("---------------------------------------------------------------\n");    
+  info("---------------------------------------------------------------\n");    
 }
 //-----------------------------------------------------------------------------------
 void writehex_buf(FILE *f, char *msg,unsigned char *buf,int len)
@@ -72,72 +72,72 @@ void writehex_buf(FILE *f, char *msg,unsigned char *buf,int len)
 //-----------------------------------------------------------------------------------
 void print_ts_header(ts_packet_hdr_t *p)
 {
-  printf("--------------------------------------------------------------\n");
-  printf("TS header data:\n");
-  printf("Sync-byte			: 0x%04x\n",p->sync_byte);
-  printf("Transport error indicator	: 0x%04x\n",p->transport_error_indicator);
-  printf("Payload unit start indicator	: 0x%04x\n",p->payload_unit_start_indicator);
-  printf("Transport priority		: 0x%04x\n",p->transport_priority);
-  printf("PID				: 0x%04x\n",p->pid);
-  printf("Transport scrambling control	: 0x%04x\n",p->transport_scrambling_control);
-  printf("Adaptation field control	: 0x%04x\n",p->adaptation_field_control);
-  printf("Continuity_counter		: 0x%04x\n",p->continuity_counter);
+  info("--------------------------------------------------------------\n");
+  info("TS header data:\n");
+  info("Sync-byte			: 0x%04x\n",p->sync_byte);
+  info("Transport error indicator	: 0x%04x\n",p->transport_error_indicator);
+  info("Payload unit start indicator	: 0x%04x\n",p->payload_unit_start_indicator);
+  info("Transport priority		: 0x%04x\n",p->transport_priority);
+  info("PID				: 0x%04x\n",p->pid);
+  info("Transport scrambling control	: 0x%04x\n",p->transport_scrambling_control);
+  info("Adaptation field control	: 0x%04x\n",p->adaptation_field_control);
+  info("Continuity_counter		: 0x%04x\n",p->continuity_counter);
 
 }
 //-----------------------------------------------------------------------------------
 void print_pmt(pmt_t *p)
 {
-  printf("--------------------------------------------------------------\n");    
-  printf("PMT section:\n");  
-  printf("Table ID                 : %-5d (0x%04x)\n",p->table_id,p->table_id);
-  printf("(fixed):                 : %-5d (0x%04x)\n",0,0);  
-  printf("Section syntax indicator : %-5d (0x%04x)\n",p->section_syntax_indicator,p->section_syntax_indicator);		
-  printf("Reserved 1               : %-5d (0x%04x)\n",p->reserved_1,p->reserved_1);
-  printf("Section length           : %-5d (0x%04x)\n",p->section_length,p->section_length);
-  printf("Program number           : %-5d (0x%04x)\n",p->program_number,p->program_number);
-  printf("Reserved 2               : %-5d (0x%04x)\n",p->reserved_2,p->reserved_2);
-  printf("Version number           : %-5d (0x%04x)\n",p->version_number,p->version_number);
-  printf("Current next indicator   : %-5d (0x%04x)\n",p->current_next_indicator,p->current_next_indicator);
-  printf("Section number           : %-5d (0x%04x)\n",p->section_number,p->section_number);
-  printf("Last section number      : %-5d (0x%04x)\n",p->last_section_number,p->last_section_number);
-  printf("Reserved 3               : %-5d (0x%04x)\n",p->reserved_3,p->reserved_3);
-  printf("PCR pid                  : %-5d (0x%04x)\n",p->pcr_pid,p->pcr_pid);
-  printf("Reserved 4               : %-5d (0x%04x)\n",p->reserved_4,p->reserved_4);
-  printf("Program info length      : %-5d (0x%04x)\n",p->program_info_length,p->program_info_length);
+  info("--------------------------------------------------------------\n");    
+  info("PMT section:\n");  
+  info("Table ID                 : %-5d (0x%04x)\n",p->table_id,p->table_id);
+  info("(fixed):                 : %-5d (0x%04x)\n",0,0);  
+  info("Section syntax indicator : %-5d (0x%04x)\n",p->section_syntax_indicator,p->section_syntax_indicator);		
+  info("Reserved 1               : %-5d (0x%04x)\n",p->reserved_1,p->reserved_1);
+  info("Section length           : %-5d (0x%04x)\n",p->section_length,p->section_length);
+  info("Program number           : %-5d (0x%04x)\n",p->program_number,p->program_number);
+  info("Reserved 2               : %-5d (0x%04x)\n",p->reserved_2,p->reserved_2);
+  info("Version number           : %-5d (0x%04x)\n",p->version_number,p->version_number);
+  info("Current next indicator   : %-5d (0x%04x)\n",p->current_next_indicator,p->current_next_indicator);
+  info("Section number           : %-5d (0x%04x)\n",p->section_number,p->section_number);
+  info("Last section number      : %-5d (0x%04x)\n",p->last_section_number,p->last_section_number);
+  info("Reserved 3               : %-5d (0x%04x)\n",p->reserved_3,p->reserved_3);
+  info("PCR pid                  : %-5d (0x%04x)\n",p->pcr_pid,p->pcr_pid);
+  info("Reserved 4               : %-5d (0x%04x)\n",p->reserved_4,p->reserved_4);
+  info("Program info length      : %-5d (0x%04x)\n",p->program_info_length,p->program_info_length);
 
 
 
-  printf("CRC32                    : 0x%04x\n",p->crc32);		
+  info("CRC32                    : 0x%04x\n",p->crc32);		
 }
 //-----------------------------------------------------------------------------------
 void print_pat(pat_t *p, pat_list_t *pl, int pmt_num)
 {
-  printf("--------------------------------------------------------------\n");
-  printf("PAT section:\n");
-  printf("Table_id                 : %-5d (0x%04x)\n",p->table_id,p->table_id);
-  printf("(fixed):                 : %-5d (0x%04x)\n",0,0);
-  printf("Section syntax indicator : %-5d (0x%04x)\n",p->section_syntax_indicator,p->section_syntax_indicator);
-  printf("Reserved_1               : %-5d (0x%04x)\n",p->reserved_1,p->reserved_1);
-  printf("Section length           : %-5d (0x%04x)\n",p->section_length,p->section_length);
-  printf("Transport stream id      : %-5d (0x%04x)\n",p->transport_stream_id,p->transport_stream_id);
-  printf("Reserved 2               : %-5d (0x%04x)\n",p->reserved_2,p->reserved_2);
-  printf("Version number           : %-5d (0x%04x)\n",p->version_number,p->version_number);
-  printf("Current next indicator   : %-5d (0x%04x)\n",p->current_next_indicator,p->current_next_indicator);
-  printf("Section number           : %-5d (0x%04x)\n",p->section_number,p->section_number);
-  printf("Last section number      : %-5d (0x%04x)\n",p->last_section_number,p->last_section_number);
+  info("--------------------------------------------------------------\n");
+  info("PAT section:\n");
+  info("Table_id                 : %-5d (0x%04x)\n",p->table_id,p->table_id);
+  info("(fixed):                 : %-5d (0x%04x)\n",0,0);
+  info("Section syntax indicator : %-5d (0x%04x)\n",p->section_syntax_indicator,p->section_syntax_indicator);
+  info("Reserved_1               : %-5d (0x%04x)\n",p->reserved_1,p->reserved_1);
+  info("Section length           : %-5d (0x%04x)\n",p->section_length,p->section_length);
+  info("Transport stream id      : %-5d (0x%04x)\n",p->transport_stream_id,p->transport_stream_id);
+  info("Reserved 2               : %-5d (0x%04x)\n",p->reserved_2,p->reserved_2);
+  info("Version number           : %-5d (0x%04x)\n",p->version_number,p->version_number);
+  info("Current next indicator   : %-5d (0x%04x)\n",p->current_next_indicator,p->current_next_indicator);
+  info("Section number           : %-5d (0x%04x)\n",p->section_number,p->section_number);
+  info("Last section number      : %-5d (0x%04x)\n",p->last_section_number,p->last_section_number);
 
   if (pl && pmt_num){
     int i;
-    printf("Number of PMTs in PAT : %-5d \n", pmt_num);
+    info("Number of PMTs in PAT : %-5d \n", pmt_num);
     for(i=0;i<pmt_num;i++) {
       pat_list_t *pat = pl + i;
-      printf("\nProgram number  : %-5d (0x%04x)\n",pat->program_number,pat->program_number);
-      printf("Reserved        : %-5d (0x%04x)\n",pat->reserved,pat->reserved);
-      printf("Network PMT PID : %-5d (0x%04x)\n",pat->network_pmt_pid,pat->network_pmt_pid);
+      info("\nProgram number  : %-5d (0x%04x)\n",pat->program_number,pat->program_number);
+      info("Reserved        : %-5d (0x%04x)\n",pat->reserved,pat->reserved);
+      info("Network PMT PID : %-5d (0x%04x)\n",pat->network_pmt_pid,pat->network_pmt_pid);
     }
   }
 
-  printf("CRC32                   : 0x%04x\n",p->crc32);
+  info("CRC32                   : 0x%04x\n",p->crc32);
 
 
 }
@@ -165,28 +165,28 @@ void get_time_mjd (unsigned long mjd, long *year , long *month, long *day)
 //-----------------------------------------------------------------------------------
 void print_tdt(tdt_sect_t *tdt, uint16_t mjd, uint32_t utc)
 {
-    printf("--------------------------------------------------------------\n");
-    printf("TDT section:\n");
-    printf("Table_id                 : %-5d (0x%04x)\n",tdt->table_id,tdt->table_id);
-    printf("Reserved                 : %-5d (0x%04x)\n",tdt->reserved,tdt->reserved);
-    printf("Reserved_1               : %-5d (0x%04x)\n",tdt->reserved_1,tdt->reserved_1);
-    printf("Section length           : %-5d (0x%04x)\n",tdt->section_length,tdt->section_length);    
-    printf("UTC_time                 : 0x%2x%2x%2x%2x%2x\n",tdt->dvbdate[0],tdt->dvbdate[1],tdt->dvbdate[2],tdt->dvbdate[3],tdt->dvbdate[4]); 
+    info("--------------------------------------------------------------\n");
+    info("TDT section:\n");
+    info("Table_id                 : %-5d (0x%04x)\n",tdt->table_id,tdt->table_id);
+    info("Reserved                 : %-5d (0x%04x)\n",tdt->reserved,tdt->reserved);
+    info("Reserved_1               : %-5d (0x%04x)\n",tdt->reserved_1,tdt->reserved_1);
+    info("Section length           : %-5d (0x%04x)\n",tdt->section_length,tdt->section_length);    
+    info("UTC_time                 : 0x%2x%2x%2x%2x%2x\n",tdt->dvbdate[0],tdt->dvbdate[1],tdt->dvbdate[2],tdt->dvbdate[3],tdt->dvbdate[4]); 
     
     long y,m,d;
     get_time_mjd(mjd, &y, &m, &d);
-    printf("TIME: [= %02d-%02d-%02d  %02lx:%02lx:%02lx (UTC) ]\n\n",y,m,d,(utc>>16) &0xFF, (utc>>8) &0xFF, (utc) &0xFF);
-    printf("--------------------------------------------------------------\n");
+    info("TIME: [= %02d-%02d-%02d  %02lx:%02lx:%02lx (UTC) ]\n\n",y,m,d,(utc>>16) &0xFF, (utc>>8) &0xFF, (utc) &0xFF);
+    info("--------------------------------------------------------------\n");
 
 }
 //-----------------------------------------------------------------------------------
 void print_ca_desc(si_desc_t *p)
 {
-  printf("CA desc. tag    : %d (%#x)\n",p->descriptor_tag,p->descriptor_tag);
-  printf("CA desc. length : %d (%#x)\n",p->descriptor_length,p->descriptor_length);
-  printf("CA system id    : %d (%#x)\n",p->ca_system_id,p->ca_system_id);
-  printf("Reserverd       : %d (%#x)\n",p->reserved,p->reserved);
-  printf("CA pid          : %d (%#x)\n",p->ca_pid,p->ca_pid);
+  info("CA desc. tag    : %d (%#x)\n",p->descriptor_tag,p->descriptor_tag);
+  info("CA desc. length : %d (%#x)\n",p->descriptor_length,p->descriptor_length);
+  info("CA system id    : %d (%#x)\n",p->ca_system_id,p->ca_system_id);
+  info("Reserverd       : %d (%#x)\n",p->reserved,p->reserved);
+  info("CA pid          : %d (%#x)\n",p->ca_pid,p->ca_pid);
 
   printhex_buf("Private data",p->private_data,p->descriptor_length-4);
 
@@ -195,10 +195,10 @@ void print_ca_desc(si_desc_t *p)
 void print_ca_bytes(si_desc_t *p)
 {
   unsigned int i; 
-  printf("%x %x %x %x %x ",p->descriptor_tag, p->descriptor_length, p->ca_system_id, p->reserved, p->ca_pid);
+  info("%x %x %x %x %x ",p->descriptor_tag, p->descriptor_length, p->ca_system_id, p->reserved, p->ca_pid);
   for (i = 0; i < p->descriptor_length - 4; i++)
-      printf("%x ",p->private_data[i]);
-  printf(";");
+      info("%x ",p->private_data[i]);
+  info(";");
 
 }
 //-----------------------------------------------------------------------------------
@@ -209,7 +209,7 @@ void print_cad_lst(si_cad_t *l, int ts_id)
   for (i = 0; i < l->cads; i++) {
     print_ca_desc(&l->cad[i]);
   }
-  printf("Total CA desc. for TS ID %d : %d\n",ts_id,l->cads);
+  info("Total CA desc. for TS ID %d : %d\n",ts_id,l->cads);
 }
 //-----------------------------------------------------------------------------------
 int parse_ca_descriptor(unsigned char *desc, si_desc_t *t)
@@ -221,7 +221,7 @@ int parse_ca_descriptor(unsigned char *desc, si_desc_t *t)
   len=ptr[1]; 
 
   if (len > MAX_DESC_LEN) {
-    printf("descriptor():Descriptor too long !\n");
+    info("descriptor():Descriptor too long !\n");
     return -1;
   }
   
@@ -267,7 +267,7 @@ int descriptor(unsigned char *desc, si_cad_t *c)
   len=ptr[1]; 
 
   if (len > MAX_DESC_LEN) {
-    printf("descriptor():Descriptor too long !\n");
+    info("descriptor():Descriptor too long !\n");
     return -1;
   }
   
@@ -277,7 +277,7 @@ int descriptor(unsigned char *desc, si_cad_t *c)
         c->cad = (si_desc_t*)realloc(c->cad,sizeof(si_desc_t)*c->cads);
         if (!c->cad) {
           c->cads--;
-          printf("descriptor():realloc error\n");
+          info("descriptor():realloc error\n");
           return -1;
         }
         si_desc_t *t = c->cad + c->cads - 1;
@@ -392,10 +392,10 @@ int parse_pmt_ca_desc(unsigned char *buf, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_
       u_long crc = dvb_crc32 ((char *)buf,pmt_hdr->section_length+3);  
 
 #ifdef DBG
-      printf("CRCcc: 0x%lx\n",crc);
+      info("CRCcc: 0x%lx\n",crc);
 #endif
       if (crc & 0xffffffff) { //FIXME: makr arch flags
-        printf("ERROR: parse_pmt_ca_desc() : CRC err. crc = 0x%lx\n", crc);
+        info("ERROR: parse_pmt_ca_desc() : CRC err. crc = 0x%lx\n", crc);
         return -1;
       }
 
@@ -437,7 +437,7 @@ int parse_pmt_ca_desc(unsigned char *buf, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_
       }
 
 #ifdef DBG  
-      printf("%d bytes remaining (program info len = %d bytes)\n",buf_len,i);    
+      info("%d bytes remaining (program info len = %d bytes)\n",buf_len,i);    
 #endif  
       
       es_pmt_info_t esi;
@@ -487,13 +487,13 @@ int parse_pmt_ca_desc(unsigned char *buf, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_
       }
        
 #ifdef DBG
-      printf("%d bytes remaining\n",buf_len);    
+      info("%d bytes remaining\n",buf_len);    
 #endif
 
       pmt_hdr->crc32=(ptr[0] << 24) | (ptr[1] << 16) | (ptr[2] << 8) | ptr[3]; 
 
       if (len < 0) {
-        printf("ERROR: parse_ca_desc() : section index out of bounds %d or (CRC err.) crc in sec. = 0x%x crc calc. = 0x%lx\n", buf_len,pmt_hdr->crc32, crc);
+        info("ERROR: parse_ca_desc() : section index out of bounds %d or (CRC err.) crc in sec. = 0x%x crc calc. = 0x%lx\n", buf_len,pmt_hdr->crc32, crc);
 #ifdef DBG 
         print_pmt(&pmt_hdr);
 #endif
@@ -508,8 +508,8 @@ int parse_pmt_ca_desc(unsigned char *buf, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_
       }
 
 #ifdef DBG
-      printf("#####################################\n");
-      printf("parse_ca_desc(): section parsed: OK !\n");  
+      info("#####################################\n");
+      info("parse_ca_desc(): section parsed: OK !\n");  
 #endif
       return 0;
 }  
@@ -528,10 +528,10 @@ int parse_cat_sect(unsigned char *buf, si_cad_t *emm)
 #ifdef CRC32_CHECK
           u_long crc = dvb_crc32 ((char *)buf,c.section_length+3);  
 #ifdef DBG
-          printf("CRCcc: 0x%lx\n",crc);
+          info("CRCcc: 0x%lx\n",crc);
 #endif
           if (crc & 0xffffffff) {
-            printf("CRC32 error (0x%lx)!\n",crc);
+            info("CRC32 error (0x%lx)!\n",crc);
             return -1;
           }
 #endif
@@ -555,7 +555,7 @@ int parse_cat_sect(unsigned char *buf, si_cad_t *emm)
           }
 
 #ifdef DBG  
-          printf("%d bytes remaining (program info len = %d bytes)\n",len-i,len);    
+          info("%d bytes remaining (program info len = %d bytes)\n",len-i,len);    
 #endif  
           c.crc32 = (ptr[0] << 24) | (ptr[1] << 16) | (ptr[2] << 8) | ptr[3]; 
 
@@ -580,7 +580,7 @@ int parse_pat_sect(unsigned char *buf, pmt_pid_list_t *pmt)
         u_long crc = dvb_crc32 ((char *)buf,p.section_length+3);  
         //FIXME: is it the right way ?
         if (crc & 0xffffffff) {
-          printf("CRC32 error (0x%lx)!\n",crc);
+          info("CRC32 error (0x%lx)!\n",crc);
           return -1;
         }
 #endif
@@ -675,14 +675,14 @@ int ts2psi_data(unsigned char *buf,psi_buf_t *p,int len, int pid_req)
         len-=4;
         
         if (h.sync_byte != 0x47) {
-              printf("%s:No sync byte in header !\n",__FUNCTION__);
+              info("%s:No sync byte in header !\n",__FUNCTION__);
               return -1;
         }
 
         
         if (pid_req != h.pid) {
 #ifdef DBG
-              printf("%s:pids mismatch  (pid req = %#x ts pid = %#x )!\n", __FUNCTION__,pid_req, h.pid);
+              info("%s:pids mismatch  (pid req = %#x ts pid = %#x )!\n", __FUNCTION__,pid_req, h.pid);
 #endif
               return -1;
         }
@@ -700,18 +700,18 @@ int ts2psi_data(unsigned char *buf,psi_buf_t *p,int len, int pid_req)
         if (h.adaptation_field_control & 0x1) {
           if (h.transport_error_indicator) {
 #ifdef DBG
-            printf("Transport error flag set !\n");
+            info("Transport error flag set !\n");
 #endif
             return -1;
           }
           if (h.transport_scrambling_control) {
-            printf("Transport scrambling flag set !\n");
+            info("Transport scrambling flag set !\n");
             //return -1;
           }   
           
           if (h.payload_unit_start_indicator && p->start) { //whole section new begin packet
 #ifdef DBG      
-              printf("%s:section read !\n",__FUNCTION__);
+              info("%s:section read !\n",__FUNCTION__);
 #endif
               return 1;
           }
@@ -721,7 +721,7 @@ int ts2psi_data(unsigned char *buf,psi_buf_t *p,int len, int pid_req)
             b+=si_offset;
             len-=si_offset; 
             if (len < 0 || len > 184) {
-                  printf("WARNING 1: TS Packet damaged !\n");
+                  info("WARNING 1: TS Packet damaged !\n");
                   return -1;
             }
             //move to buffer              
@@ -737,34 +737,34 @@ int ts2psi_data(unsigned char *buf,psi_buf_t *p,int len, int pid_req)
             //duplicate packet
             if ((p->pid == h.pid) && (p->continuity == h.continuity_counter)){
 #ifdef DBG
-              printf("Packet duplicate ???\n");      
+              info("Packet duplicate ???\n");      
 #endif
               return -1;
             }
             //new packet
             if (p->pid != h.pid) {
 #ifdef DBG
-              printf("New pid buf start %d len %d bytes (pid in buf = %d pid in ts = %d) !\n", p->start,p->len, p->pid, h.pid);
+              info("New pid buf start %d len %d bytes (pid in buf = %d pid in ts = %d) !\n", p->start,p->len, p->pid, h.pid);
 #endif
               return -1;
             }
             //discontinuity of packets
             if (((++p->continuity)%16) != h.continuity_counter) {
 #ifdef DBG
-              printf("Discontinuity of ts stream !!!\n");
+              info("Discontinuity of ts stream !!!\n");
 #endif
               return -1;        
             }
             p->continuity=h.continuity_counter;
             if (len < 0 || len > 184) {
-                  printf("WARNING 2: TS Packet damaged !\n");
+                  info("WARNING 2: TS Packet damaged !\n");
                   return -1;
             }
             //move to buffer
             memcpy(p->buf+p->len,b,len);      
             p->len+=len; //FIXME: circular buffer
             if (p->len + 188 > PSI_BUF_SIZE) {
-              printf("Error: Buffer full !\n");
+              info("Error: Buffer full !\n");
               return -1;
               //FIXME:realloc
             }
