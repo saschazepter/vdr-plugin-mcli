@@ -90,13 +90,15 @@ void cCamMenu::OpenCamMenu ()
 		return;
 
 	Clear ();
+    Skins.Message(mtWarning, trVDR("Opening CAM menu..."));
+
 	mmi_session = CamMenuOpen (&cam_list[nrInCamList]);
 	char buf2[MMI_TEXT_LENGTH * 2];
 	printf ("mmi_session: %d\n", mmi_session);
 	if (mmi_session > 0) {
 		inCamMenu = true;
 		time_t t = time (NULL);
-		while ((time (NULL) - t) < 10) {
+		while ((time (NULL) - t) < CAMMENU_TIMEOUT) {
 			// receive the CAM MENU
 			if (CamMenuReceive (mmi_session, buf, MMI_TEXT_LENGTH) > 0) {
 				cCharSetConv conv = cCharSetConv ("ISO-8859-1", "UTF-8");
@@ -129,7 +131,7 @@ void cCamMenu::Receive ()
 	if (mmi_session > 0) {
 		char buf2[MMI_TEXT_LENGTH * 2];
 		time_t t = time (NULL);
-		while ((time (NULL) - t) < 10) {
+		while ((time (NULL) - t) < CAMMENU_TIMEOUT) {
 			// receive the CAM MENU
 			if (alreadyReceived || CamMenuReceive (mmi_session, buf, MMI_TEXT_LENGTH) > 0) {
 				Clear ();
@@ -247,10 +249,7 @@ int cCamMenu::CamMenuOpen (mmi_info_t * mmi_info)
 	}
 
 	int mmi_session = mmi_open_menu_session (mmi_info->uuid, m_cmd->iface, 0, mmi_info->slot);
-	if (mmi_session > 0) {
-		sleep (1);
-		CamMenuSend (mmi_session, (char *) "00000000000000\n");
-	}
+
 	printf ("CamMenuOpen: mmi_session: %i\n", mmi_session);
 	return mmi_session;
 }

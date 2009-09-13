@@ -6,6 +6,7 @@
 #include "device.h"
 
 #define MAX_CAMS_IN_MENU 16
+#define CAMMENU_TIMEOUT 15
 
 typedef struct
 {
