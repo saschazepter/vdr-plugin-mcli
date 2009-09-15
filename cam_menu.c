@@ -199,10 +199,15 @@ int cCamMenu::CamFind (cam_list_t * cam_list)
 					strcpy (cam_list[cnt].info, nci->cam[i].menu_string);
 				}
 				break;
+            case 0: // no cam?
+				cam_list[cnt].slot = -1;
+				snprintf (buf, 128, "   %s:\t%s", nci->cam[i].slot == 0 ? trVDR ("lower slot") : trVDR ("upper slot"), trVDR ("No CI-Module"));
+				Add (new cOsdItem (buf));
+                break;
 			default:
 				cam_list[cnt].slot = -1;
 				int len = strlen (nci->cam[i].menu_string);
-				printf ("%s: Error\n", __PRETTY_FUNCTION__);
+				printf ("%s: Error - status: %i\n", __PRETTY_FUNCTION__, nci->cam[i].status);
 				snprintf (buf, 128, "   %s:\t%s", nci->cam[i].slot == 0 ? trVDR ("lower slot") : trVDR ("upper slot"), len == 0 ? trVDR ("Error") : nci->cam[i].menu_string);
 				Add (new cOsdItem (buf));
 			}
@@ -289,6 +294,12 @@ eOSState cCamMenu::ProcessKey (eKeys Key)
 		CamFind (cam_list);
 		return osContinue;
 	}
+
+    if (inCamMenu)
+        SetHelp(NULL, NULL, NULL, NULL);
+    else
+        SetHelp(trVDR("Reset"), NULL, NULL, NULL);
+
 	switch (Key) {
 #if 0
     case kUp:
