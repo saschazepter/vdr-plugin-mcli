@@ -360,7 +360,9 @@ int get_pmt_es_pids(unsigned char *esi_buf, int size, int *es_pids, int all)
       index = pid_num = 0;      
       while(index < size) {
           //ptr[0] //stream type 
-          if (ptr[0] == 0x1 || ptr[0] == 0x2 ||  ptr[0] == 0x3 || ptr[0] == 0x4 || ptr[0] == 0x1b || all)
+          //int pid = ((ptr[1] << 8) | ptr[2]) & 0x1fff;
+          //printf("Stream type: %d (%#x) pid = %d (%#x)\n",ptr[0], ptr[0], pid, pid);
+          if (ptr[0] == 0x1 || ptr[0] == 0x2 ||  ptr[0] == 0x3 || ptr[0] == 0x4 || ptr[0] == 0x6 || ptr[0] == 0x1b || all)
           {
               es_pids[pid_num] = ((ptr[1] << 8) | ptr[2]) & 0x1fff;
               pid_num++;

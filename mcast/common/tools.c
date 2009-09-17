@@ -744,14 +744,22 @@ void SignalHandlerCrash(int signum)
 }
 #endif
 
+#ifdef SYSLOG
+pthread_mutex_t _loglock = PTHREAD_MUTEX_INITIALIZER;
+
 UDPContext * syslog_fd = NULL;
+char *_logstr = NULL;
 
 int syslog_init(void)
 {
 	struct in6_addr mcglog;
 	mcg_init_streaming_group (&mcglog, STREAMING_LOG);
 	syslog_fd = server_udp_open (&mcglog, 23000, NULL);
-	return syslog_fd>=0?0:-1;
+	if(syslog_fd) {
+		_logstr=(char *)malloc(10240);
+	}
+	
+	return syslog_fd?0:-1;
 }
 
 int syslog_write(char *s)
@@ -763,5 +771,7 @@ void syslog_exit(void)
 {
 	if(syslog_fd) {
 		udp_close(syslog_fd);
+		free(_logstr);
 	}
 }
+#endif
