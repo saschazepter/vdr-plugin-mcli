@@ -26,7 +26,7 @@
 
 //#define DEBUG_PIDS 
 
-#define TEMP_DISABLE_TIMEOUT (30)
+#define TEMP_DISABLE_TIMEOUT (2)
 
 using namespace std;
 
@@ -129,6 +129,7 @@ cMcliDevice::cMcliDevice (void)
 	memset (m_pids, 0, sizeof (m_pids));
 	memset (&m_ten, 0, sizeof (tra_t));
 	m_pids[0].pid=-1;
+	m_disabletimeout = TEMP_DISABLE_TIMEOUT;
 	InitMcli ();
 }
 
@@ -228,6 +229,11 @@ bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool 
 bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 {
 	int is_scan=/*((Channel->Source () == 0x4000)||(Channel->Source () == 0xc000)) &&*/ !strlen(Channel->Name()) && !strlen(Channel->Provider());
+	if(is_scan) {
+		m_disabletimeout=30;
+	} else {
+		m_disabletimeout=TEMP_DISABLE_TIMEOUT;
+	}
 	printf ("SetChannelDevice Channel(%p): %s, Provider: %s, Source: %d, LiveView: %s, IsScan: %d\n", Channel, Channel->Name (), Channel->Provider (), Channel->Source (), LiveView ? "true" : "false", is_scan);
 	
 	if (!m_enable) {
@@ -340,7 +346,7 @@ bool cMcliDevice::HasLock (int TimeoutMs)
 
 bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 {
-	printf ("SetPid, Pid=%d, Type=%d, On=%d, used=%d %d %d %d %d\n", Handle->pid, Type, On, Handle->used, ptAudio, ptVideo, ptDolby, ptOther);
+//	printf ("SetPid, Pid=%d, Type=%d, On=%d, used=%d %d %d %d %d\n", Handle->pid, Type, On, Handle->used, ptAudio, ptVideo, ptDolby, ptOther);
 	dvb_pid_t pi;
 	memset (&pi, 0, sizeof (dvb_pid_t));
 	if (!m_enable) {
@@ -367,20 +373,20 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 					pi.priority=m_chan->Ca(0)&0x03;
 				}
 			} 
-			printf ("Add Pid: %d Sid:%d Type:%d %d\n", pi.pid, pi.id, Type, m_chan ? m_chan->Ca(0) : -1);
+//			printf ("Add Pid: %d Sid:%d Type:%d %d\n", pi.pid, pi.id, Type, m_chan ? m_chan->Ca(0) : -1);
 			recv_pid_add (m_r, &pi);
 		} else {
-                      	printf ("Del Pid: %d\n", Handle->pid);
+//                     	printf ("Del Pid: %d\n", Handle->pid);
 			recv_pid_del (m_r, Handle->pid);
 		}
 	}
 	m_mcpidsnum = recv_pids_get (m_r, m_pids);
-//#ifdef DEBUG_PIDS
+#ifdef DEBUG_PIDS
 	printf ("%p SetPid: Pidsnum: %d m_pidsnum: %d m_filternum: %d\n", m_r, m_mcpidsnum, m_pidsnum, m_filternum);
 	for (int i = 0; i < m_mcpidsnum; i++) {
 		printf ("Pid: %d\n", m_pids[i].pid);
 	}
-//#endif
+#endif
 	m_last=time(NULL);
 	return true;
 }

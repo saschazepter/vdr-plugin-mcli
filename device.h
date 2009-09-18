@@ -52,6 +52,7 @@ class cMcliDevice:public cDevice
 	bool m_enable;
 	time_t m_last;
 	int m_filternum;
+	int m_disabletimeout;
 
       protected:
 	virtual bool SetChannelDevice (const cChannel * Channel, bool LiveView);
