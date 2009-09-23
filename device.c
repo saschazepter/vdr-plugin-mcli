@@ -26,7 +26,8 @@
 
 //#define DEBUG_PIDS 
 
-#define TEMP_DISABLE_TIMEOUT (2)
+#define TEMP_DISABLE_TIMEOUT_DEFAULT (10)
+#define TEMP_DISABLE_TIMEOUT_SCAN (30)
 
 using namespace std;
 
@@ -78,7 +79,7 @@ void cMcliDevice::SetEnable (bool val)
 bool cMcliDevice::SetTempDisable (void)
 {
 	LOCK_THREAD;
-	if(!Receiving (true) && ((time(NULL)-m_last)>=TEMP_DISABLE_TIMEOUT)) {
+	if(!Receiving (true) && ((time(NULL)-m_last) >= m_disabletimeout)) {
 		recv_stop (m_r);
 		return true;
 	}
@@ -129,7 +130,7 @@ cMcliDevice::cMcliDevice (void)
 	memset (m_pids, 0, sizeof (m_pids));
 	memset (&m_ten, 0, sizeof (tra_t));
 	m_pids[0].pid=-1;
-	m_disabletimeout = TEMP_DISABLE_TIMEOUT;
+	m_disabletimeout = TEMP_DISABLE_TIMEOUT_DEFAULT;
 	InitMcli ();
 }
 
@@ -230,9 +231,9 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 {
 	int is_scan=/*((Channel->Source () == 0x4000)||(Channel->Source () == 0xc000)) &&*/ !strlen(Channel->Name()) && !strlen(Channel->Provider());
 	if(is_scan) {
-		m_disabletimeout=30;
+		m_disabletimeout = TEMP_DISABLE_TIMEOUT_SCAN;
 	} else {
-		m_disabletimeout=TEMP_DISABLE_TIMEOUT;
+		m_disabletimeout = TEMP_DISABLE_TIMEOUT_DEFAULT;
 	}
 	printf ("SetChannelDevice Channel(%p): %s, Provider: %s, Source: %d, LiveView: %s, IsScan: %d\n", Channel, Channel->Name (), Channel->Provider (), Channel->Source (), LiveView ? "true" : "false", is_scan);
 	
@@ -241,13 +242,11 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	}
 
 	LOCK_THREAD;
-	
-	if (m_chan && Channel->Transponder () == m_chan->Transponder () && !is_scan) {
+	if (IsTunedToTransponder (Channel) && !is_scan) {
 //              printf("Already tuned to transponder\n");
 		m_chan = Channel;
 		return true;
 	}
-
 	memset (&m_sec, 0, sizeof (recv_sec_t));
 	memset (&m_fep, 0, sizeof (struct dvb_frontend_parameters));
 //	memset (&m_pids, 0, sizeof (m_pids));
