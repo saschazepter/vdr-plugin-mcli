@@ -1,0 +1,49 @@
+This is a tool for streaming DVB TS packets via udp multicasts on demand from the netceiver.
+It listens for IGMPv3 join/leave multicast group messages on the network and starts/stops 
+the corresponding streams accordingly. It uses a channels.conf file for channel information.
+Each channel is mapped to one multicast group starting with 239.255.0.1 and so on.
+
+Written by:
+Christian Cier-Zniewski <c.cier@gmx.de>
+
+The software is based on source code from the following projects:
+
+IGMP component of vdr-streamdev-plugin 
+Frank Schmirler <vdrdev@schmirler.de>
+
+VDR
+Klaus Schmidinger <kls@cadsoft.de>
+
+Netceiver mcli-lib
+Baycom GmbH <info@baycom.de>
+
+-----------------------------------------------------------
+
+Quick Compile Howto:
+
+1)
+svn co https://svn.baycom.de/repos/vdr-mcli-plugin/mcast/
+
+2) 
+wget netcv2dvbip-0.0.1.tar.bz2
+
+3)
+cd mcast
+tar xfj ../netcv2dvbip-0.0.1.tar.bz2
+cd ..
+
+4)
+cd client
+make 
+cd ..
+
+5) 
+cd netcv2dvbip
+make
+
+6)
+./netcv2dvbip -b <ip_address of streaming interface> -i <interface with netceiver network> 
+
+
+
+
