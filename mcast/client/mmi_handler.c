@@ -96,7 +96,7 @@ int mmi_open_menu_session (char *uuid, char *intf, int port, int cmd)
 //---------------------------------------------------------------------------------------------
 void mmi_close_menu_session (int s)
 {
-	close (s);
+	closesocket (s);
 }
 
 //---------------------------------------------------------------------------------------------
@@ -163,22 +163,6 @@ UDPContext *mmi_broadcast_client_init (int port, char *iface)
 void mmi_broadcast_client_exit (UDPContext * s)
 {
 	udp_close (s);
-}
-
-//---------------------------------------------------------------------------------------------
-int mmi_poll_for_menu_text (UDPContext * s, mmi_info_t * m, int timeout)
-{
-	char buf[8192];
-	int n = 0;
-	if (s) {
-		n = udp_read (s, (unsigned char *) buf, sizeof (buf), timeout, NULL);
-		if (n > 0) {
-			dbg ("recv:\n%s \n", buf);
-			memset (m, 0, sizeof (mmi_info_t));
-			mmi_get_data ((xmlChar *) buf, n, m);
-		}
-	}
-	return n;
 }
 
 //---------------------------------------------------------------------------------------------
@@ -308,4 +292,19 @@ int mmi_get_data (xmlChar * xmlbuff, int buffersize, mmi_info_t * mmi_info)
 	return 1;
 }
 
+//---------------------------------------------------------------------------------------------
+int mmi_poll_for_menu_text (UDPContext * s, mmi_info_t * m, int timeout)
+{
+	char buf[8192];
+	int n = 0;
+	if (s) {
+		n = udp_read (s, (unsigned char *) buf, sizeof (buf), timeout, NULL);
+		if (n > 0) {
+			dbg ("recv:\n%s \n", buf);
+			memset (m, 0, sizeof (mmi_info_t));
+			mmi_get_data ((xmlChar *) buf, n, m);
+		}
+	}
+	return n;
+}
 //---------------------------------------------------------------------------------------------
