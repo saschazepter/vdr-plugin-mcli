@@ -180,6 +180,13 @@ int mld_client_init (char *intf)
 		err ("setsockopt IPV6_HDRINCL");
 	}
 #endif
+	int idx;
+	if ((idx = if_nametoindex (iface))>0) {
+		int ret=setsockopt (g_conf->rawsocket, IPPROTO_IPV6, IPV6_MULTICAST_IF, (_SOTYPE)&idx, sizeof (idx));
+		if(ret<0) {
+			warn("setsockopt for IPV6_MULTICAST_IF failed with %d error %s (%d)\n",ret,strerror (errno), errno);
+		}
+	}
 	pthread_create (&mld_send_reports_thread, NULL, mld_send_reports, &receivers);
 	return 0;
 }
