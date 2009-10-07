@@ -96,8 +96,10 @@ int cMcliDevice::HandleTsData (unsigned char *buffer, size_t len)
 	m_filters->PutTS (buffer, len);
 #ifdef GET_TS_PACKETS
 	unsigned char *ptr = m_PB->PutStart (len);
-	memcpy (ptr, buffer, len);
-	m_PB->PutEnd (len, 0, 0);
+	if (ptr) {
+		memcpy (ptr, buffer, len);
+		m_PB->PutEnd (len, 0, 0);
+	}
 #else
 	unsigned int i;
 	for (i = 0; i < len; i += TS_SIZE) {
