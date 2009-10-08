@@ -378,7 +378,7 @@ void cPluginMcli::Action (void)
 				cMcliDeviceObject *d = m_devs.find_dev_by_uuid (nci->tuner[i].uuid);
 				if ((now - nci->lastseen) > MCLI_DEVICE_TIMEOUT) {
 					if (d) {
-						cPluginManager::CallAllServices ("OnDelMcliDevice", d->d ());
+						cPluginManager::CallAllServices ("OnDelMcliDevice-"MCLI_DEVICE_VERSION, d->d ());
 						printf ("Remove Tuner %s [%s]\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid);
 						d->d ()->SetEnable (false);
 #if VDRVERSNUM >= 10600
@@ -406,7 +406,7 @@ void cPluginMcli::Action (void)
 				if (!d) {
 					printf ("  Tuner: %s [%s], Type %d\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, type);
 					cMcliDevice *m = new cMcliDevice;
-					cPluginManager::CallAllServices ("OnNewMcliDevice", &m);
+					cPluginManager::CallAllServices ("OnNewMcliDevice-"MCLI_DEVICE_VERSION, &m);
 					if (m) {
 						m->SetUUID (nci->tuner[i].uuid);
 						m->SetFEType (type);

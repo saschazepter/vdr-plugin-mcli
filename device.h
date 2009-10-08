@@ -31,6 +31,8 @@
 
 #include "packetbuffer.h"
 
+#define MCLI_DEVICE_VERSION "0.0.1"
+
 class cMcliDevice:public cDevice
 {
 
