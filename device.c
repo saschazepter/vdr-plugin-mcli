@@ -69,9 +69,11 @@ void cMcliDevice::SetEnable (bool val)
 	m_enable = val;
 	if (!m_enable) {
 		recv_stop (m_r);
+		m_tuned = false;
 	} else {
 		if (m_chan) {
 			recv_tune (m_r, m_fetype, m_pos, &m_sec, &m_fep, m_pids);
+			m_tuned = true;
 		}
 	}
 }
@@ -81,6 +83,7 @@ bool cMcliDevice::SetTempDisable (void)
 	LOCK_THREAD;
 	if(!Receiving (true) && ((time(NULL)-m_last) >= m_disabletimeout)) {
 		recv_stop (m_r);
+		m_tuned = false;
 		return true;
 	}
 	return false;
@@ -116,6 +119,7 @@ int cMcliDevice::HandleTsData (unsigned char *buffer, size_t len)
 cMcliDevice::cMcliDevice (void)
 {
 	m_enable = false;
+	m_tuned = false;
 	StartSectionHandler ();
 	m_PB = new cMyPacketBuffer (10000 * TS_SIZE, 10000);
 	m_PB->SetTimeouts (0, 1000 * 20);
@@ -190,7 +194,7 @@ bool cMcliDevice::IsTunedToTransponder (const cChannel * Channel)
 		return false;
 	}
 
-	if (m_chan && (Channel->Transponder () == m_chan->Transponder ())) {
+	if (m_tuned && m_chan && (Channel->Transponder () == m_chan->Transponder ())) {
 //              printf ("Yes!!!");
 		return true;
 	}
@@ -312,6 +316,7 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	}
 
 	recv_tune (m_r, m_fetype, m_pos, &m_sec, &m_fep, m_pids);
+	m_tuned = true;
 	if(/*is_scan &&*/ (m_pids[0].pid==-1)) {
 		dvb_pid_t pi;
 		memset(&pi, 0, sizeof(dvb_pid_t));
