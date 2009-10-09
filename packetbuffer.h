@@ -6,10 +6,6 @@
  *
  */
 
-/*
- *  $Id$
- */
-
 #ifndef VDR_MCLI_PACKETBUFFER_H
 #define VDR_MCLI_PACKETBUFFER_H
 

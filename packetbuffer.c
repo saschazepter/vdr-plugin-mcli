@@ -6,10 +6,6 @@
  *
  */
 
-/*
- *  $Id$
- */
-
 #include <vdr/plugin.h>
 #include <sys/time.h>
 #include "packetbuffer.h"

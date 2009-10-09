@@ -6,10 +6,6 @@
  *
  */
 
-/*
- *  $Id: device.h 1755 2009-06-03 22:50:42Z fliegl $
- */
-
 #ifndef VDR_MCLI_DEVICE_H
 #define VDR_MCLI_DEVICE_H
 

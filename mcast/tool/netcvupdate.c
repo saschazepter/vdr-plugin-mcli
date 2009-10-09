@@ -655,7 +655,7 @@ void usage(void)
 {
 	fprintf(stderr,
 		"netcvupdate - NetCeiver update tool, version " MCLI_VERSION_STR "\n"
-		"(c) 2007-2008 BayCom GmbH\n"
+		"(c) BayCom GmbH\n"
 		"Usage: netcvupdate <options> <actions> \n"
 		"Actions:  \n" 
 		"           -l                List all seen NetCeivers and their UUID\n"

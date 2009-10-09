@@ -71,7 +71,7 @@ void usage(void)
 {
 	fprintf(stderr,
 		"netcvdiag - NetCeiver diagnosis tool,  version " MCLI_VERSION_STR "\n"
-		"(c) 2007-2008 BayCom GmbH\n"
+		"(c) BayCom GmbH\n"
 		"Usage: netcvdiag <options>\n"
 		"Options:   -a                    Show all\n"
 		"           -u                    Show UUIDs\n"

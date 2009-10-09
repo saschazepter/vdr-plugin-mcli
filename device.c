@@ -6,10 +6,6 @@
  *
  */
 
-/*
- *  $Id: device.c 1755 2009-06-03 22:50:42Z fliegl $
- */
-
 #include "filter.h"
 #include "device.h"
 

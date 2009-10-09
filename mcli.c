@@ -8,8 +8,6 @@
 
 /*
  * mcli.c: A plugin for the Video Disk Recorder
- *
- * $Id: mcli.c 1769 2009-06-04 18:32:48Z fliegl $
  */
 
 #include <vdr/plugin.h>

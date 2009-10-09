@@ -6,10 +6,6 @@
  *
  */
 
-/*
- *  $Id: filter.h 1755 2009-06-03 22:50:42Z fliegl $
- */
-
 #ifndef VDR_STREAMDEV_FILTER_H
 #define VDR_STREAMDEV_FILTER_H
 

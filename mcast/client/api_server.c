@@ -194,6 +194,9 @@ int api_sock_init (const char *cmd_sock_path)
 		warn ("Cannot bind control socket\n");
 		return -1;
 	}
+	if (chmod(cmd_sock_path, S_IRWXU|S_IRWXG|S_IRWXO)) {
+		warn ("Cannot chmod 777 socket %s\n", cmd_sock_path);
+	}
 	if (listen (s.fd, 5) < 0) {
 		warn ("Cannot listen on socket\n");
 		return -1;
