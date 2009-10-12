@@ -66,9 +66,12 @@ NETCVDIAG_OBJS = netcvdiag.o tools.o
 NETCVUPDATE = netcvupdate
 NETCVUPDATE_OBJS = netcvupdate.o
 
-OBJS := $(NETCVDIAG_OBJS) $(NETCVUPDATE_OBJS)
+NETCVLOGVIEW = netcvlogview
+NETCVLOGVIEW_OBJS = netcvlogview.o mcast.o
 
-all: $(NETCVDIAG) $(NETCVUPDATE)
+OBJS := $(NETCVDIAG_OBJS) $(NETCVUPDATE_OBJS) $(NETCVLOGVIEW_OBJS)
+
+all: $(NETCVDIAG) $(NETCVUPDATE) $(NETCVLOGVIEW)
 
 static: $(NETCVDIAG)-static $(NETCVUPDATE)-static
 
@@ -97,6 +100,14 @@ ifndef WIN32
 endif
 endif
 
+$(NETCVLOGVIEW): $(NETCVLOGVIEW_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $(NETCVLOGVIEW_OBJS) $(LDLIBS)
+ifndef DEBUG
+ifndef WIN32
+	strip $(NETCVLOGVIEW)
+endif
+endif
+
 $(NETCVDIAG)-static: $(NETCVDIAG_OBJS)
 	$(CC) $(LDFLAGS) -static -static-libgcc -o $@ $(NETCVDIAG_OBJS) $(LDLIBS) $(LIBRARY_PATH)/libm.a  $(LIBRARY_PATH)/libz.a
 	strip $(NETCVDIAG)-static
@@ -105,15 +116,20 @@ $(NETCVUPDATE)-static: $(NETCVUPDATE_OBJS)
 	$(CC) $(LDFLAGS) -static -static-libgcc -o $@ $(NETCVUPDATE_OBJS) $(LDLIBS) $(LIBRARY_PATH)/libm.a
 	strip $(NETCVUPDATE)-static
 
-install: $(NETCVDIAG) $(NETCVUPDATE)
+$(NETCVLOGVIEW)-static: $(NETCVLOGVIEW_OBJS)
+	$(CC) $(LDFLAGS) -static -static-libgcc -o $@ $(NETCVLOGVIEW_OBJS) $(LDLIBS) $(LIBRARY_PATH)/libm.a  $(LIBRARY_PATH)/libz.a $(LIBRARY_PATH)/libpthread.a
+	strip $(NETCVLOGVIEW)-static
+
+install: $(NETCVDIAG) $(NETCVUPDATE) $(NETCVLOGVIEW)
 	install -p $(NETCVDIAG) /usr/sbin/$(NETCVDIAG)
 	install -p $(NETCVUPDATE) /usr/sbin/$(NETCVUPDATE)
+	install -p $(NETCVLOGVIEW) /usr/sbin/$(NETCVLOGVIEW)
 
 depend: .dependencies
 	#makedepend -Y -- $(CFLAGS)  -- *c >/dev/null 2>&1
 
 clean:
-	rm -f $(NETCVDIAG) $(NETCVUPDATE) *.elf *.gdb *.o *~
+	rm -f $(NETCVDIAG) $(NETCVUPDATE) $(NETCVLOGVIEW) *.elf *.gdb *.o *~
 
 %.o: %.c
 	$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) -o $@ $<
