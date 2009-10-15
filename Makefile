@@ -1,7 +1,7 @@
 #
 # Makefile for a Video Disk Recorder plugin
 #
-# $Id: Makefile 1887 2009-08-27 08:38:49Z rollercoaster $
+# $Id: Makefile 2060 2009-10-15 11:14:27Z fliegl $
 
 # The official name of this plugin.
 # This name will be used in the '-P...' option of VDR to load the plugin.
@@ -9,7 +9,7 @@
 # IMPORTANT: the presence of this macro is important for the Make.config
 # file. So it must be defined, even if it is not used here!
 #
-MCLI_SHARED=1
+#MCLI_SHARED=1
 PLUGIN = mcli
 APPLE_DARWIN = $(shell gcc -dumpmachine | grep -q 'apple-darwin' && echo "1" || echo "0")
 
