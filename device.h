@@ -52,6 +52,8 @@ class cMcliDevice:public cDevice
 	int m_filternum;
 	int m_disabletimeout;
 	bool m_tuned;
+	bool m_showtuning;
+	bool m_ca_enable;
 
       protected:
 	virtual bool SetChannelDevice (const cChannel * Channel, bool LiveView);
@@ -101,6 +103,10 @@ class cMcliDevice:public cDevice
 		return &m_ten;
 	}
 	void SetTenData (tra_t * ten);
+	void SetCaEnable (bool val = true) 
+	{
+		m_ca_enable=val;
+	}
 	void SetEnable (bool val = true);
 	bool SetTempDisable (void);
 	void SetFEType (fe_type_t val);

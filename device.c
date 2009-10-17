@@ -24,6 +24,8 @@
 
 #define TEMP_DISABLE_TIMEOUT_DEFAULT (10)
 #define TEMP_DISABLE_TIMEOUT_SCAN (30)
+#define LASTSEEN_TIMEOUT (5)
+//#define ENABLE_DEVICE_PRIORITY
 
 using namespace std;
 
@@ -54,6 +56,9 @@ static int handle_ten (tra_t * ten, void *p)
 
 void cMcliDevice::SetTenData (tra_t * ten)
 {
+	if(!ten->lastseen) {
+		ten->lastseen=m_ten.lastseen;
+	}
 	m_ten = *ten;
 }
 
@@ -77,6 +82,13 @@ void cMcliDevice::SetEnable (bool val)
 bool cMcliDevice::SetTempDisable (void)
 {
 	LOCK_THREAD;
+	// Check for tuning timeout
+	if(m_showtuning && Receiving(true) && ((time(NULL)-m_ten.lastseen)>=LASTSEEN_TIMEOUT)) {
+		if(m_chan) {
+			Skins.QueueMessage(mtInfo, cString::sprintf(tr("Waiting for a free tuner (%s)"),m_chan->Name()));
+		}
+		m_showtuning = false;
+	}
 	if(!Receiving (true) && ((time(NULL)-m_last) >= m_disabletimeout)) {
 		recv_stop (m_r);
 		m_tuned = false;
@@ -129,6 +141,7 @@ cMcliDevice::cMcliDevice (void)
 	m_chan = NULL;
 	m_fetype = FE_QPSK;
 	m_last = 0;
+	m_showtuning = 0;
 	memset (m_pids, 0, sizeof (m_pids));
 	memset (&m_ten, 0, sizeof (tra_t));
 	m_pids[0].pid=-1;
@@ -206,6 +219,9 @@ bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool 
 	if (!m_enable) {
 		return false;
 	}
+	if(!m_ca_enable && Channel->Ca()) {
+		return false;
+	}
 
 //      printf ("ProvidesChannel, Channel=%s, Prio=%d this->Prio=%d\n", Channel->Name (), Priority, this->Priority ());
 	     if (ProvidesSource (Channel->Source ()))
@@ -240,6 +256,10 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	printf ("SetChannelDevice Channel(%p): %s, Provider: %s, Source: %d, LiveView: %s, IsScan: %d\n", Channel, Channel->Name (), Channel->Provider (), Channel->Source (), LiveView ? "true" : "false", is_scan);
 	
 	if (!m_enable) {
+		return false;
+	}
+
+	if(!m_ca_enable && Channel->Ca()) {
 		return false;
 	}
 
@@ -324,7 +344,8 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 		printf ("Pid: %d\n", m_pids[i].pid);
 	}
 #endif
-	m_last=time(NULL);
+	m_ten.lastseen=m_last=time(NULL);
+	m_showtuning = true;
 	return true;
 }
 
@@ -375,7 +396,18 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 					pi.priority=m_chan->Ca(0)&0x03;
 				}
 			} 
-//			printf ("Add Pid: %d Sid:%d Type:%d %d\n", pi.pid, pi.id, Type, m_chan ? m_chan->Ca(0) : -1);
+#ifdef ENABLE_DEVICE_PRIORITY
+			int Prio = Priority();
+			if(Prio>50) // Recording prio high
+				pi.priority |= 3<<2;
+			else if(Prio > 10) // Recording prio normal
+				pi.priority |= 2<<2;
+			else if(Prio >= 0) // Recording prio low
+				pi.priority |= 1<<2;
+			else if(Prio == -1) // Live
+				pi.priority |= 1<<2;
+#endif
+//			printf ("Add Pid: %d Sid:%d Type:%d Prio: %d %d\n", pi.pid, pi.id, Type, pi.priority, m_chan ? m_chan->Ca(0) : -1);
 			recv_pid_add (m_r, &pi);
 		} else {
 //                     	printf ("Del Pid: %d\n", Handle->pid);

@@ -360,6 +360,16 @@ bool cPluginMcli::ProcessArgs (int argc, char *argv[])
 	return true;
 }
 
+static int  nc_tuner_compare(const void *p1, const void *p2)
+{
+	
+	return ((tuner_info *)p1)->fe_info.type<((tuner_info *)p2)->fe_info.type;
+}
+
+static void nc_tuner_sort(netceiver_info_t *nci)
+{
+	qsort(nci->tuner, nci->tuner_num, sizeof(tuner_info), nc_tuner_compare);
+}
 void cPluginMcli::Action (void)
 {
 	netceiver_info_list_t *nc_list = nc_get_list ();
@@ -372,6 +382,14 @@ void cPluginMcli::Action (void)
 		time_t now = time (NULL);
 		for (int n = 0; n < nc_list->nci_num; n++) {
 			netceiver_info_t *nci = nc_list->nci + n;
+			nc_tuner_sort(nci);
+			int cam_num=0;
+			for (int i = 0;  i < nci->cam_num; i++) {
+				if(nci->cam[i].status) {
+					cam_num++;	
+				}
+			}
+	                //printf ("CAMS: %d/%d\n", nci->cam_num, cam_num);                                         		
 			for (int i = 0; i < nci->tuner_num; i++) {
 				cMcliDeviceObject *d = m_devs.find_dev_by_uuid (nci->tuner[i].uuid);
 				if ((now - nci->lastseen) > MCLI_DEVICE_TIMEOUT) {
@@ -387,7 +405,10 @@ void cPluginMcli::Action (void)
 					}
 					continue;
 				}
-
+				if(cam_num && d) {
+					d->d ()->SetCaEnable();
+					cam_num--;
+				}
 				if (devices >= MCLI_MAX_DEVICES) {
 //                                      printf("MCLI_MAX_DEVICES reached\n");
 					continue;
@@ -410,6 +431,10 @@ void cPluginMcli::Action (void)
 						m->SetFEType (type);
 						m->SetEnable (true);
 						d = new cMcliDeviceObject (m);
+						if(cam_num) {
+							m->SetCaEnable();
+							cam_num--;
+						}
 						m_devs.Add (d);
 					}	// if
 //TB: reelvdr itself tunes if the first tuner appears, don't do it twice
