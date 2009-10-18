@@ -89,7 +89,7 @@ class cMcliDevice:public cDevice
 	}
 	virtual bool HasInternalCam (void)
 	{
-		return true;
+		return m_ca_enable;
 	}
 	virtual bool ProvidesSource (int Source) const;
 	virtual bool ProvidesTransponder (const cChannel * Channel) const;

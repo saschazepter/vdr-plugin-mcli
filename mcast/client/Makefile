@@ -28,7 +28,8 @@ DEFS:=$(DEFS) -I../common/darwin/include/ -DAPPLE
 APPLE=1
 endif
 
--include ../../../../../Make.config
+VDRDIR=../../../../..
+-include $(VDRDIR)/Make.config
 
 ifdef ARMEL
   XML_INC := -I/usr/arm-linux-gnueabi/include/libxml2
