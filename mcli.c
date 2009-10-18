@@ -429,12 +429,12 @@ void cPluginMcli::Action (void)
 					if (m) {
 						m->SetUUID (nci->tuner[i].uuid);
 						m->SetFEType (type);
-						m->SetEnable (true);
-						d = new cMcliDeviceObject (m);
 						if(cam_num) {
 							m->SetCaEnable();
 							cam_num--;
 						}
+						m->SetEnable (true);
+						d = new cMcliDeviceObject (m);
 						m_devs.Add (d);
 					}	// if
 //TB: reelvdr itself tunes if the first tuner appears, don't do it twice

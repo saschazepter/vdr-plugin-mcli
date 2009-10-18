@@ -42,7 +42,6 @@ class cMcliDevice:public cDevice
 	struct dvb_frontend_parameters m_fep;
 	dvb_pid_t m_pids[256];
 	char m_uuid[UUID_SIZE];
-	char m_name[];
 	tra_t m_ten;
 	fe_type_t m_fetype;
 	const cChannel *m_chan;
@@ -73,7 +72,6 @@ class cMcliDevice:public cDevice
 	  cCondVar m_locked;
 	cMyPacketBuffer *m_PB;
 	cMcliFilters *m_filters;
-	bool m_ca;
 	  cMcliDevice (void);
 	  virtual ~ cMcliDevice ();
 
@@ -106,6 +104,7 @@ class cMcliDevice:public cDevice
 	void SetCaEnable (bool val = true) 
 	{
 		m_ca_enable=val;
+//		printf("Enabled CAM: %s %d\n", m_uuid, m_fetype);
 	}
 	void SetEnable (bool val = true);
 	bool SetTempDisable (void);

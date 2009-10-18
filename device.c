@@ -13,6 +13,7 @@
 #include <vdr/ringbuffer.h>
 #include <vdr/eit.h>
 #include <vdr/timers.h>
+#include <vdr/skins.h>
 
 #include <time.h>
 #include <iostream>
@@ -131,8 +132,6 @@ cMcliDevice::cMcliDevice (void)
 	StartSectionHandler ();
 	m_PB = new cMyPacketBuffer (10000 * TS_SIZE, 10000);
 	m_PB->SetTimeouts (0, 1000 * 20);
-	m_ca = true;
-
 	m_filters = new cMcliFilters ();
 	printf ("cMcliDevice: got device number %d\n", CardIndex () + 1);
 	m_pidsnum = 0;
@@ -142,6 +141,7 @@ cMcliDevice::cMcliDevice (void)
 	m_fetype = FE_QPSK;
 	m_last = 0;
 	m_showtuning = 0;
+	m_ca_enable = false;
 	memset (m_pids, 0, sizeof (m_pids));
 	memset (&m_ten, 0, sizeof (tra_t));
 	m_pids[0].pid=-1;
@@ -220,6 +220,7 @@ bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool 
 		return false;
 	}
 	if(!m_ca_enable && Channel->Ca()) {
+//		printf("ProvidesChannel: no CA configured here\n");
 		return false;
 	}
 
@@ -260,6 +261,7 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	}
 
 	if(!m_ca_enable && Channel->Ca()) {
+//		printf("SetChannelDevice: no CA configured here\n");
 		return false;
 	}
 
@@ -388,7 +390,7 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 
 		if (On) {
 			pi.pid = Handle->pid;
-			if (m_ca && m_chan && m_chan->Ca (0)) {
+			if (m_chan && m_chan->Ca (0)) {
 //				if (Type>=5 && Type <=8) {
 					pi.id= m_chan->Sid();
 //				}
