@@ -176,12 +176,9 @@ class cPluginMcli:public cPlugin, public cThread
 	void reconfigure (void);
 
 	int CamPollText (mmi_info_t * text);
-#ifdef REELVDR
 	virtual cOsdObject *AltMenuAction (void);
-#endif
 };
 
-#ifdef REELVDR
 cOsdObject *cPluginMcli::AltMenuAction (void)
 {
 	// Call this code periodically to find out if any CAM out there want's us to tell something.
@@ -226,7 +223,6 @@ cOsdObject *cPluginMcli::AltMenuAction (void)
 	}
 	return NULL;
 }
-#endif
 
 int cPluginMcli::CamPollText (mmi_info_t * text)
 {
