@@ -423,8 +423,8 @@ void cPluginMcli::Action (void)
 					continue;
 				}
 				if (!d) {
-					printf ("  Tuner: %s [%s], Type %d\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, type);
 					cMcliDevice *m = new cMcliDevice;
+					printf ("  Tuner: %s [%s], Type %d @ %p\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, type, m);
 					cPluginManager::CallAllServices ("OnNewMcliDevice-"MCLI_DEVICE_VERSION, &m);
 					if (m) {
 						m->SetUUID (nci->tuner[i].uuid);

@@ -193,7 +193,9 @@ bool cMcliDevice::ProvidesTransponder (const cChannel * Channel) const
 	if (!m_enable) {
 		return false;
 	}
-	     return ProvidesSource (Channel->Source ());
+	bool ret=ProvidesSource (Channel->Source ()) && ((Channel->Modulation() == QPSK_S2 || Channel->Modulation() == PSK8) ? (m_fetype == FE_DVBS2) : true);
+//	printf ("ProvidesTransponder Modulation:  %d %s@%p -> %d\n", Channel->Modulation(), Channel->Name (), this, ret);
+	return ret;
 }
 
 bool cMcliDevice::IsTunedToTransponder (const cChannel * Channel)
@@ -225,8 +227,8 @@ bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool 
 	}
 
 //      printf ("ProvidesChannel, Channel=%s, Prio=%d this->Prio=%d\n", Channel->Name (), Priority, this->Priority ());
-	     if (ProvidesSource (Channel->Source ()))
-	     {
+//	     if (ProvidesSource (Channel->Source ()))
+	     if(ProvidesTransponder(Channel)) {
 		     result = hasPriority;
 		     if (Priority >= 0 && Receiving (true))
 		     {
@@ -254,7 +256,7 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	} else {
 		m_disabletimeout = TEMP_DISABLE_TIMEOUT_DEFAULT;
 	}
-	printf ("SetChannelDevice Channel(%p): %s, Provider: %s, Source: %d, LiveView: %s, IsScan: %d\n", Channel, Channel->Name (), Channel->Provider (), Channel->Source (), LiveView ? "true" : "false", is_scan);
+	printf ("SetChannelDevice Channel(%p@%p): %s, Provider: %s, Source: %d, LiveView: %s, IsScan: %d\n", Channel, this, Channel->Name (), Channel->Provider (), Channel->Source (), LiveView ? "true" : "false", is_scan);
 	
 	if (!m_enable) {
 		return false;
@@ -339,6 +341,7 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 		dvb_pid_t pi;
 		memset(&pi, 0, sizeof(dvb_pid_t));
 		recv_pid_add (m_r, &pi);
+//		printf("add dummy pid 0 @ %p\n", this);
 	}
 #ifdef DEBUG_PIDS
 	printf ("%p SetChannelDevice: Pidsnum: %d m_pidsnum: %d\n", m_r, m_mcpidsnum, m_pidsnum);
