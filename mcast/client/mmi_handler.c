@@ -145,12 +145,25 @@ int mmi_send_menu_answer (int sockfd, char *buf, int buf_len)
 }
 
 //---------------------------------------------------------------------------------------------
-UDPContext *mmi_broadcast_client_init (int port, char *iface)
+UDPContext *mmi_broadcast_client_init (int port, char *intf)
 {
 	UDPContext *s;
 	char mcg[1024];
+	char iface[IFNAMSIZ];
 	//FIXME: move to common
 	strcpy (mcg, "ff18:6000::");
+	if (!intf || !strlen (intf)) {
+		struct intnode *intn = int_find_first ();
+		if (intn) {
+			strcpy (iface, intn->name);
+		}
+	} else {
+		strncpy (iface, intf, sizeof (iface));
+		iface[sizeof (iface) - 1] = 0;
+	}
+	if (!port) {
+		port = 23000;
+	}
 
 	s = client_udp_open_host (mcg, port, iface);
 	if (!s) {

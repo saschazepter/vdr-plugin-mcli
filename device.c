@@ -227,22 +227,25 @@ bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool 
 	}
 
 //      printf ("ProvidesChannel, Channel=%s, Prio=%d this->Prio=%d\n", Channel->Name (), Priority, this->Priority ());
-	if(ProvidesTransponder(Channel)) {
-		result = hasPriority;
-		if (Priority >= 0 && Receiving (true)) {
-			if (m_chan && (Channel->Transponder () != m_chan->Transponder ())) {
-				needsDetachReceivers = true;
-			} else {
-				result = true;
-			}
-		}
-	}
+//	     if (ProvidesSource (Channel->Source ()))
+	     if(ProvidesTransponder(Channel)) {
+		     result = hasPriority;
+		     if (Priority >= 0 && Receiving (true))
+		     {
+			     if (m_chan && (Channel->Transponder () != m_chan->Transponder ())) {
+				     needsDetachReceivers = true;
+			     } else
+			     {
+				     result = true;
+			     }
+		     }
+	     }
 //      printf ("NeedsDetachReceivers: %d\n", needsDetachReceivers);
 //      printf ("Result: %d\n", result);
-	if (NeedsDetachReceivers) {
-		*NeedsDetachReceivers = needsDetachReceivers;
-	}
-	return result;
+	     if (NeedsDetachReceivers) {
+		     *NeedsDetachReceivers = needsDetachReceivers;
+	     }
+	     return result;
 }
 
 bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
@@ -282,7 +285,9 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	switch (m_fetype) {
 	case FE_DVBS2:
 	case FE_QPSK:{		// DVB-S
+
 			unsigned int frequency = Channel->Frequency ();
+
 			fe_sec_voltage_t volt = (Channel->Polarization () == 'v' || Channel->Polarization () == 'V' || Channel->Polarization () == 'r' || Channel->Polarization () == 'R') ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
 			m_sec.voltage = volt;
 			frequency =::abs (frequency);	// Allow for C-band, where the frequency is less than the LOF
@@ -293,6 +298,7 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 		}
 		break;
 	case FE_QAM:{		// DVB-C
+
 			// Frequency and symbol rate:
 			m_fep.frequency = FrequencyToHz (Channel->Frequency ());
 			m_fep.inversion = fe_spectral_inversion_t (Channel->Inversion ());
@@ -302,6 +308,7 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 		}
 		break;
 	case FE_OFDM:{		// DVB-T
+
 			// Frequency and OFDM paramaters:
 			m_fep.frequency = FrequencyToHz (Channel->Frequency ());
 			m_fep.inversion = fe_spectral_inversion_t (Channel->Inversion ());
