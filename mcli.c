@@ -11,6 +11,7 @@
  */
 
 #include <vdr/plugin.h>
+#include <vdr/player.h>
 #include "filter.h"
 #include "device.h"
 #include "cam_menu.h"
@@ -496,6 +497,15 @@ void cPluginMcli::MainThreadHook (void)
 		reconf = 0;
 		reconf_full = 0;
 	}
+#ifndef REELVDR
+	cOsdObject *MyMenu = AltMenuAction();
+	if (MyMenu) { // is there any cam-menu waiting?
+		if (cControl::Control()) {
+			cControl::Control()->Hide();
+		}
+		MyMenu->Show();
+	}
+#endif
 }
 
 cString cPluginMcli::Active (void)
