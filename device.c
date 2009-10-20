@@ -134,6 +134,7 @@ cMcliDevice::cMcliDevice (void)
 	m_PB->SetTimeouts (0, 1000 * 20);
 	m_filters = new cMcliFilters ();
 	printf ("cMcliDevice: got device number %d\n", CardIndex () + 1);
+	m_ca = true;
 	m_pidsnum = 0;
 	m_mcpidsnum = 0;
 	m_filternum = 0;
@@ -393,7 +394,7 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 
 		if (On) {
 			pi.pid = Handle->pid;
-			if (m_chan && m_chan->Ca (0)) {
+			if (m_ca && m_chan && m_chan->Ca (0)) {
 //				if (Type>=5 && Type <=8) {
 					pi.id= m_chan->Sid();
 //				}

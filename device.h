@@ -69,11 +69,12 @@ class cMcliDevice:public cDevice
 #endif
 
       public:
-	  cCondVar m_locked;
+	cCondVar m_locked;
 	cMyPacketBuffer *m_PB;
 	cMcliFilters *m_filters;
-	  cMcliDevice (void);
-	  virtual ~ cMcliDevice ();
+	bool m_ca;
+	cMcliDevice (void);
+	virtual ~ cMcliDevice ();
 
 #ifdef REELVDR
 	const cChannel *CurChan () const
