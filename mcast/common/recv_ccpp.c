@@ -913,6 +913,12 @@ int get_tca_data (xmlChar * xmlbuff, int buffersize, netceiver_info_t * nc_info)
 								strncpy(cam->menu_string, (char *) c.key, MAX_MENU_STR_LEN-1);								
 								xmlFree (c.key);
 							}
+						} else if ((!xmlStrcmp (cur_node->name, (const xmlChar *) "Flags"))) {
+							c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
+							if (c.key) {
+								cam->flags = atoi ((char *) c.key);								
+								xmlFree (c.key);
+							}
 						}
 						cur_node = cur_node->next;
 					}			

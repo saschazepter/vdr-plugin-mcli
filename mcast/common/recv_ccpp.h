@@ -14,6 +14,7 @@
 #define MAX_MENU_STR_LEN 64
 #define MAX_CAMS 2
 
+
 typedef struct tuner_info
 {
 	int magic;
@@ -26,10 +27,15 @@ typedef struct tuner_info
 	char SatelliteListName[UUID_SIZE];
 } tuner_info_t;
 
+typedef enum { CA_SINGLE, CA_MULTI_SID, CA_MULTI_TRANSPONDER} nc_ca_caps_t;
+enum { DVBCA_CAMSTATE_MISSING, DVBCA_CAMSTATE_INITIALISING, DVBCA_CAMSTATE_READY};
+
 typedef struct cam_info {
 	
 	uint8_t slot;
 	uint8_t status;
+	nc_ca_caps_t flags;
+	
 	char menu_string[MAX_MENU_STR_LEN];
 
 } cam_info_t;

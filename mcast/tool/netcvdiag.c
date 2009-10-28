@@ -86,7 +86,7 @@ void usage(void)
 	exit(0);
 }
 /*------------------------------------------------------------------------*/
-void show_it(int show_count, int show_uuids, int show_tuners, int show_sats, int show_versions)
+void show_it(int show_count, int show_uuids, int show_tuners, int show_sats, int show_versions, int show_cams)
 {
 	int nc_num;
 	int i;
@@ -129,6 +129,31 @@ void show_it(int show_count, int show_uuids, int show_tuners, int show_sats, int
 			       api_cmd->u.nc_info.Serial, api_cmd->u.nc_info.Vendor, api_cmd->u.nc_info.DefCon);
 			printf("  SystemUptime %d, ProcessUptime %d\n",
 			       (int)api_cmd->u.nc_info.SystemUptime, (int)api_cmd->u.nc_info.ProcessUptime);
+		}
+		if (show_cams) {
+			int i;
+			for (i = 0;  i < api_cmd->u.nc_info.cam_num; i++) {
+				char *camstate="";
+				char *cammode="";
+				
+				switch(api_cmd->u.nc_info.cam[i].status) {
+					case DVBCA_CAMSTATE_MISSING: 
+						camstate="MISSING"; break;
+					case DVBCA_CAMSTATE_INITIALISING:
+						camstate="INIT"; break;
+					case DVBCA_CAMSTATE_READY:
+						camstate="READY"; break;
+				}
+				switch(api_cmd->u.nc_info.cam[i].flags) {
+					case CA_SINGLE:
+						cammode="CA_SINGLE";break;
+					case CA_MULTI_SID:
+						cammode="CA_MULTI_SID";break;
+					case CA_MULTI_TRANSPONDER:
+						cammode="CA_MULTI_TRANSPONDER";break;
+				}	
+				printf("  CI-Slot %d: State <%s>, Mode <%s>, CAM <%s>\n", api_cmd->u.nc_info.cam[i].slot, camstate, cammode, api_cmd->u.nc_info.cam[i].menu_string);
+			}
 		}
 		if (show_tuners) {
 			int j;
@@ -319,7 +344,7 @@ void show_stats(void)
 int main(int argc, char **argv)
 {
 	int repeat=0;
-	int show_uuids=0,show_tuners=0,show_sats=0,show_state=0;
+	int show_uuids=0,show_tuners=0,show_sats=0,show_state=0,show_cams=0;
 	int show_count=0, show_versions=0;
 #ifdef API_SOCK
 	char path[256]="/var/run/mcli.sock";
@@ -328,7 +353,7 @@ int main(int argc, char **argv)
 	char path[256]="\\\\.\\pipe\\mcli";
 #endif
 	while(1) {
-		int ret = getopt(argc,argv, "auctsSvr:P:");
+		int ret = getopt(argc,argv, "aucCtsSvr:P:");
 		if (ret==-1)
 			break;
 			
@@ -342,12 +367,16 @@ int main(int argc, char **argv)
 			show_state=1;
 			show_count=1;
 			show_versions=1;
+			show_cams=1;
 			break;
 		case 'u':
 			show_uuids=1;
 			break;
 		case 'c':
 			show_count=1;
+			break;
+		case 'C':
+			show_cams=1;
 			break;
 		case 't':
 			show_tuners=1;
@@ -378,7 +407,7 @@ int main(int argc, char **argv)
 	}
 	
 	do {
-		show_it(show_count, show_uuids, show_tuners, show_sats, show_versions);
+		show_it(show_count, show_uuids, show_tuners, show_sats, show_versions, show_cams);
 		if (show_state)
 			show_stats();
 		sleep(repeat);

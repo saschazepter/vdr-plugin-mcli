@@ -12,20 +12,11 @@
 
 #include <vdr/plugin.h>
 #include <vdr/player.h>
+
 #include "filter.h"
 #include "device.h"
 #include "cam_menu.h"
-#define MCLI_MAX_DEVICES 8
-#define MCLI_DEVICE_TIMEOUT 120
-#define TEMP_DISABLE_DEVICE
-
-static const char *VERSION = "0.0.1";
-static const char *DESCRIPTION = trNOOP ("NetCeiver Client Application");
-
-#ifndef REELVDR
-static const char *MENUSETUPENTRY = trNOOP ("NetCeiver Client Application");
-#endif
-static const char *MAINMENUENTRY = trNOOP ("Common Interface");
+#include "mcli.h"
 
 static int recv_init_done = 0;
 static int mld_init_done = 0;
@@ -36,38 +27,6 @@ static int reconf_full = 0;
 static int mmi_init_done = 0;
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
-class cMcliDeviceObject:public cListObject
-{
-      public:
-	cMcliDeviceObject (cMcliDevice * d)
-	{
-		m_d = d;
-	}
-	 ~cMcliDeviceObject (void)
-	{
-	}
-	cMcliDevice *d (void)
-	{
-		return m_d;
-	}
-      private:
-	cMcliDevice * m_d;
-};
-
-class cMcliDeviceList:public cList < cMcliDeviceObject >
-{
-      public:
-	cMcliDeviceList (void)
-	{
-	};
-	~cMcliDeviceList () {
-		printf ("Delete my Dev list\n");
-	};
-	cMcliDeviceObject *find_dev_by_uuid (const char *uuid);
-	int count_dev_by_type (const fe_type_t type);
-};
 
 cMcliDeviceObject *cMcliDeviceList::find_dev_by_uuid (const char *uuid)
 {
@@ -89,7 +48,15 @@ int cMcliDeviceList::count_dev_by_type (const fe_type_t type)
 	}
 	return ret;
 }
-
+int cPluginMcli::SetCAMPool (cam_pool_t type, int num)
+{
+	LOCK_THREAD;
+	if (type >= 0 && type < CAM_POOL_MAX) {
+		m_cam_pool[type] = num;
+		return num;
+	}
+	return 0;
+}
 class cMenuSetupMcli:public cMenuSetupPage
 {
       private:
@@ -103,10 +70,10 @@ class cMenuSetupMcli:public cMenuSetupPage
 cMenuSetupMcli::cMenuSetupMcli (cmdline_t * cmd)
 {
 	m_cmd = cmd;
-	Add (new cMenuEditIntItem (tr ("DVB-C"), &m_cmd->tuner_type_limit[FE_QAM]));
-	Add (new cMenuEditIntItem (tr ("DVB-T"), &m_cmd->tuner_type_limit[FE_OFDM]));
-	Add (new cMenuEditIntItem (tr ("DVB-S"), &m_cmd->tuner_type_limit[FE_QPSK]));
-	Add (new cMenuEditIntItem (tr ("DVB-S2"), &m_cmd->tuner_type_limit[FE_DVBS2]));
+	Add (new cMenuEditIntItem (trNOOP ("DVB-C"), &m_cmd->tuner_type_limit[FE_QAM]));
+	Add (new cMenuEditIntItem (trNOOP ("DVB-T"), &m_cmd->tuner_type_limit[FE_OFDM]));
+	Add (new cMenuEditIntItem (trNOOP ("DVB-S"), &m_cmd->tuner_type_limit[FE_QPSK]));
+	Add (new cMenuEditIntItem (trNOOP ("DVB-S2"), &m_cmd->tuner_type_limit[FE_DVBS2]));
 }
 
 void cMenuSetupMcli::Store (void)
@@ -119,67 +86,39 @@ void cMenuSetupMcli::Store (void)
 	reconf_full = 1;
 }
 
-class cPluginMcli:public cPlugin, public cThread
+int cPluginMcli::AvailableCAMs (void)
 {
-      private:
-	// Add any member variables or functions you may need here.
-	cMcliDeviceList m_devs;
-	cmdline_t m_cmd;
-	UDPContext *m_cam_mmi;
-
-      public:
-	cPluginMcli (void);
-	virtual ~ cPluginMcli ();
-	virtual const char *Version (void)
-	{
-		return VERSION;
+	int ret, sum = 0;
+	LOCK_THREAD;
+	for (int i = 0; i < CAM_POOL_MAX; i++) {
+		sum += m_cam_pool[i];
 	}
-	virtual const char *Description (void)
-	{
-		return DESCRIPTION;
+	ret = sum - m_cams_inuse;
+	printf ("AvailableCAMs: %d/%d\n", m_cams_inuse, ret);
+	if (ret >= 0) {
+		return ret;
 	}
-	virtual const char *CommandLineHelp (void);
-	virtual bool ProcessArgs (int argc, char *argv[]);
-	virtual bool Initialize (void);
-	virtual bool Start (void);
-	virtual void Stop (void);
-	virtual void Housekeeping (void);
-	virtual void MainThreadHook (void);
-	virtual cString Active (void);
-	virtual time_t WakeupTime (void);
-#ifdef REELVDR
-	virtual bool HasSetupOptions (void)
-	{
-		return false;
+	return 0;
+}
+int cPluginMcli::AllocCAM (void)
+{
+	LOCK_THREAD;
+	printf ("Alloc CAM %d\n", m_cams_inuse + 1);
+	if (AvailableCAMs ()) {
+		m_cams_inuse++;
+		return m_cams_inuse;
 	}
-#endif
-	virtual const char *MenuSetupPluginEntry (void)
-	{
-#ifdef REELVDR
-		return NULL;
-#else
-		return tr (MENUSETUPENTRY);
-#endif
+	return 0;
+}
+int cPluginMcli::FreeCAM (void)
+{
+	LOCK_THREAD;
+	printf ("FreeCAM %d\n", m_cams_inuse - 1);
+	if (m_cams_inuse) {
+		m_cams_inuse--;
 	}
-	virtual const char *MainMenuEntry (void)
-	{
-		return tr (MAINMENUENTRY);
-	}
-	virtual cOsdObject *MainMenuAction (void);
-	virtual cMenuSetupPage *SetupMenu (void);
-	virtual bool SetupParse (const char *Name, const char *Value);
-	virtual bool Service (const char *Id, void *Data = NULL);
-	virtual const char **SVDRPHelpPages (void);
-	virtual cString SVDRPCommand (const char *Command, const char *Option, int &ReplyCode);
-	virtual void Action (void);
-	void ExitMcli (void);
-	bool InitMcli (void);
-	void reconfigure (void);
-
-	int CamPollText (mmi_info_t * text);
-	virtual cOsdObject *AltMenuAction (void);
-};
-
+	return m_cams_inuse;
+}
 cOsdObject *cPluginMcli::AltMenuAction (void)
 {
 	// Call this code periodically to find out if any CAM out there want's us to tell something.
@@ -200,20 +139,20 @@ cOsdObject *cPluginMcli::AltMenuAction (void)
 			mcg_to_fe_parms (&c->mcg, &type, &sec, &fep, &vpid);
 
 			for (cMcliDeviceObject * dev = m_devs.First (); dev; dev = m_devs.Next (dev)) {
-				cMcliDevice *d = dev->d();
+				cMcliDevice *d = dev->d ();
 				//printf("satpos: %i vpid: %i fep.freq: %i dev.freq: %i\n", satpos, vpid, fep.frequency, dev->CurChan()->Frequency());
-				struct in6_addr mcg =  d->GetTenData()->mcg;				                                
-				mcg_set_id(&mcg, 0);
+				struct in6_addr mcg = d->GetTenData ()->mcg;
+				mcg_set_id (&mcg, 0);
 
-#if 1 //def DEBUG
-	char str[INET6_ADDRSTRLEN];
-	inet_ntop (AF_INET6, &c->mcg, str, INET6_ADDRSTRLEN);
-	printf ("MCG from MMI: %s\n", str);
-	inet_ntop (AF_INET6, &mcg, str, INET6_ADDRSTRLEN);
-	printf ("MCG from DEV: %s\n", str);
+#if 1				//def DEBUG
+				char str[INET6_ADDRSTRLEN];
+				inet_ntop (AF_INET6, &c->mcg, str, INET6_ADDRSTRLEN);
+				printf ("MCG from MMI: %s\n", str);
+				inet_ntop (AF_INET6, &mcg, str, INET6_ADDRSTRLEN);
+				printf ("MCG from DEV: %s\n", str);
 #endif
-				
-				if (IN6_IS_ADDR_UNSPECIFIED(&c->mcg) || !memcmp(&c->mcg, &mcg, sizeof(struct in6_addr)))
+
+				if (IN6_IS_ADDR_UNSPECIFIED (&c->mcg) || !memcmp (&c->mcg, &mcg, sizeof (struct in6_addr)))
 					return new cCamMenu (&m_cmd, &m);
 			}
 			printf ("SID/Program Number:%04x, SatPos:%d Freqency:%d\n", c->caid, satpos, fep.frequency);
@@ -246,6 +185,8 @@ cPluginMcli::cPluginMcli (void)
 	}
 	m_cmd.port = 23000;
 	m_cmd.mld_start = 1;
+	m_cams_inuse = 0;
+	memset (m_cam_pool, 0, sizeof (int) * CAM_POOL_MAX);
 	strcpy (m_cmd.cmd_sock_path, API_SOCK_NAMESPACE);
 }
 
@@ -357,41 +298,38 @@ bool cPluginMcli::ProcessArgs (int argc, char *argv[])
 	return true;
 }
 
-static int  nc_tuner_compare(const void *p1, const void *p2)
-{
-	
-	return ((tuner_info *)p1)->fe_info.type<((tuner_info *)p2)->fe_info.type;
-}
-
-static void nc_tuner_sort(netceiver_info_t *nci)
-{
-	qsort(nci->tuner, nci->tuner_num, sizeof(tuner_info), nc_tuner_compare);
-}
 void cPluginMcli::Action (void)
 {
 	netceiver_info_list_t *nc_list = nc_get_list ();
 	printf ("Looking for netceivers out there....\n");
-	bool channel_switch_ok=false;
-	
+	bool channel_switch_ok = false;
+
 	while (Running ()) {
 		Lock ();
 		nc_lock_list ();
 		time_t now = time (NULL);
+		memset (m_cam_pool, 0, sizeof (int) * CAM_POOL_MAX);
+
 		for (int n = 0; n < nc_list->nci_num; n++) {
 			netceiver_info_t *nci = nc_list->nci + n;
-			nc_tuner_sort(nci);
-			int cam_num=0;
-			for (int i = 0;  i < nci->cam_num; i++) {
-				if(nci->cam[i].status) {
-					cam_num++;	
+			for (int i = 0; i < nci->cam_num; i++) {
+				if (nci->cam[i].status) {
+					switch (nci->cam[i].flags) {
+					case CA_SINGLE:
+					case CA_MULTI_SID:
+						m_cam_pool[CAM_POOL_SINGLE]++;
+						break;
+					case CA_MULTI_TRANSPONDER:
+						m_cam_pool[CAM_POOL_MULTI] += 3;	//FIXME use provisioning value from NetCeiver
+						break;
+					}
 				}
 			}
-	                //printf ("CAMS: %d/%d\n", nci->cam_num, cam_num);                                         		
 			for (int i = 0; i < nci->tuner_num; i++) {
 				cMcliDeviceObject *d = m_devs.find_dev_by_uuid (nci->tuner[i].uuid);
 				if ((now - nci->lastseen) > MCLI_DEVICE_TIMEOUT) {
 					if (d) {
-						cPluginManager::CallAllServices ("OnDelMcliDevice-"MCLI_DEVICE_VERSION, d->d ());
+						cPluginManager::CallAllServices ("OnDelMcliDevice-" MCLI_DEVICE_VERSION, d->d ());
 						printf ("Remove Tuner %s [%s]\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid);
 						d->d ()->SetEnable (false);
 #if VDRVERSNUM >= 10600
@@ -401,10 +339,6 @@ void cPluginMcli::Action (void)
 						m_devs.Del (d);
 					}
 					continue;
-				}
-				if(cam_num && d) {
-					d->d ()->SetCaEnable();
-					cam_num--;
 				}
 				if (devices >= MCLI_MAX_DEVICES) {
 //                                      printf("MCLI_MAX_DEVICES reached\n");
@@ -422,39 +356,39 @@ void cPluginMcli::Action (void)
 				if (!d) {
 					cMcliDevice *m = new cMcliDevice;
 					printf ("  Tuner: %s [%s], Type %d @ %p\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, type, m);
-					cPluginManager::CallAllServices ("OnNewMcliDevice-"MCLI_DEVICE_VERSION, &m);
+					cPluginManager::CallAllServices ("OnNewMcliDevice-" MCLI_DEVICE_VERSION, &m);
 					if (m) {
+						m->SetMcliRef (this);
 						m->SetUUID (nci->tuner[i].uuid);
 						m->SetFEType (type);
-						if(cam_num) {
-							m->SetCaEnable();
-							cam_num--;
-						}
+						m->SetSateliteListName (nci->tuner[i].SatelliteListName);
 						m->SetEnable (true);
 						d = new cMcliDeviceObject (m);
 						m_devs.Add (d);
-					}	// if
-//TB: reelvdr itself tunes if the first tuner appears, don't do it twice
-#ifndef REELVDR
-					if (!channel_switch_ok) {	// the first tuner that was found, so make VDR retune to the channel it wants...
-						cChannel *ch = Channels.GetByNumber (cDevice::CurrentChannel ());
-						if (ch) {
-							channel_switch_ok=cDevice::PrimaryDevice ()->SwitchChannel (ch, true);
-						}
 					}
-#endif
+
 				}
 			}
 		}
-		if (!m_devs.Count()) {
-			channel_switch_ok=0;
-		}
 		nc_unlock_list ();
-#ifdef TEMP_DISABLE_DEVICE		
+//TB: reelvdr itself tunes if the first tuner appears, don't do it twice
+#ifndef REELVDR
+		if (m_devs.Count ()) {
+			if (!channel_switch_ok) {	// the first tuner that was found, so make VDR retune to the channel it wants...
+				cChannel *ch = Channels.GetByNumber (cDevice::CurrentChannel ());
+				if (ch) {
+					channel_switch_ok = cDevice::PrimaryDevice ()->SwitchChannel (ch, true);
+				}
+			} 
+		} else {
+				channel_switch_ok = 0;
+		}
+#endif
+#ifdef TEMP_DISABLE_DEVICE
 		for (cMcliDeviceObject * d = m_devs.First (); d; d = m_devs.Next (d)) {
 			d->d ()->SetTempDisable ();
 		}
-#endif		
+#endif
 		Unlock ();
 		usleep (250 * 1000);
 	}
@@ -498,12 +432,12 @@ void cPluginMcli::MainThreadHook (void)
 		reconf_full = 0;
 	}
 #if 0
-	cOsdObject *MyMenu = AltMenuAction();
-	if (MyMenu) { // is there any cam-menu waiting?
-		if (cControl::Control()) {
-			cControl::Control()->Hide();
+	cOsdObject *MyMenu = AltMenuAction ();
+	if (MyMenu) {		// is there any cam-menu waiting?
+		if (cControl::Control ()) {
+			cControl::Control ()->Hide ();
 		}
-		MyMenu->Show();
+		MyMenu->Show ();
 	}
 #endif
 }
@@ -561,7 +495,7 @@ cMenuSetupPage *cPluginMcli::SetupMenu (void)
 
 bool cPluginMcli::SetupParse (const char *Name, const char *Value)
 {
-//	printf ("cPluginMcli::SetupParse\n");
+//      printf ("cPluginMcli::SetupParse\n");
 	if (!strcasecmp (Name, "DVB-C") && m_cmd.tuner_type_limit[FE_QAM] == MCLI_MAX_DEVICES)
 		m_cmd.tuner_type_limit[FE_QAM] = atoi (Value);
 	else if (!strcasecmp (Name, "DVB-T") && m_cmd.tuner_type_limit[FE_OFDM] == MCLI_MAX_DEVICES)

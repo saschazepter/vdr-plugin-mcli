@@ -99,6 +99,7 @@ void cCamMenu::OpenCamMenu ()
 		inCamMenu = true;
 		time_t t = time (NULL);
 		while ((time (NULL) - t) < CAMMENU_TIMEOUT) {
+			memset(buf2, 0, sizeof(buf2));
 			// receive the CAM MENU
 			if (CamMenuReceive (mmi_session, buf, MMI_TEXT_LENGTH) > 0) {
 				cCharSetConv conv = cCharSetConv ("ISO-8859-1", "UTF-8");
@@ -132,6 +133,7 @@ void cCamMenu::Receive ()
 		char buf2[MMI_TEXT_LENGTH * 2];
 		time_t t = time (NULL);
 		while ((time (NULL) - t) < CAMMENU_TIMEOUT) {
+			memset(buf2, 0, sizeof(buf2));
 			// receive the CAM MENU
 			if (alreadyReceived || CamMenuReceive (mmi_session, buf, MMI_TEXT_LENGTH) > 0) {
 				Clear ();
@@ -329,7 +331,9 @@ eOSState cCamMenu::ProcessKey (eKeys Key)
 			CamMenuSend (mmi_session, pin);
 			Receive ();
 		} else if (inMMIBroadcastMenu) {
-			return osEnd;
+			printf ("Sending: \"%s\"\n", Get (Current())->Text());
+			CamMenuSend (mmi_session, Get (Current ())->Text ());
+			Receive ();
 		} else if (inCamMenu) {
 			printf ("Sending: \"%s\"\n", Get (Current ())->Text ());
             if (strcmp(Get ( Current ())->Text(), trVDR("Error"))) // never send Error...

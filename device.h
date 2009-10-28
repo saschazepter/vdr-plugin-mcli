@@ -27,7 +27,7 @@
 
 #include "packetbuffer.h"
 
-#define MCLI_DEVICE_VERSION "0.0.1"
+class cPluginMcli;
 
 class cMcliDevice:public cDevice
 {
@@ -40,8 +40,8 @@ class cMcliDevice:public cDevice
 	recv_sec_t m_sec;
 	int m_pos;
 	struct dvb_frontend_parameters m_fep;
-	dvb_pid_t m_pids[256];
-	char m_uuid[UUID_SIZE];
+	dvb_pid_t m_pids[RECV_MAX_PIDS];
+	char m_uuid[UUID_SIZE+1];
 	tra_t m_ten;
 	fe_type_t m_fetype;
 	const cChannel *m_chan;
@@ -53,8 +53,11 @@ class cMcliDevice:public cDevice
 	bool m_tuned;
 	bool m_showtuning;
 	bool m_ca_enable;
+	bool m_ca_override;
+      	char m_satlistname[UUID_SIZE+1];
 
       protected:
+      	cPluginMcli *m_mcli;
 	virtual bool SetChannelDevice (const cChannel * Channel, bool LiveView);
 	virtual bool HasLock (int TimeoutMs);
 	virtual bool SetPid (cPidHandle * Handle, int Type, bool On);
@@ -64,17 +67,24 @@ class cMcliDevice:public cDevice
 
 	virtual int OpenFilter (u_short Pid, u_char Tid, u_char Mask);
 	virtual void CloseFilter (int Handle);
+	virtual bool CheckCAM(const cChannel * Channel) const;
 #ifdef GET_TS_PACKETS
 	virtual int GetTSPackets (uchar *, int);
 #endif
+	satellite_list_t *find_sat_list (netceiver_info_t * nc_info, const char *SatelliteListName) const;
+	bool SatelitePositionLookup(satellite_list_t *satlist, int pos) const;
 
       public:
 	cCondVar m_locked;
 	cMyPacketBuffer *m_PB;
 	cMcliFilters *m_filters;
-	bool m_ca;
 	cMcliDevice (void);
 	virtual ~ cMcliDevice ();
+	void SetMcliRef(cPluginMcli *m)
+	{
+		m_mcli=m;
+	}
+	void SetSateliteListName(char *s);
 
 #ifdef REELVDR
 	const cChannel *CurChan () const
@@ -105,7 +115,18 @@ class cMcliDevice:public cDevice
 	void SetCaEnable (bool val = true) 
 	{
 		m_ca_enable=val;
-//		printf("Enabled CAM: %s %d\n", m_uuid, m_fetype);
+	}
+	bool GetCaEnable (void) const
+	{
+		return m_ca_enable;
+	}
+	void SetCaOverride (bool val = true) 
+	{
+		m_ca_override=val;
+	}
+	bool GetCaOverride (void) const
+	{
+		return m_ca_override;
 	}
 	void SetEnable (bool val = true);
 	bool SetTempDisable (void);

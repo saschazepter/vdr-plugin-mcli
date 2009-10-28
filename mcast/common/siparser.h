@@ -156,6 +156,7 @@ typedef struct ca_pmt_descriptors {
 typedef struct ca_pmt_list {
     
     int sid;
+    int pmt_pid;
     
     pmt_t p;
     si_ca_pmt_t pm;

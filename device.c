@@ -6,8 +6,8 @@
  *
  */
 
-#include "filter.h"
-#include "device.h"
+#include <time.h>
+#include <iostream>
 
 #include <vdr/channels.h>
 #include <vdr/ringbuffer.h>
@@ -15,8 +15,9 @@
 #include <vdr/timers.h>
 #include <vdr/skins.h>
 
-#include <time.h>
-#include <iostream>
+#include "filter.h"
+#include "device.h"
+#include "mcli.h"
 
 #define st_Pos  0x07FF
 #define st_Neg  0x0800
@@ -25,7 +26,7 @@
 
 #define TEMP_DISABLE_TIMEOUT_DEFAULT (10)
 #define TEMP_DISABLE_TIMEOUT_SCAN (30)
-#define LASTSEEN_TIMEOUT (5)
+#define LASTSEEN_TIMEOUT (7)
 //#define ENABLE_DEVICE_PRIORITY
 
 using namespace std;
@@ -55,6 +56,53 @@ static int handle_ten (tra_t * ten, void *p)
 	return 0;
 }
 
+satellite_list_t *cMcliDevice::find_sat_list (netceiver_info_t * nc_info, const char *SatelliteListName) const
+{
+	int i;
+
+//	printf ("SatelliteListName %s\n", SatelliteListName);
+	if(SatelliteListName==NULL) {
+		return NULL;
+	}
+
+	for (i = 0; i < nc_info->sat_list_num; i++) {
+		if (!strcmp (SatelliteListName, nc_info->sat_list[i].Name)) {
+//			printf ("found uuid in sat list %d\n", i);
+			return nc_info->sat_list + i;
+		}
+	}
+	return NULL;
+}
+
+bool cMcliDevice::SatelitePositionLookup(satellite_list_t *satlist, int pos) const
+{
+	int i;
+//	printf("SatelitePositionLookup: %p %d\n",satlist, pos);
+	if(satlist == NULL) {
+		return false;
+	}
+	for(i=0; i<satlist->sat_num;i ++) {
+		satellite_info_t *s=satlist->sat+i;
+		switch(s->type){
+			case SAT_SRC_LNB:
+				if(pos == s->SatPos) {
+//					printf("satlist found\n");
+					return true;
+				}
+				break;
+			case SAT_SRC_ROTOR:
+				if(pos>=s->SatPosMin && pos <=s->SatPosMax) {
+//					printf("satlist found\n");
+					return true;
+				}
+				break;
+		}
+	}
+//	printf("satlist not found\n");
+	
+	return false;
+}
+
 void cMcliDevice::SetTenData (tra_t * ten)
 {
 	if(!ten->lastseen) {
@@ -72,8 +120,16 @@ void cMcliDevice::SetEnable (bool val)
 	if (!m_enable) {
 		recv_stop (m_r);
 		m_tuned = false;
+		if(GetCaEnable()) {
+			SetCaEnable(false);
+			m_mcli->FreeCAM();
+		}
 	} else {
 		if (m_chan) {
+			if(m_chan->Ca() && !GetCaEnable() && m_mcli->AvailableCAMs() && m_mcli->AllocCAM()) {
+				SetCaEnable();
+			}
+
 			recv_tune (m_r, m_fetype, m_pos, &m_sec, &m_fep, m_pids);
 			m_tuned = true;
 		}
@@ -83,6 +139,7 @@ void cMcliDevice::SetEnable (bool val)
 bool cMcliDevice::SetTempDisable (void)
 {
 	LOCK_THREAD;
+#ifndef REELVDR // they might find it out in some other place
 	// Check for tuning timeout
 	if(m_showtuning && Receiving(true) && ((time(NULL)-m_ten.lastseen)>=LASTSEEN_TIMEOUT)) {
 		if(m_chan) {
@@ -90,9 +147,14 @@ bool cMcliDevice::SetTempDisable (void)
 		}
 		m_showtuning = false;
 	}
+#endif
 	if(!Receiving (true) && ((time(NULL)-m_last) >= m_disabletimeout)) {
 		recv_stop (m_r);
 		m_tuned = false;
+		if(GetCaEnable()) {
+			SetCaEnable(false);
+			m_mcli->FreeCAM();
+		}
 		return true;
 	}
 	return false;
@@ -134,15 +196,17 @@ cMcliDevice::cMcliDevice (void)
 	m_PB->SetTimeouts (0, 1000 * 20);
 	m_filters = new cMcliFilters ();
 	printf ("cMcliDevice: got device number %d\n", CardIndex () + 1);
-	m_ca = true;
 	m_pidsnum = 0;
 	m_mcpidsnum = 0;
 	m_filternum = 0;
 	m_chan = NULL;
+	m_mcli = NULL;
+	memset(m_satlistname, 0, UUID_SIZE+1);
 	m_fetype = FE_QPSK;
 	m_last = 0;
 	m_showtuning = 0;
 	m_ca_enable = false;
+	m_ca_override = false;
 	memset (m_pids, 0, sizeof (m_pids));
 	memset (&m_ten, 0, sizeof (tra_t));
 	m_pids[0].pid=-1;
@@ -185,7 +249,28 @@ bool cMcliDevice::ProvidesSource (int Source) const
 		return false;
 	}
 	int type = Source & cSource::st_Mask;
-	return type == cSource::stNone || (type == cSource::stCable && m_fetype == FE_QAM) || (type == cSource::stSat && m_fetype == FE_QPSK) || (type == cSource::stSat && m_fetype == FE_DVBS2) || (type == cSource::stTerr && m_fetype == FE_OFDM);
+	bool ret= type == cSource::stNone || (type == cSource::stCable && m_fetype == FE_QAM) || (type == cSource::stSat && m_fetype == FE_QPSK) || (type == cSource::stSat && m_fetype == FE_DVBS2) || (type == cSource::stTerr && m_fetype == FE_OFDM);
+	if(ret && (type == cSource::stSat)) {
+		int pos = ((Source & st_Neg) ? 1 : -1) * (Source & st_Pos);
+		if (pos) {
+			nc_lock_list ();
+			netceiver_info_list_t *nc_list = nc_get_list ();
+			satellite_list_t *satlist=NULL;
+			for (int n = 0; n < nc_list->nci_num; n++) {
+				netceiver_info_t *nci = nc_list->nci + n;
+			      	satlist=find_sat_list(nci, m_satlistname);
+			      	if(satlist) {
+			      		break;
+			      	}
+			}
+			nc_unlock_list ();
+		      	if(satlist == NULL) {
+		      		return false;
+			}
+			return SatelitePositionLookup(satlist, pos+1800);
+		}
+	}
+	return ret;
 }
 
 bool cMcliDevice::ProvidesTransponder (const cChannel * Channel) const
@@ -214,6 +299,18 @@ bool cMcliDevice::IsTunedToTransponder (const cChannel * Channel)
 	return false;
 }
 
+bool cMcliDevice::CheckCAM(const cChannel * Channel) const
+{
+	if(GetCaOverride()) {
+		return true;
+	}
+	
+	if(Channel->Ca() && !GetCaEnable() && !m_mcli->AvailableCAMs()) {
+		return false;
+	}
+	return true;
+}
+ 
 bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool * NeedsDetachReceivers) const
 {
 	bool result = false;
@@ -222,36 +319,34 @@ bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool 
 	if (!m_enable) {
 		return false;
 	}
-	if(!m_ca_enable && Channel->Ca()) {
+	if(!CheckCAM(Channel)) {
 //		printf("ProvidesChannel: no CA configured here\n");
 		return false;
 	}
 
 //      printf ("ProvidesChannel, Channel=%s, Prio=%d this->Prio=%d\n", Channel->Name (), Priority, this->Priority ());
-//	     if (ProvidesSource (Channel->Source ()))
-	     if(ProvidesTransponder(Channel)) {
-		     result = hasPriority;
-		     if (Priority >= 0 && Receiving (true))
-		     {
-			     if (m_chan && (Channel->Transponder () != m_chan->Transponder ())) {
-				     needsDetachReceivers = true;
-			     } else
-			     {
-				     result = true;
-			     }
-		     }
-	     }
+	if(ProvidesTransponder(Channel)) {
+		result = hasPriority;
+		if (Priority >= 0 && Receiving (true))
+		{
+			if (m_chan && (Channel->Transponder () != m_chan->Transponder ())) {
+				needsDetachReceivers = true;
+			} else {
+				result = true;
+			}
+		}
+	}
 //      printf ("NeedsDetachReceivers: %d\n", needsDetachReceivers);
 //      printf ("Result: %d\n", result);
-	     if (NeedsDetachReceivers) {
-		     *NeedsDetachReceivers = needsDetachReceivers;
-	     }
-	     return result;
+	if (NeedsDetachReceivers) {
+		*NeedsDetachReceivers = needsDetachReceivers;
+	}
+	return result;
 }
 
 bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 {
-	int is_scan=/*((Channel->Source () == 0x4000)||(Channel->Source () == 0xc000)) &&*/ !strlen(Channel->Name()) && !strlen(Channel->Provider());
+	int is_scan = !strlen(Channel->Name()) && !strlen(Channel->Provider());
 	if(is_scan) {
 		m_disabletimeout = TEMP_DISABLE_TIMEOUT_SCAN;
 	} else {
@@ -262,10 +357,15 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	if (!m_enable) {
 		return false;
 	}
-
-	if(!m_ca_enable && Channel->Ca()) {
+	if(!CheckCAM(Channel)) {
 //		printf("SetChannelDevice: no CA configured here\n");
 		return false;
+	}
+	if(!GetCaOverride() && Channel->Ca() && !GetCaEnable()) {
+		if(!m_mcli->AllocCAM()) {
+			return false;
+		}
+		SetCaEnable();
 	}
 
 	LOCK_THREAD;
@@ -276,11 +376,9 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	}
 	memset (&m_sec, 0, sizeof (recv_sec_t));
 	memset (&m_fep, 0, sizeof (struct dvb_frontend_parameters));
-//	memset (&m_pids, 0, sizeof (m_pids));
-	if (!IsTunedToTransponder (Channel)) {
+	if (is_scan || !IsTunedToTransponder (Channel)) {
 		memset (&m_ten, 0, sizeof (tra_t));
 	}
-//	m_pidsnum = 0;
 	m_chan = Channel;
 
 	switch (m_fetype) {
@@ -338,7 +436,7 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 
 	recv_tune (m_r, m_fetype, m_pos, &m_sec, &m_fep, m_pids);
 	m_tuned = true;
-	if(/*is_scan &&*/ (m_pids[0].pid==-1)) {
+	if((m_pids[0].pid==-1)) {
 		dvb_pid_t pi;
 		memset(&pi, 0, sizeof(dvb_pid_t));
 		recv_pid_add (m_r, &pi);
@@ -357,7 +455,6 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 
 bool cMcliDevice::HasLock (int TimeoutMs)
 {
-//      LOCK_THREAD;
 //      printf ("HasLock TimeoutMs:%d\n", TimeoutMs);
 
 	if ((m_ten.s.st & FE_HAS_LOCK) || !TimeoutMs) {
@@ -388,16 +485,10 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 			m_pidsnum = 0;
 		}
 
-		if (m_pidsnum < 1) {
-//                      printf ("SetPid: 0 pids left -> CloseDvr()\n");
-		}
-
 		if (On) {
 			pi.pid = Handle->pid;
-			if (m_ca && m_chan && m_chan->Ca (0)) {
-//				if (Type>=5 && Type <=8) {
-					pi.id= m_chan->Sid();
-//				}
+			if (GetCaEnable() && m_chan && m_chan->Ca (0)) {
+				pi.id= m_chan->Sid();
 				if(m_chan->Ca(0)<=0xff) {
 					pi.priority=m_chan->Ca(0)&0x03;
 				}
@@ -435,7 +526,6 @@ bool cMcliDevice::OpenDvr (void)
 {
 	printf ("OpenDvr\n");
 	m_dvr_open = true;
-//      LOCK_THREAD;
 	return true;
 }
 
@@ -443,7 +533,6 @@ void cMcliDevice::CloseDvr (void)
 {
 	printf ("CloseDvr\n");
 	m_dvr_open = false;
-//      LOCK_THREAD;
 }
 
 #ifdef GET_TS_PACKETS
@@ -497,7 +586,6 @@ int cMcliDevice::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 		printf ("Pid: %d\n", m_pids[i].pid);
 	}
 #endif
-//	m_last=time(NULL);
 	return m_filters->OpenFilter (Pid, Tid, Mask);
 }
 
@@ -521,7 +609,14 @@ void cMcliDevice::CloseFilter (int Handle)
 
 void cMcliDevice::SetUUID (const char *uuid)
 {
-	strcpy (m_uuid, uuid);
+	strncpy (m_uuid, uuid, UUID_SIZE);
+	m_uuid[UUID_SIZE]=0;
+}
+
+void cMcliDevice::SetSateliteListName(char *s)
+{
+	strncpy(m_satlistname, s, UUID_SIZE);
+	m_satlistname[UUID_SIZE]=0;
 }
 
 const char *cMcliDevice::GetUUID (void)

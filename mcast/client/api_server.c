@@ -13,6 +13,9 @@
 static int process_cmd (api_cmd_t * api_cmd, tra_info_t * trl, netceiver_info_list_t * nci)
 {
 	if(api_cmd->magic != MCLI_MAGIC || api_cmd->version != MCLI_VERSION) {
+	        api_cmd->magic = MCLI_MAGIC;
+	        api_cmd->version = MCLI_VERSION;
+	        api_cmd->state = API_RESPONSE;
 	        return 0;
 	}
 	if (api_cmd->state != API_REQUEST) {
@@ -129,7 +132,7 @@ static void *sock_cmd_loop (void *p)
 	int n;
 	netceiver_info_list_t *nc_list=nc_get_list();
 	tra_info_t *tra_list=tra_get_list();
-	
+
 	dbg ("new api client connected\n");
 	s->run = 1;
 	while (s->run){
@@ -140,7 +143,11 @@ static void *sock_cmd_loop (void *p)
 			nc_unlock_list();
 			send (s->fd, &sock_cmd, sizeof (api_cmd_t), 0);
 		} else {
-			break;
+  	            sock_cmd.magic = MCLI_MAGIC;
+                    sock_cmd.version = MCLI_VERSION;
+                    sock_cmd.state = API_RESPONSE;
+                    send (s->fd, &sock_cmd, sizeof (api_cmd_t), 0);
+                    break;
 		}
 		pthread_testcancel();
 	}
@@ -305,6 +312,19 @@ void *api_cmd_loop(void *lpvParam)
 				break; 
 			}
 		} else {
+  	            sock_cmd.magic = MCLI_MAGIC;
+                    sock_cmd.version = MCLI_VERSION;
+                    sock_cmd.state = API_RESPONSE;
+			fSuccess = WriteFile( 
+				hPipe,        // handle to pipe 
+				&sock_cmd,      // buffer to write from 
+				sizeof(sock_cmd), // number of bytes to write 
+				&cbWritten,   // number of bytes written 
+				NULL);        // not overlapped I/O 
+
+			if (! fSuccess || sizeof(sock_cmd) != cbWritten) {
+				break; 
+			}
 			break;
 		}
 	} 
