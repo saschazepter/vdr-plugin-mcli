@@ -524,14 +524,14 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 
 bool cMcliDevice::OpenDvr (void)
 {
-	printf ("OpenDvr\n");
+//	printf ("OpenDvr\n");
 	m_dvr_open = true;
 	return true;
 }
 
 void cMcliDevice::CloseDvr (void)
 {
-	printf ("CloseDvr\n");
+//	printf ("CloseDvr\n");
 	m_dvr_open = false;
 }
 
