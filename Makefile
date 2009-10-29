@@ -77,7 +77,7 @@ ifdef REELVDR
   DEFINES += -DREELVDR 
 endif
 
-DEFINES += -D_GNU_SOURCE -DPLUGIN_NAME_I18N='"$(PLUGIN)"' -DCLIENT
+DEFINES += -D_GNU_SOURCE -DPLUGIN_NAME_I18N='"$(PLUGIN)"'
 # -DDEVICE_ATTRIBUTES
 
 ### The object files (add further files here):

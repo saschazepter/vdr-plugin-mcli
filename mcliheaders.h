@@ -9,6 +9,7 @@
 #ifndef VDR_MCLI_HEADERS_H
 #define VDR_MCLI_HEADERS_H
 
+#define CLIENT
 #define API_SOCK
 #include <mcast/common/defs.h>
 #include <mcast/common/version.h>
