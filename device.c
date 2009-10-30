@@ -284,19 +284,27 @@ bool cMcliDevice::ProvidesTransponder (const cChannel * Channel) const
 	return ret;
 }
 
-bool cMcliDevice::IsTunedToTransponder (const cChannel * Channel)
+bool cMcliDevice::IsTunedToTransponderConst (const cChannel * Channel) const
 {
 //      printf ("IsTunedToTransponder %s == %s \n", Channel->Name (), m_chan ? m_chan->Name () : "");
-	if (!m_enable) {
+	if (!m_enable || !m_tuned || !m_chan) {
 		return false;
 	}
 
-	if (m_tuned && m_chan && (Channel->Transponder () == m_chan->Transponder ())) {
+	if (m_ten.s.st & FE_HAS_LOCK && m_chan->Source() == Channel->Source() &&
+	        m_chan->Transponder() == Channel->Transponder() && m_chan->Frequency() == Channel->Frequency() &&
+	                m_chan->Modulation() == Channel->Modulation() &&
+	                        m_chan->Srate() == Channel->Srate()) {
 //              printf ("Yes!!!");
 		return true;
 	}
 //      printf ("Nope!!!");
 	return false;
+}
+
+bool cMcliDevice::IsTunedToTransponder (const cChannel * Channel)
+{
+	return IsTunedToTransponderConst(Channel);
 }
 
 bool cMcliDevice::CheckCAM(const cChannel * Channel) const
@@ -329,7 +337,7 @@ bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool 
 		result = hasPriority;
 		if (Priority >= 0 && Receiving (true))
 		{
-			if (m_chan && (Channel->Transponder () != m_chan->Transponder ())) {
+			if (!IsTunedToTransponderConst(Channel)) {
 				needsDetachReceivers = true;
 			} else {
 				result = true;
@@ -373,12 +381,12 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 //              printf("Already tuned to transponder\n");
 		m_chan = Channel;
 		return true;
+	} else {
+		memset (&m_ten, 0, sizeof (tra_t));
 	}
 	memset (&m_sec, 0, sizeof (recv_sec_t));
 	memset (&m_fep, 0, sizeof (struct dvb_frontend_parameters));
-	if (is_scan || !IsTunedToTransponder (Channel)) {
-		memset (&m_ten, 0, sizeof (tra_t));
-	}
+
 	m_chan = Channel;
 
 	switch (m_fetype) {

@@ -60,7 +60,8 @@ class cMcliDevice:public cDevice
 #endif
 	satellite_list_t *find_sat_list (netceiver_info_t * nc_info, const char *SatelliteListName) const;
 	bool SatelitePositionLookup(satellite_list_t *satlist, int pos) const;
-
+	bool IsTunedToTransponderConst (const cChannel * Channel) const;
+	
       public:
 	cCondVar m_locked;
 	cMyPacketBuffer *m_PB;
