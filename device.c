@@ -122,7 +122,9 @@ void cMcliDevice::SetEnable (bool val)
 
 bool cMcliDevice::SetTempDisable (bool now)
 {
-	LOCK_THREAD;
+	if(!now) {
+		Lock();
+	}
 #ifndef REELVDR // they might find it out in some other place
 	// Check for tuning timeout
 	if(m_showtuning && Receiving(false) && ((time(NULL)-m_ten.lastseen)>=LASTSEEN_TIMEOUT)) {
@@ -145,7 +147,13 @@ bool cMcliDevice::SetTempDisable (bool now)
 			m_tunerref = NULL;
 			m_fetype = -1;
 		}
+		if(!now) {
+			Unlock();
+		}
 		return true;
+	}
+	if(!now) {
+		Unlock();
 	}
 	return false;
 }
