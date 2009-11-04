@@ -352,6 +352,32 @@ int si_get_audio_pid(unsigned char *esi_buf, int size, int *apid)
 
 }
 //-----------------------------------------------------------------------------------
+int si_get_private_pids(unsigned char *esi_buf, int size, int *upids)
+{
+
+      int index, pid_num, es_len;
+      unsigned char *ptr = esi_buf;
+
+      index = pid_num = 0;      
+      while(index < size) {
+          if (ptr[0] == 0x6)
+          {
+              upids[pid_num] = ((ptr[1] << 8) | ptr[2]) & 0x1fff;
+              pid_num++;
+              if (pid_num >= MAX_ES_PIDS) {
+                    info ("error: ES pids number out of bounds !\n");
+                    return -1;
+              }
+          }
+          es_len = ((ptr[3] << 8) | ptr[4]) & 0x0fff;
+          index += 5 + es_len;
+          ptr += 5 + es_len;   
+      }
+
+      return pid_num;
+
+}
+//-----------------------------------------------------------------------------------
 int get_pmt_es_pids(unsigned char *esi_buf, int size, int *es_pids, int all)
 {
       int index, pid_num, es_len;
@@ -379,7 +405,7 @@ int get_pmt_es_pids(unsigned char *esi_buf, int size, int *es_pids, int all)
       return pid_num;
 }
 //-----------------------------------------------------------------------------------
-int parse_pmt_ca_desc(unsigned char *buf, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_cads, pmt_t *pmt_hdr, int *fta)
+int parse_pmt_ca_desc(unsigned char *buf, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_cads, pmt_t *pmt_hdr, int *fta, ca_es_pid_info_t *espids, int *es_pid_num)
 {
       unsigned char *ptr=buf, tmp[PSI_BUF_SIZE]; //sections can be only 12 bit long
 
@@ -444,14 +470,30 @@ int parse_pmt_ca_desc(unsigned char *buf, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_
       
       es_pmt_info_t esi;
       es_cads->size = es_cads->cads = 0;
+      *es_pid_num = 0;
       while (buf_len > 4) { //end of section crc32 is 4 bytes
         esi.stream_type=ptr[0];
         esi.reserved_1=(ptr[1] >> 5) & 7;
         esi.elementary_pid=((ptr[1] << 8) | ptr[2]) & 0x1fff;
         esi.reserved_2=(ptr[3] >> 4) & 0xf;
         esi.es_info_length=((ptr[3] << 8) | ptr[4]) & 0x0fff;
-
-        
+        if (espids) {
+              switch(esi.stream_type) {
+                    case VIDEO_11172_STREAM_TYPE: 
+                    case VIDEO_13818_STREAM_TYPE:				
+                    case VISUAL_MPEG4_STREAM_TYPE:
+                    case VIDEO_H264_STREAM_TYPE:
+                    case AUDIO_11172_STREAM_TYPE:
+                    case AUDIO_13818_STREAM_TYPE:
+                          espids[*es_pid_num].pid = esi.elementary_pid;
+                          espids[*es_pid_num].type = esi.stream_type;
+                          break;
+                    default:       
+                          espids[*es_pid_num].pid = esi.elementary_pid;
+                          espids[*es_pid_num].type = 0;        
+              
+              }
+        }        
         memcpy(tmp + es_cads->size, ptr, 5);
         tmp[es_cads->size+1] &= 0x1f; //remove reserved value ???
         tmp[es_cads->size+3] &= 0x0f; //remove reserved value ???
@@ -472,13 +514,33 @@ int parse_pmt_ca_desc(unsigned char *buf, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_
                es_cads->cads++;           
                cur_len += dlen;
                *fta=0;
-           } 
+           }
+           if (espids) {
+               if (espids[*es_pid_num].type == 0) {
+                       switch(dtag) {
+                           case TeletextDescriptorTag:
+                           case SubtitlingDescriptorTag:  
+                           case AC3DescriptorTag:
+                           case EnhancedAC3DescriptorTag:
+                           case DTSDescriptorTag:
+                           case AACDescriptorTag:
+                               espids[*es_pid_num].type = dtag;
+                       }
+               }            
+           }
            ptr += dlen;      
            len -= dlen;
            buf_len -= dlen;
         }
         tmp[es_info_len_pos] = (cur_len >> 8) & 0xff;
         tmp[es_info_len_pos+1] = cur_len & 0xff;       
+        //go to next pid
+        (*es_pid_num)++;
+        if (*es_pid_num >= MAX_ES_PIDS) {
+              info ("ERROR: ES pids array index out bounds !\n");
+              break;
+        }            
+      
       }
       
       //parsing ok we can take this ES level descriptors

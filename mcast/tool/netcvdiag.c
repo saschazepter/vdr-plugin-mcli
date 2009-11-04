@@ -100,7 +100,8 @@ void show_it(int show_count, int show_uuids, int show_tuners, int show_sats, int
 
         API_WAIT_RESPONSE(api_cmd);
 	if(api_cmd->magic != MCLI_MAGIC || api_cmd->version != MCLI_VERSION) {
-		err("API version mismatch!\n");
+		info("API version mismatch!\n");
+		return;
 	}
 	if (show_count)
 		printf("Count: %i\n", api_cmd->parm[API_PARM_NC_NUM]);

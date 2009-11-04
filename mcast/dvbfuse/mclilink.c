@@ -127,9 +127,10 @@ again:
 			printf ("Got PMT\n");
 			pmt_t hdr;
 			si_ca_pmt_t pm, es;
+			int es_pid_num;
 //			printhex_buf ("Section", si->psi.buf, si->psi.len);
 			si->fta=1;
-			ret = parse_pmt_ca_desc (si->psi.buf, &pm, &es, &hdr, &si->fta);
+			ret = parse_pmt_ca_desc (si->psi.buf, &pm, &es, &hdr, &si->fta, NULL, &es_pid_num);
 			if (ret < 0) {
 				si->si_state = 2;
 			} else if (ret == 0) {

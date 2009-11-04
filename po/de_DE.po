@@ -20,13 +20,13 @@ msgid "Waiting for a free tuner (%s)"
 msgstr "Auf einen freien Tuner wird gewartet (%s)"
 
 msgid "DVB-C"
-msgstr ""
+msgstr "DVB-C"
 
 msgid "DVB-T"
-msgstr ""
+msgstr "DVB-T"
 
 msgid "DVB-S"
-msgstr ""
+msgstr "DVB-S"
 
 msgid "DVB-S2"
-msgstr ""
+msgstr "DVB-S2"

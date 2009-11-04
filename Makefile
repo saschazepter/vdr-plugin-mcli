@@ -162,4 +162,4 @@ dist: clean
 	@echo Distribution package created as $(PACKAGE).tgz
 
 clean:
-	@-rm -f $(OBJS) $(DEPFILE) *.so *.tgz core* *~ $(PODIR)/*.mo $(PODIR)/*.pot $(LIBDIR)/libvdr-$(PLUGIN).so.* mcast/client/*.o mcast/client/*.so
+	@-rm -f $(OBJS) $(DEPFILE) *.so *.tgz core* *~ $(PODIR)/*.mo $(PODIR)/*.pot $(LIBDIR)/libvdr-$(PLUGIN).so.* mcast/client/*.o mcast/client/*.so mcast/client/*.a

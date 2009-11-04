@@ -26,6 +26,8 @@
 #define MCLI_DEVICE_TIMEOUT 120
 #define TEMP_DISABLE_DEVICE
 
+#define TUNER_POOL_MAX 32
+
 typedef enum { CAM_POOL_SINGLE, CAM_POOL_MULTI, CAM_POOL_EXTRA, CAM_POOL_MAX} cam_pool_t;
 
 class cMcliDeviceObject:public cListObject
@@ -55,10 +57,14 @@ class cMcliDeviceList:public cList < cMcliDeviceObject >
 	~cMcliDeviceList () {
 		printf ("Delete my Dev list\n");
 	};
-	cMcliDeviceObject *find_dev_by_uuid (const char *uuid);
-	int count_dev_by_type (const fe_type_t type);
 };
 
+typedef struct tuner_pool {
+	int type;
+	char uuid[UUID_SIZE+1];
+	char SatListName[UUID_SIZE+1];
+	bool inuse;
+} tuner_pool_t;
 
 class cPluginMcli:public cPlugin, public cThread
 {
@@ -69,6 +75,12 @@ class cPluginMcli:public cPlugin, public cThread
 	UDPContext *m_cam_mmi;
 	int m_cam_pool[CAM_POOL_MAX]; 
 	int m_cams_inuse;
+	int m_mmi_init_done;
+	int m_recv_init_done;
+	int m_mld_init_done;
+	int m_api_init_done;
+	tuner_pool_t m_tuner_pool[TUNER_POOL_MAX];
+	tuner_pool_t *TunerAvailableInt(fe_type_t type, int pos);
 	
       public:
 	cPluginMcli (void);
@@ -120,11 +132,25 @@ class cPluginMcli:public cPlugin, public cThread
 	bool InitMcli (void);
 	void reconfigure (void);
 	
-	int SetCAMPool(cam_pool_t type, int num);
-	int AvailableCAMs(void);
-	int AllocCAM(void);
-	int FreeCAM(void);
+	int CAMAvailable(bool lock=true);
+	int CAMAlloc(void);
+	int CAMFree(void);
+
+	satellite_list_t *TunerFindSatList(const netceiver_info_t *nc_info, const char *SatelliteListName) const;
+	bool SatelitePositionLookup(const satellite_list_t *satlist, int pos) const;
+	bool TunerSatelitePositionLookup(tuner_pool_t *tp, int pos) const;
+	
+	tuner_pool_t *TunerFindByUUID (const char *uuid);
+	int TunerCountByType (const fe_type_t type);
+	bool TunerPoolAdd(tuner_info_t *t);
+	bool TunerPoolDel(const char *uuid);
+	tuner_pool_t *TunerAvailable(fe_type_t type, int pos, bool lock=true);
+	tuner_pool_t *TunerAlloc(fe_type_t type, int pos, bool lock=true);
+	bool TunerFree(tuner_pool_t *tp, bool lock=true);
 
 	int CamPollText (mmi_info_t * text);
+	void TempDisableDevices(bool now=false);
+	bool StealCAM(bool force=false);
+	
 	virtual cOsdObject *AltMenuAction (void);
 };

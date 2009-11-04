@@ -23,6 +23,7 @@
 #define st_Neg  0x0800
 
 //#define DEBUG_PIDS 
+//#define DEBUG_TUNE
 
 #define TEMP_DISABLE_TIMEOUT_DEFAULT (10)
 #define TEMP_DISABLE_TIMEOUT_SCAN (30)
@@ -56,52 +57,6 @@ static int handle_ten (tra_t * ten, void *p)
 	return 0;
 }
 
-satellite_list_t *cMcliDevice::find_sat_list (netceiver_info_t * nc_info, const char *SatelliteListName) const
-{
-	int i;
-
-//	printf ("SatelliteListName %s\n", SatelliteListName);
-	if(SatelliteListName==NULL) {
-		return NULL;
-	}
-
-	for (i = 0; i < nc_info->sat_list_num; i++) {
-		if (!strcmp (SatelliteListName, nc_info->sat_list[i].Name)) {
-//			printf ("found uuid in sat list %d\n", i);
-			return nc_info->sat_list + i;
-		}
-	}
-	return NULL;
-}
-
-bool cMcliDevice::SatelitePositionLookup(satellite_list_t *satlist, int pos) const
-{
-	int i;
-//	printf("SatelitePositionLookup: %p %d\n",satlist, pos);
-	if(satlist == NULL) {
-		return false;
-	}
-	for(i=0; i<satlist->sat_num;i ++) {
-		satellite_info_t *s=satlist->sat+i;
-		switch(s->type){
-			case SAT_SRC_LNB:
-				if(pos == s->SatPos) {
-//					printf("satlist found\n");
-					return true;
-				}
-				break;
-			case SAT_SRC_ROTOR:
-				if(pos>=s->SatPosMin && pos <=s->SatPosMax) {
-//					printf("satlist found\n");
-					return true;
-				}
-				break;
-		}
-	}
-//	printf("satlist not found\n");
-	
-	return false;
-}
 
 void cMcliDevice::SetTenData (tra_t * ten)
 {
@@ -122,38 +77,73 @@ void cMcliDevice::SetEnable (bool val)
 		m_tuned = false;
 		if(GetCaEnable()) {
 			SetCaEnable(false);
-			m_mcli->FreeCAM();
+			m_mcli->CAMFree();
+		}
+		if(m_tunerref) {
+			m_mcli->TunerFree(m_tunerref);
+			m_tunerref = NULL;
+			m_fetype = -1;
 		}
 	} else {
 		if (m_chan) {
-			if(m_chan->Ca() && !GetCaEnable() && m_mcli->AvailableCAMs() && m_mcli->AllocCAM()) {
+			if(m_tunerref == NULL) {
+#if VDRVERSNUM < 10702	
+				bool s2=m_chan->Modulation() == QPSK_S2 || m_chan->Modulation() == PSK8;
+#else	
+				bool s2=m_chan->System() == SYS_DVBS2;
+#endif
+				bool ret = false;
+				int pos;
+				int type;
+				
+				TranslateTypePos(type, pos, m_chan->Source());
+				if(s2) {
+					type=FE_DVBS2;
+				}
+				ret = m_mcli->TunerAvailable((fe_type_t)type, pos);
+				if(!ret && type == FE_QPSK) {
+					type = FE_DVBS2;
+					ret = m_mcli->TunerAvailable((fe_type_t)type, pos);
+				}
+				if(!ret) {
+					return;
+				}
+				m_fetype = type;
+			}
+			if(m_chan->Ca() && !GetCaEnable() && m_mcli->CAMAvailable() && m_mcli->CAMAlloc()) {
 				SetCaEnable();
 			}
 
-			recv_tune (m_r, m_fetype, m_pos, &m_sec, &m_fep, m_pids);
+			recv_tune (m_r, (fe_type_t)m_fetype, m_pos, &m_sec, &m_fep, m_pids);
 			m_tuned = true;
 		}
 	}
 }
 
-bool cMcliDevice::SetTempDisable (void)
+bool cMcliDevice::SetTempDisable (bool now)
 {
 	LOCK_THREAD;
 #ifndef REELVDR // they might find it out in some other place
 	// Check for tuning timeout
-	if(m_showtuning && Receiving(true) && ((time(NULL)-m_ten.lastseen)>=LASTSEEN_TIMEOUT)) {
+	if(m_showtuning && Receiving(false) && ((time(NULL)-m_ten.lastseen)>=LASTSEEN_TIMEOUT)) {
 		if(m_chan) {
 			Skins.QueueMessage(mtInfo, cString::sprintf(tr("Waiting for a free tuner (%s)"),m_chan->Name()));
 		}
 		m_showtuning = false;
 	}
 #endif
-	if(!Receiving (true) && ((time(NULL)-m_last) >= m_disabletimeout)) {
+//	printf("Device %d Receiving %d Priority %d\n",CardIndex () + 1, Receiving (true), Priority());
+	if(!Receiving (true) && (((time(NULL)-m_last) >= m_disabletimeout)) || now) {
 		recv_stop (m_r);
 		m_tuned = false;
 		if(GetCaEnable()) {
 			SetCaEnable(false);
-			m_mcli->FreeCAM();
+			m_mcli->CAMFree();
+		}
+		if(m_tunerref) {
+			m_mcli->TunerFree(m_tunerref, false);
+			m_tunerref = NULL;
+			m_fetype = -1;
 		}
 		return true;
 	}
@@ -162,7 +152,7 @@ bool cMcliDevice::SetTempDisable (void)
 
 void cMcliDevice::SetFEType (fe_type_t val)
 {
-	m_fetype = val;
+	m_fetype = (int)val;
 }
 
 int cMcliDevice::HandleTsData (unsigned char *buffer, size_t len)
@@ -201,8 +191,7 @@ cMcliDevice::cMcliDevice (void)
 	m_filternum = 0;
 	m_chan = NULL;
 	m_mcli = NULL;
-	memset(m_satlistname, 0, UUID_SIZE+1);
-	m_fetype = FE_QPSK;
+	m_fetype = -1;
 	m_last = 0;
 	m_showtuning = 0;
 	m_ca_enable = false;
@@ -211,6 +200,7 @@ cMcliDevice::cMcliDevice (void)
 	memset (&m_ten, 0, sizeof (tra_t));
 	m_pids[0].pid=-1;
 	m_disabletimeout = TEMP_DISABLE_TIMEOUT_DEFAULT;
+	m_tunerref = NULL;
 	InitMcli ();
 }
 
@@ -244,32 +234,33 @@ cMcliDevice::~cMcliDevice ()
 
 bool cMcliDevice::ProvidesSource (int Source) const
 {
-//      printf ("ProvidesSource, Source=%d\n", Source);
+	int pos;
+	int type;
+	bool ret=false;
+
 	if (!m_enable) {
 		return false;
 	}
-	int type = Source & cSource::st_Mask;
-	bool ret= type == cSource::stNone || (type == cSource::stCable && m_fetype == FE_QAM) || (type == cSource::stSat && m_fetype == FE_QPSK) || (type == cSource::stSat && m_fetype == FE_DVBS2) || (type == cSource::stTerr && m_fetype == FE_OFDM);
-	if(ret && (type == cSource::stSat)) {
-		int pos = ((Source & st_Neg) ? 1 : -1) * (Source & st_Pos);
-		if (pos) {
-			nc_lock_list ();
-			netceiver_info_list_t *nc_list = nc_get_list ();
-			satellite_list_t *satlist=NULL;
-			for (int n = 0; n < nc_list->nci_num; n++) {
-				netceiver_info_t *nci = nc_list->nci + n;
-			      	satlist=find_sat_list(nci, m_satlistname);
-			      	if(satlist) {
-			      		break;
-			      	}
-			}
-			nc_unlock_list ();
-		      	if(satlist == NULL) {
-		      		return false;
-			}
-			return SatelitePositionLookup(satlist, pos+1800);
+	
+	TranslateTypePos(type, pos, Source);
+
+	if(m_tunerref) {
+		ret= (type == m_fetype) || (type == FE_QPSK && m_fetype == FE_DVBS2);
+		if(ret) {
+			ret = m_mcli->TunerSatelitePositionLookup(m_tunerref, pos);
 		}
 	}
+	
+	if(!ret) {
+		ret = m_mcli->TunerAvailable((fe_type_t)type, pos);
+		if(!ret && type == FE_QPSK) {
+			type = FE_DVBS2;
+			ret = m_mcli->TunerAvailable((fe_type_t)type, pos);
+		}
+	} 
+#ifdef DEBUG_TUNE
+	printf ("ProvidesSource %d Type %d Pos %d -> %d\n", CardIndex () + 1, type, pos, ret);
+#endif
 	return ret;
 }
 
@@ -279,8 +270,35 @@ bool cMcliDevice::ProvidesTransponder (const cChannel * Channel) const
 	if (!m_enable) {
 		return false;
 	}
-	bool ret=ProvidesSource (Channel->Source ()) && ((Channel->Modulation() == QPSK_S2 || Channel->Modulation() == PSK8) ? (m_fetype == FE_DVBS2) : true);
-//	printf ("ProvidesTransponder Modulation:  %d %s@%p -> %d\n", Channel->Modulation(), Channel->Name (), this, ret);
+#if VDRVERSNUM < 10702	
+	bool s2=Channel->Modulation() == QPSK_S2 || Channel->Modulation() == PSK8;
+#else	
+	bool s2=Channel->System() == SYS_DVBS2;
+#endif	
+	bool ret=ProvidesSource (Channel->Source ());
+	if(ret) {
+		int pos;
+		int type;
+		TranslateTypePos(type, pos, Channel->Source());
+		if(s2) {
+			type=FE_DVBS2;
+		}
+		if(m_tunerref) {
+			ret = (m_fetype == type) || (type == FE_QPSK && m_fetype == FE_DVBS2);
+		} else {
+			ret = false;
+		}
+		if(!ret) {
+			ret = m_mcli->TunerAvailable((fe_type_t)type, pos);
+			if(!ret && type == FE_QPSK) {
+				type = FE_DVBS2;
+				ret = m_mcli->TunerAvailable((fe_type_t)type, pos);
+			}
+		}
+	}
+#ifdef DEBUG_TUNE
+	printf ("ProvidesTransponder %d S2:  %d %s@%p -> %d\n", CardIndex () + 1, s2, Channel->Name (), this, ret);
+#endif
 	return ret;
 }
 
@@ -307,13 +325,13 @@ bool cMcliDevice::IsTunedToTransponder (const cChannel * Channel)
 	return IsTunedToTransponderConst(Channel);
 }
 
-bool cMcliDevice::CheckCAM(const cChannel * Channel) const
+bool cMcliDevice::CheckCAM(const cChannel * Channel, bool steal) const
 {
 	if(GetCaOverride()) {
 		return true;
 	}
-	
-	if(Channel->Ca() && !GetCaEnable() && !m_mcli->AvailableCAMs()) {
+
+	if(Channel->Ca() && !GetCaEnable() && !m_mcli->CAMAvailable() && !m_mcli->StealCAM(steal)) {
 		return false;
 	}
 	return true;
@@ -327,12 +345,12 @@ bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool 
 	if (!m_enable) {
 		return false;
 	}
-	if(!CheckCAM(Channel)) {
-//		printf("ProvidesChannel: no CA configured here\n");
+	if(!CheckCAM(Channel, false)) {
+#ifdef DEBUG_TUNE
+		printf ("ProvidesChannel %d Channel=%s, Prio=%d this->Prio=%d -> %d\n", CardIndex () + 1, Channel->Name (), Priority, this->Priority (), false);
+#endif
 		return false;
 	}
-
-//      printf ("ProvidesChannel, Channel=%s, Prio=%d this->Prio=%d\n", Channel->Name (), Priority, this->Priority ());
 	if(ProvidesTransponder(Channel)) {
 		result = hasPriority;
 		if (Priority >= 0 && Receiving (true))
@@ -344,41 +362,114 @@ bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool 
 			}
 		}
 	}
-//      printf ("NeedsDetachReceivers: %d\n", needsDetachReceivers);
-//      printf ("Result: %d\n", result);
+#ifdef DEBUG_TUNE
+	printf ("ProvidesChannel %d Channel=%s, Prio=%d this->Prio=%d NeedsDetachReceivers: %d -> %d\n", CardIndex () + 1, Channel->Name (), Priority, this->Priority (), needsDetachReceivers, result);
+#endif
 	if (NeedsDetachReceivers) {
 		*NeedsDetachReceivers = needsDetachReceivers;
 	}
 	return result;
 }
 
+void cMcliDevice::TranslateTypePos(int &type, int &pos, const int Source) const
+{
+	pos = Source;
+	pos = ((pos & st_Neg) ? 1 : -1) * (pos & st_Pos);
+//      printf ("Position: %d\n", spos);
+	if (pos) {
+		pos += 1800;
+	} else {
+		pos = NO_SAT_POS;
+	}
+	
+	type = Source & cSource::st_Mask;
+	switch(type) {
+		case cSource::stCable: 
+			type = FE_QAM;
+			break;
+		case cSource::stSat:
+			type = FE_QPSK;
+			break;
+		case cSource::stTerr:
+			type = FE_OFDM;
+			break;
+		default:
+			type = -1;
+	}
+}
+
 bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 {
-	int is_scan = !strlen(Channel->Name()) && !strlen(Channel->Provider());
+	bool is_scan = false;
+	int pos;
+	int type;
+	bool s2;
+	
+#ifdef DEBUG_TUNE
+	printf ("SetChannelDevice %d Channel(%p): %s, Provider: %s, Source: %d, LiveView: %s, IsScan: %d\n", CardIndex () + 1, Channel, Channel->Name (), Channel->Provider (), Channel->Source (), LiveView ? "true" : "false", is_scan);
+#endif
+	if (!m_enable) {
+		return false;
+	}
+	LOCK_THREAD;
+	TranslateTypePos(type, pos, Channel->Source());
+
+	is_scan = !strlen(Channel->Name()) && !strlen(Channel->Provider());
 	if(is_scan) {
 		m_disabletimeout = TEMP_DISABLE_TIMEOUT_SCAN;
 	} else {
 		m_disabletimeout = TEMP_DISABLE_TIMEOUT_DEFAULT;
 	}
-	printf ("SetChannelDevice Channel(%p@%p): %s, Provider: %s, Source: %d, LiveView: %s, IsScan: %d\n", Channel, this, Channel->Name (), Channel->Provider (), Channel->Source (), LiveView ? "true" : "false", is_scan);
-	
-	if (!m_enable) {
-		return false;
-	}
-	if(!CheckCAM(Channel)) {
-//		printf("SetChannelDevice: no CA configured here\n");
+
+#if VDRVERSNUM < 10702	
+	s2=Channel->Modulation() == QPSK_S2 || Channel->Modulation() == PSK8;
+#else	
+	s2=Channel->System() == SYS_DVBS2;
+#endif	
+	if(!CheckCAM(Channel, true)) {
+#ifdef DEBUG_TUNE
+		printf("No CAM on %d available even after tried to steal one\n", CardIndex () + 1);
+#endif
 		return false;
 	}
 	if(!GetCaOverride() && Channel->Ca() && !GetCaEnable()) {
-		if(!m_mcli->AllocCAM()) {
+		if(!m_mcli->CAMAlloc()) {
+#ifdef DEBUG_TUNE
+			printf("failed to get CAM on %d\n",CardIndex () + 1);
+#endif
 			return false;
 		}
 		SetCaEnable();
 	}
 
-	LOCK_THREAD;
+	if(m_tunerref && !m_mcli->TunerSatelitePositionLookup(m_tunerref, pos)) {
+		m_mcli->TunerFree(m_tunerref);
+		m_tunerref = NULL;
+	}
+	
+	if(s2 && (m_fetype != FE_DVBS2)) {
+		if(m_tunerref) {
+			m_mcli->TunerFree(m_tunerref);
+			m_tunerref = NULL;
+		}
+		type=FE_DVBS2;
+	}
+
+	if(m_tunerref == NULL) {
+		m_tunerref = m_mcli->TunerAlloc((fe_type_t)type, pos);
+		if(m_tunerref == NULL && type == FE_QPSK) {
+			type = FE_DVBS2;
+			m_tunerref = m_mcli->TunerAlloc((fe_type_t)type, pos);
+		}
+		if(m_tunerref == NULL) {
+			return false;
+		}
+		m_fetype = type;
+	}
+
+
 	if (IsTunedToTransponder (Channel) && !is_scan) {
-//              printf("Already tuned to transponder\n");
+//                printf("Already tuned to transponder on %d\n",CardIndex () + 1);
 		m_chan = Channel;
 		return true;
 	} else {
@@ -388,7 +479,8 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	memset (&m_fep, 0, sizeof (struct dvb_frontend_parameters));
 
 	m_chan = Channel;
-
+	m_pos = pos;
+//	printf("Really tuning on %d\n",CardIndex () + 1);
 	switch (m_fetype) {
 	case FE_DVBS2:
 	case FE_QPSK:{		// DVB-S
@@ -401,7 +493,22 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 			m_fep.frequency = frequency * 1000UL;
 			m_fep.inversion = fe_spectral_inversion_t (Channel->Inversion ());
 			m_fep.u.qpsk.symbol_rate = Channel->Srate () * 1000UL;
+#if VDRVERSNUM < 10702				
 			m_fep.u.qpsk.fec_inner = fe_code_rate_t (Channel->CoderateH () | (Channel->Modulation () << 16));
+#else
+			if(s2) {
+				int modulation = 0;
+				switch(Channel->Modulation ()) {
+					case QPSK:
+						modulation = QPSK_S2;
+						break;
+					case PSK_8:
+						modulation = PSK8;
+						break;
+				}
+				 m_fep.u.qpsk.fec_inner = fe_code_rate_t (Channel->CoderateH () | (modulation << 16));
+			}
+#endif			
 		}
 		break;
 	case FE_QAM:{		// DVB-C
@@ -433,16 +540,7 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 		return false;
 	}
 
-	int spos = Channel->Source ();
-	m_pos = ((spos & st_Neg) ? 1 : -1) * (spos & st_Pos);
-//      printf ("Position: %d\n", pos);
-	if (m_pos) {
-		m_pos += 1800;
-	} else {
-		m_pos = NO_SAT_POS;
-	}
-
-	recv_tune (m_r, m_fetype, m_pos, &m_sec, &m_fep, m_pids);
+	recv_tune (m_r, (fe_type_t)m_fetype, m_pos, &m_sec, &m_fep, m_pids);
 	m_tuned = true;
 	if((m_pids[0].pid==-1)) {
 		dvb_pid_t pi;
@@ -480,7 +578,9 @@ bool cMcliDevice::HasLock (int TimeoutMs)
 
 bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 {
-//	printf ("SetPid, Pid=%d, Type=%d, On=%d, used=%d %d %d %d %d\n", Handle->pid, Type, On, Handle->used, ptAudio, ptVideo, ptDolby, ptOther);
+#ifdef DEBUG_TUNE
+	printf ("SetPid %d Pid=%d, Type=%d, On=%d, used=%d %d %d %d %d\n",  CardIndex () + 1, Handle->pid, Type, On, Handle->used, ptAudio, ptVideo, ptDolby, ptOther);
+#endif
 	dvb_pid_t pi;
 	memset (&pi, 0, sizeof (dvb_pid_t));
 	if (!m_enable) {
@@ -520,6 +620,13 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 		}
 	}
 	m_mcpidsnum = recv_pids_get (m_r, m_pids);
+	if(!m_mcpidsnum) {
+		printf("##########################################    Disable CA\n");
+		if(GetCaEnable()) {
+			SetCaEnable(false);
+			m_mcli->CAMFree();
+		}
+	}
 #ifdef DEBUG_PIDS
 	printf ("%p SetPid: Pidsnum: %d m_pidsnum: %d m_filternum: %d\n", m_r, m_mcpidsnum, m_pidsnum, m_filternum);
 	for (int i = 0; i < m_mcpidsnum; i++) {
@@ -615,23 +722,6 @@ void cMcliDevice::CloseFilter (int Handle)
 //	printf ("CloseFilter(%d/%d/%d) pid:%d %s\n", m_filternum, m_pidsnum, m_mcpidsnum, pid, pid==-1?"PID STILL USED":"");
 }
 
-void cMcliDevice::SetUUID (const char *uuid)
-{
-	strncpy (m_uuid, uuid, UUID_SIZE);
-	m_uuid[UUID_SIZE]=0;
-}
-
-void cMcliDevice::SetSateliteListName(char *s)
-{
-	strncpy(m_satlistname, s, UUID_SIZE);
-	m_satlistname[UUID_SIZE]=0;
-}
-
-const char *cMcliDevice::GetUUID (void)
-{
-	return m_uuid;
-}
-
 #ifdef DEVICE_ATTRIBUTES
 /* Attribute classes for dvbdevice
   main  main attributes
@@ -675,7 +765,7 @@ int cMcliDevice::GetAttribute (const char *attr_name, char *val, int maxret)
 {
 	int ret = 0;
 	if (!strcmp (attr_name, "fe.uuid")) {
-		strncpy (val, m_uuid, maxret);
+		strncpy (val, "NetCeiver", maxret);
 		val[maxret - 1] = 0;
 	} else if (!strcmp (attr_name, "fe.name")) {
 		strncpy (val, "NetCeiver", maxret);

@@ -18,45 +18,12 @@
 #include "cam_menu.h"
 #include "mcli.h"
 
-static int recv_init_done = 0;
-static int mld_init_done = 0;
-static int api_init_done = 0;
-static int devices = 0;
+//#define DEBUG_RESOURCES
+
 static int reconf = 0;
-static int reconf_full = 0;
-static int mmi_init_done = 0;
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-cMcliDeviceObject *cMcliDeviceList::find_dev_by_uuid (const char *uuid)
-{
-	for (cMcliDeviceObject * d = First (); d; d = Next (d)) {
-		if (!strcmp (d->d ()->GetUUID (), uuid)) {
-			return d;
-		}
-	}
-	return NULL;
-}
-
-int cMcliDeviceList::count_dev_by_type (const fe_type_t type)
-{
-	int ret = 0;
-	for (cMcliDeviceObject * d = First (); d; d = Next (d)) {
-		if (type == d->d ()->GetFEType ()) {
-			ret++;
-		}
-	}
-	return ret;
-}
-int cPluginMcli::SetCAMPool (cam_pool_t type, int num)
-{
-	LOCK_THREAD;
-	if (type >= 0 && type < CAM_POOL_MAX) {
-		m_cam_pool[type] = num;
-		return num;
-	}
-	return 0;
-}
 class cMenuSetupMcli:public cMenuSetupPage
 {
       private:
@@ -83,42 +50,8 @@ void cMenuSetupMcli::Store (void)
 	SetupStore ("DVB-S", m_cmd->tuner_type_limit[FE_QPSK]);
 	SetupStore ("DVB-S2", m_cmd->tuner_type_limit[FE_DVBS2]);
 	reconf = 1;
-	reconf_full = 1;
 }
 
-int cPluginMcli::AvailableCAMs (void)
-{
-	int ret, sum = 0;
-	LOCK_THREAD;
-	for (int i = 0; i < CAM_POOL_MAX; i++) {
-		sum += m_cam_pool[i];
-	}
-	ret = sum - m_cams_inuse;
-	printf ("AvailableCAMs: %d/%d\n", m_cams_inuse, ret);
-	if (ret >= 0) {
-		return ret;
-	}
-	return 0;
-}
-int cPluginMcli::AllocCAM (void)
-{
-	LOCK_THREAD;
-	printf ("Alloc CAM %d\n", m_cams_inuse + 1);
-	if (AvailableCAMs ()) {
-		m_cams_inuse++;
-		return m_cams_inuse;
-	}
-	return 0;
-}
-int cPluginMcli::FreeCAM (void)
-{
-	LOCK_THREAD;
-	printf ("FreeCAM %d\n", m_cams_inuse - 1);
-	if (m_cams_inuse) {
-		m_cams_inuse--;
-	}
-	return m_cams_inuse;
-}
 cOsdObject *cPluginMcli::AltMenuAction (void)
 {
 	// Call this code periodically to find out if any CAM out there want's us to tell something.
@@ -166,7 +99,7 @@ cOsdObject *cPluginMcli::AltMenuAction (void)
 
 int cPluginMcli::CamPollText (mmi_info_t * text)
 {
-	if (mmi_init_done && !reconf) {
+	if (m_mmi_init_done && !reconf) {
 		return mmi_poll_for_menu_text (m_cam_mmi, text, 10);
 	} else {
 		return 0;
@@ -186,8 +119,16 @@ cPluginMcli::cPluginMcli (void)
 	m_cmd.port = 23000;
 	m_cmd.mld_start = 1;
 	m_cams_inuse = 0;
+	m_mmi_init_done = 0;
+	m_recv_init_done = 0;
+	m_mld_init_done = 0;
+	m_api_init_done = 0;
 	memset (m_cam_pool, 0, sizeof (int) * CAM_POOL_MAX);
 	strcpy (m_cmd.cmd_sock_path, API_SOCK_NAMESPACE);
+	memset (m_tuner_pool, 0, sizeof(tuner_pool_t)*TUNER_POOL_MAX);
+	for(i=0; i<TUNER_POOL_MAX; i++) {
+		m_tuner_pool[i].type = -1;
+	}
 }
 
 cPluginMcli::~cPluginMcli ()
@@ -200,33 +141,33 @@ cPluginMcli::~cPluginMcli ()
 bool cPluginMcli::InitMcli (void)
 {
 	if (!recv_init (m_cmd.iface, m_cmd.port)) {
-		recv_init_done = 1;
+		m_recv_init_done = 1;
 	}
 	if (m_cmd.mld_start && !mld_client_init (m_cmd.iface)) {
-		mld_init_done = 1;
+		m_mld_init_done = 1;
 	}
 	if (!api_sock_init (m_cmd.cmd_sock_path)) {
-		api_init_done = 1;
+		m_api_init_done = 1;
 	}
 	m_cam_mmi = mmi_broadcast_client_init (m_cmd.port, m_cmd.iface);
 	if (m_cam_mmi > 0) {
-		mmi_init_done = 1;
+		m_mmi_init_done = 1;
 	}
 	return true;
 }
 
 void cPluginMcli::ExitMcli (void)
 {
-	if (mmi_init_done) {
+	if (m_mmi_init_done) {
 		mmi_broadcast_client_exit (m_cam_mmi);
 	}
-	if (api_init_done) {
+	if (m_api_init_done) {
 		api_sock_exit ();
 	}
-	if (mld_init_done) {
+	if (m_mld_init_done) {
 		mld_client_exit ();
 	}
-	if (recv_init_done) {
+	if (m_recv_init_done) {
 		recv_exit ();
 	}
 }
@@ -298,18 +239,263 @@ bool cPluginMcli::ProcessArgs (int argc, char *argv[])
 	return true;
 }
 
+int cPluginMcli::CAMAvailable (bool lock)
+{
+	int ret, sum = 0;
+	if(lock) {
+		Lock();
+	}
+	for (int i = 0; i < CAM_POOL_MAX; i++) {
+		sum += m_cam_pool[i];
+	}
+	ret = sum - m_cams_inuse;
+//	printf ("AvailableCAMs: %d/%d\n", m_cams_inuse, ret);
+	if(lock) {
+		Unlock();
+	}
+	if (ret >= 0) {
+		return ret;
+	}
+	return 0;
+}
+int cPluginMcli::CAMAlloc (void)
+{
+	LOCK_THREAD;
+	printf ("Alloc CAM %d\n", m_cams_inuse + 1);
+	if (CAMAvailable (false)) {
+		m_cams_inuse++;
+		return m_cams_inuse;
+	}
+	return 0;
+}
+int cPluginMcli::CAMFree (void)
+{
+	LOCK_THREAD;
+	printf ("FreeCAM %d\n", m_cams_inuse - 1);
+	if (m_cams_inuse) {
+		m_cams_inuse--;
+	}
+	return m_cams_inuse;
+}
+satellite_list_t *cPluginMcli::TunerFindSatList(const netceiver_info_t *nc_info, const char *SatelliteListName) const
+{
+	if(SatelliteListName == NULL) {
+		return NULL;
+	}
+
+	for (int i = 0; i < nc_info->sat_list_num; i++) {
+		if (!strcmp (SatelliteListName, nc_info->sat_list[i].Name)) {
+//			printf ("found uuid in sat list %d\n", i);
+			return nc_info->sat_list + i;
+		}
+	}
+	return NULL;
+}
+
+bool cPluginMcli::SatelitePositionLookup(const satellite_list_t *satlist, int pos) const
+{
+	if(satlist == NULL) {
+		return false;
+	}
+	for(int i=0; i<satlist->sat_num;i ++) {
+		satellite_info_t *s=satlist->sat+i;
+		switch(s->type){
+			case SAT_SRC_LNB:
+				if(pos == s->SatPos) {
+//					printf("satlist found\n");
+					return true;
+				}
+				break;
+			case SAT_SRC_ROTOR:
+				if(pos>=s->SatPosMin && pos <=s->SatPosMax) {
+//					printf("satlist found\n");
+					return true;
+				}
+				break;
+		}
+	}
+//	printf("satlist not found\n");
+	
+	return false;
+}
+
+bool cPluginMcli::TunerSatelitePositionLookup(tuner_pool_t *tp, int pos) const
+{
+	if((tp->type != FE_QPSK) && (tp->type != FE_DVBS2)) {
+		return true;
+	}
+	nc_lock_list ();
+	netceiver_info_list_t *nc_list = nc_get_list ();
+	satellite_list_t *satlist=NULL;
+	for (int n = 0; n < nc_list->nci_num; n++) {
+		netceiver_info_t *nci = nc_list->nci + n;
+		int l=strlen(tp->uuid)-5;
+		if(strncmp(nci->uuid, tp->uuid, l)) {
+			continue;
+		}
+		satlist=TunerFindSatList(nci, tp->SatListName);
+		if(satlist) {
+			break;
+		}
+	}
+	bool ret;
+	if(satlist == NULL) {
+		ret = false;
+	} else {	
+		ret=SatelitePositionLookup(satlist, pos);
+	}
+	nc_unlock_list ();
+	return ret;
+}
+tuner_pool_t *cPluginMcli::TunerFindByUUID (const char *uuid)
+{
+	tuner_pool_t *tp;
+	for(int i=0; i<TUNER_POOL_MAX; i++) {
+		tp=m_tuner_pool+i;
+		if(tp->type != -1 && !strcmp(tp->uuid, uuid)) {
+			return tp;
+		}
+	}
+	return NULL;
+}
+
+int cPluginMcli::TunerCountByType (const fe_type_t type)
+{
+	int ret=0;
+	tuner_pool_t *tp;
+	for(int i=0; i<TUNER_POOL_MAX; i++) {
+		tp=m_tuner_pool+i;
+		if(tp->inuse && tp->type == type) {
+			ret++;
+		}
+	}
+	return ret;
+}
+
+bool  cPluginMcli::TunerPoolAdd(tuner_info_t *t)
+{
+	tuner_pool_t *tp;
+	for(int i=0; i<TUNER_POOL_MAX; i++) {
+		tp=m_tuner_pool+i;
+		if(tp->type == -1) {
+			tp->type=t->fe_info.type;
+			strcpy(tp->uuid, t->uuid);
+			strcpy(tp->SatListName, t->SatelliteListName);
+			return true;
+		}
+	}
+	return false;
+}
+bool cPluginMcli::TunerPoolDel(const char *uuid)
+{
+	tuner_pool_t *tp;
+	for(int i=0; i<TUNER_POOL_MAX; i++) {
+		tp=m_tuner_pool+i;
+		if(tp->type != -1 && !strcmp(uuid, tp->uuid)) {
+			tp->type=-1;
+			return true;
+		}
+	}
+	return false;
+}
+
+tuner_pool_t *cPluginMcli::TunerAvailable(fe_type_t type, int pos, bool lock)
+{
+	tuner_pool_t *tp;
+	if(lock) {
+		Lock();
+	}
+//	printf("TunerAvailable: %d %d\n",type, pos);
+	if (TunerCountByType (type) == m_cmd.tuner_type_limit[type]) {
+#ifdef DEBUG_RESOURCES
+		printf("Type %d limit (%d) reached\n", type, m_cmd.tuner_type_limit[type]);
+#endif		
+		if(lock) {
+			Unlock();
+		}
+		return NULL;
+	}
+
+	for(int i=0; i<TUNER_POOL_MAX; i++) {
+		tp=m_tuner_pool+i;
+//		printf("Tuner %d(%p), type %d, inuse %d\n", i, tp, tp->type, tp->inuse);
+
+		if(tp->inuse) {
+			continue;
+		}
+		if(tp->type != type) {
+			continue;
+		}
+		if(TunerSatelitePositionLookup(tp, pos)) {
+//			printf("TunerAvailable: %d/%p\n",i,tp);
+			if(lock) {
+				Unlock();
+			}
+			return tp;
+		}
+	}
+	if(lock) {
+		Unlock();
+	}
+	return NULL;
+}
+
+tuner_pool_t *cPluginMcli::TunerAlloc(fe_type_t type, int pos, bool lock)
+{
+	tuner_pool_t *tp;
+	if(lock) {
+		Lock();
+	}
+	tp=TunerAvailable(type, pos, false);
+	if(tp) {
+		tp->inuse=true;
+#ifdef DEBUG_RESOURCES
+		printf("TunerAlloc: %p type %d\n",tp, tp->type);
+#endif
+		if(lock) {
+			Unlock();
+		}
+		return tp;
+	}
+		if(lock) {
+			Unlock();
+		}
+	return NULL;
+}
+bool cPluginMcli::TunerFree(tuner_pool_t *tp, bool lock)
+{
+	if(lock) {
+		Lock();
+	}
+	if(tp->inuse) {
+		tp->inuse=false;
+#ifdef DEBUG_RESOURCES
+		printf("TunerFree: %p type %d\n",tp, tp->type);
+#endif
+		if(lock) {
+			Unlock();
+		}
+		return true;
+	}
+	if(lock) {
+		Unlock();
+	}
+	return false;
+}
+
 void cPluginMcli::Action (void)
 {
 	netceiver_info_list_t *nc_list = nc_get_list ();
 	printf ("Looking for netceivers out there....\n");
 	bool channel_switch_ok = false;
-
+	
 	while (Running ()) {
 		Lock ();
 		nc_lock_list ();
 		time_t now = time (NULL);
 		memset (m_cam_pool, 0, sizeof (int) * CAM_POOL_MAX);
-
+		bool tpa = false;
+		
 		for (int n = 0; n < nc_list->nci_num; n++) {
 			netceiver_info_t *nci = nc_list->nci + n;
 			for (int i = 0; i < nci->cam_num; i++) {
@@ -326,74 +512,74 @@ void cPluginMcli::Action (void)
 				}
 			}
 			for (int i = 0; i < nci->tuner_num; i++) {
-				cMcliDeviceObject *d = m_devs.find_dev_by_uuid (nci->tuner[i].uuid);
-				if ((now - nci->lastseen) > MCLI_DEVICE_TIMEOUT) {
-					if (d) {
-						cPluginManager::CallAllServices ("OnDelMcliDevice-" MCLI_DEVICE_VERSION, d->d ());
-						printf ("Remove Tuner %s [%s]\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid);
-						d->d ()->SetEnable (false);
-#if VDRVERSNUM >= 10600
-						d->d ()->SetAvoidDevice (d->d ());
-#endif
-						delete d->d ();
-						m_devs.Del (d);
+				tuner_pool_t *t = TunerFindByUUID (nci->tuner[i].uuid);
+				if (((now - nci->lastseen) > MCLI_DEVICE_TIMEOUT) || (nci->tuner[i].preference < 0) || !strlen (nci->tuner[i].uuid)) {
+					if (t) {
+						int pos=TunerPoolDel(nci->tuner[i].uuid);
+						printf ("Remove Tuner %s [%s] @ %d\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, pos);
 					}
 					continue;
 				}
-				if (devices >= MCLI_MAX_DEVICES) {
-//                                      printf("MCLI_MAX_DEVICES reached\n");
-					continue;
-				}
-				char *uuid = nci->tuner[i].uuid;
-				if (nci->tuner[i].preference < 0 || !strlen (uuid)) {
-					continue;
-				}
-				fe_type_t type = nci->tuner[i].fe_info.type;
-				if (m_devs.count_dev_by_type (type) == m_cmd.tuner_type_limit[type]) {
-//                                      printf("Limit: %d %d>%d\n", type, m_devs.count_dev_by_type (type), m_cmd.tuner_type_limit[type]);
-					continue;
-				}
-				if (!d) {
-					cMcliDevice *m = new cMcliDevice;
-					printf ("  Tuner: %s [%s], Type %d @ %p\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, type, m);
-					cPluginManager::CallAllServices ("OnNewMcliDevice-" MCLI_DEVICE_VERSION, &m);
-					if (m) {
-						m->SetMcliRef (this);
-						m->SetUUID (nci->tuner[i].uuid);
-						m->SetFEType (type);
-						m->SetSateliteListName (nci->tuner[i].SatelliteListName);
-						m->SetEnable (true);
-						d = new cMcliDeviceObject (m);
-						m_devs.Add (d);
-					}
-
+				if (!t) {
+					tpa=TunerPoolAdd(nci->tuner+i);
+					printf ("  Tuner: %s [%s], Type %d @ %d\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, nci->tuner[i].fe_info.type, tpa);
 				}
 			}
 		}
 		nc_unlock_list ();
+		Unlock ();
+		if (tpa) {
+			if(!m_devs.Count()) {
+				for(int i=0; i < MCLI_MAX_DEVICES; i++) {
+					cMcliDevice *m = new cMcliDevice;
+					m->SetMcliRef (this);
+					m->SetEnable ();
+					cMcliDeviceObject *d = new cMcliDeviceObject (m);
+					m_devs.Add (d);
+					cPluginManager::CallAllServices ("OnNewMcliDevice-" MCLI_DEVICE_VERSION, m);
+				}
+			}
 //TB: reelvdr itself tunes if the first tuner appears, don't do it twice
 #ifndef REELVDR
-		if (m_devs.Count ()) {
 			if (!channel_switch_ok) {	// the first tuner that was found, so make VDR retune to the channel it wants...
 				cChannel *ch = Channels.GetByNumber (cDevice::CurrentChannel ());
 				if (ch) {
 					channel_switch_ok = cDevice::PrimaryDevice ()->SwitchChannel (ch, true);
 				}
-			} 
+			}
+#endif
 		} else {
-				channel_switch_ok = 0;
+			channel_switch_ok = 0;
 		}
-#endif
+
 #ifdef TEMP_DISABLE_DEVICE
-		for (cMcliDeviceObject * d = m_devs.First (); d; d = m_devs.Next (d)) {
-			d->d ()->SetTempDisable ();
-		}
+		TempDisableDevices();
 #endif
-		Unlock ();
 		usleep (250 * 1000);
 	}
 }
+void cPluginMcli::TempDisableDevices(bool now)
+{
+		for (cMcliDeviceObject * d = m_devs.First (); d; d = m_devs.Next (d)) {
+			d->d ()->SetTempDisable (now);
+		}
 
+}
+bool cPluginMcli::StealCAM(bool force)
+{
+		for (cMcliDeviceObject * d = m_devs.First (); d; d = m_devs.Next (d)) {
+			if(d->d()->Priority()<0 && d->d()->GetCaEnable()) {
+#ifdef DEBUG_RESOURCES
+				printf("Can Steal CAM from %d\n",d->d()->CardIndex()+1);
+#endif
+				if(force) {
+					d->d ()->SetTempDisable (true);
+				}
+				return true;
+			}
+		}
+		return false;
+}
 bool cPluginMcli::Initialize (void)
 {
 	return InitMcli ();
@@ -429,7 +615,6 @@ void cPluginMcli::MainThreadHook (void)
 	if (reconf) {
 		reconfigure ();
 		reconf = 0;
-		reconf_full = 0;
 	}
 #if 0
 	cOsdObject *MyMenu = AltMenuAction ();
@@ -463,14 +648,13 @@ void cPluginMcli::reconfigure (void)
 		cMcliDeviceObject *next = m_devs.Next (d);
 		d->d ()->SetEnable (false);
 		d->d ()->ExitMcli ();
-		if (reconf_full) {
-			delete d->d ();
-			m_devs.Del (d);
-		}
 		d = next;
 	}
-
 	ExitMcli ();
+	memset (m_tuner_pool, 0, sizeof(tuner_pool_t)*TUNER_POOL_MAX);
+	for(int i=0; i<TUNER_POOL_MAX; i++) {
+		m_tuner_pool[i].type = -1;
+	}
 	InitMcli ();
 	for (cMcliDeviceObject * d = m_devs.First (); d; d = m_devs.Next (d)) {
 		d->d ()->InitMcli ();

@@ -15,6 +15,7 @@
 #include "packetbuffer.h"
 
 class cPluginMcli;
+struct tuner_pool;
 
 class cMcliDevice:public cDevice
 {
@@ -28,9 +29,8 @@ class cMcliDevice:public cDevice
 	int m_pos;
 	struct dvb_frontend_parameters m_fep;
 	dvb_pid_t m_pids[RECV_MAX_PIDS];
-	char m_uuid[UUID_SIZE+1];
 	tra_t m_ten;
-	fe_type_t m_fetype;
+	int m_fetype;
 	const cChannel *m_chan;
 	cMutex mutex;
 	bool m_enable;
@@ -41,7 +41,8 @@ class cMcliDevice:public cDevice
 	bool m_showtuning;
 	bool m_ca_enable;
 	bool m_ca_override;
-      	char m_satlistname[UUID_SIZE+1];
+	struct tuner_pool *m_tunerref;
+      	
 
       protected:
       	cPluginMcli *m_mcli;
@@ -54,13 +55,14 @@ class cMcliDevice:public cDevice
 
 	virtual int OpenFilter (u_short Pid, u_char Tid, u_char Mask);
 	virtual void CloseFilter (int Handle);
-	virtual bool CheckCAM(const cChannel * Channel) const;
+	virtual bool CheckCAM(const cChannel * Channel, bool steal=false) const;
+
 #ifdef GET_TS_PACKETS
 	virtual int GetTSPackets (uchar *, int);
 #endif
-	satellite_list_t *find_sat_list (netceiver_info_t * nc_info, const char *SatelliteListName) const;
-	bool SatelitePositionLookup(satellite_list_t *satlist, int pos) const;
 	bool IsTunedToTransponderConst (const cChannel * Channel) const;
+	void TranslateTypePos(int &type, int &pos, const int Source) const;
+	
 	
       public:
 	cCondVar m_locked;
@@ -72,8 +74,11 @@ class cMcliDevice:public cDevice
 	{
 		m_mcli=m;
 	}
-	void SetSateliteListName(char *s);
-
+	virtual int NumProvidedSystems(void) const
+	{
+		return (m_fetype == FE_DVBS2)?2:1;
+	}
+  
 #ifdef REELVDR
 	const cChannel *CurChan () const
 	{
@@ -88,7 +93,7 @@ class cMcliDevice:public cDevice
 	}
 	virtual bool HasInternalCam (void)
 	{
-		return m_ca_enable;
+		return true; 
 	}
 	virtual bool ProvidesSource (int Source) const;
 	virtual bool ProvidesTransponder (const cChannel * Channel) const;
@@ -117,14 +122,12 @@ class cMcliDevice:public cDevice
 		return m_ca_override;
 	}
 	void SetEnable (bool val = true);
-	bool SetTempDisable (void);
+	bool SetTempDisable (bool now = false);
 	void SetFEType (fe_type_t val);
 	fe_type_t GetFEType (void)
 	{
-		return m_fetype;
+		return (fe_type_t)m_fetype;
 	};
-	void SetUUID (const char *uuid);
-	const char *GetUUID (void);
 	void InitMcli (void);
 	void ExitMcli (void);
 	virtual bool ProvidesS2 () const
