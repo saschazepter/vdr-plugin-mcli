@@ -574,6 +574,9 @@ bool cPluginMcli::StealCAM(bool force)
 #endif
 				if(force) {
 					d->d ()->SetTempDisable (true);
+#ifdef DEBUG_RESOURCES
+					printf("Stole CAM from %d\n",d->d()->CardIndex()+1);
+#endif
 				}
 				return true;
 			}

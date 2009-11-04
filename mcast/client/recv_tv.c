@@ -352,7 +352,7 @@ static void stop_ten_receive (recv_info_t * r)
 		
 		r->ten_run=0;
 //		if (pthread_exist(r->recv_ten_thread) && !pthread_cancel (r->recv_ten_thread)) {
-			pthread_join (r->recv_ten_thread, NULL);
+//			pthread_join (r->recv_ten_thread, NULL);
 //		}
 				
 		dbg ("cancel TEN done receiver %p\n", r);
