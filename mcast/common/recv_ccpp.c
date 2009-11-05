@@ -470,11 +470,11 @@ void *recv_ten (void *arg)
 								dbg ("Redirect for receiver %p: MCG is at %s\n", r, hostname);
 #endif								
 								int ret = recv_redirect (r, tra_info.tra->mcg);
-								if (!ret) {								
+								if (!ret) {
 									printf("Terminate recv_ten !\n");
 									free (tra_info.tra);
-									break;								
-								} 
+									break;
+								}
 							}
 						}
 						free (tra_info.tra);
