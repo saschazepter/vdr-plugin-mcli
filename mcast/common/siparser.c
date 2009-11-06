@@ -405,29 +405,50 @@ int get_pmt_es_pids(unsigned char *esi_buf, int size, int *es_pids, int all)
       return pid_num;
 }
 //-----------------------------------------------------------------------------------
-int parse_pmt_ca_desc(unsigned char *buf, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_cads, pmt_t *pmt_hdr, int *fta, ca_es_pid_info_t *espids, int *es_pid_num)
+int parse_pmt_ca_desc(unsigned char *buf, int sid, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_cads, pmt_t *pmt_hdr, int *fta, ca_es_pid_info_t *espids, int *es_pid_num)
 {
       unsigned char *ptr=buf, tmp[PSI_BUF_SIZE]; //sections can be only 12 bit long
 
       memset(pm_cads,0,sizeof(si_ca_pmt_t));
       memset(es_cads,0,sizeof(si_ca_pmt_t));  
+      memset(pmt_hdr,0,sizeof(pmt_hdr));
 
       pmt_hdr->table_id=ptr[0];		         
       pmt_hdr->section_syntax_indicator=(ptr[1] >> 7) & 1;
       pmt_hdr->reserved_1=(ptr[1] >> 4) & 3; 
       pmt_hdr->section_length=((ptr[1] << 8) | ptr[2]) & 0xfff;
 
+      if (pmt_hdr->section_length < 9 || pmt_hdr->section_length > 1021) {
+            info("#####\nERROR: Invalid section length!\n");
+            return -1;
+      }
+
       u_long crc = dvb_crc32 ((char *)buf,pmt_hdr->section_length+3);  
 
 #ifdef DBG
       info("CRCcc: 0x%lx\n",crc);
+      info("len = %d\n", pmt_hdr->section_length+3);
 #endif
       if (crc & 0xffffffff) { //FIXME: makr arch flags
-        info("ERROR: parse_pmt_ca_desc() : CRC err. crc = 0x%lx\n", crc);
-        return -1;
+            info("#####\nPMT -> ERROR: parse_pmt_ca_desc() : CRC err. crc = 0x%lx\n", crc);
+            return -1;
       }
 
-      pmt_hdr->program_number=(ptr[3] << 8) | ptr[4];		        
+      if (pmt_hdr->section_length < 12) {
+      
+      }
+
+      pmt_hdr->program_number=(ptr[3] << 8) | ptr[4];      
+      if (pmt_hdr->program_number != sid) {
+            info("#####\nERROR: Invalid SID in PMT !!!\n");
+            return -1;
+      }
+      pmt_hdr->program_info_length=((ptr[10] << 8) | ptr[11]) & 0x0fff;	        
+      if (pmt_hdr->program_info_length < 0 || pmt_hdr->program_info_length > 1021 - 9) {
+            info("#####\nERROR: Invalid PI length in PMT!\n");                  
+            return -1;
+      }	
+    
       pmt_hdr->reserved_2=(ptr[5] >> 6) & 3;		        
       pmt_hdr->version_number=(ptr[5] >> 1) & 0x1f;		        
       pmt_hdr->current_next_indicator=ptr[5] & 1;	        
@@ -436,10 +457,12 @@ int parse_pmt_ca_desc(unsigned char *buf, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_
       pmt_hdr->reserved_3=(ptr[8] >> 5) & 7;		        
       pmt_hdr->pcr_pid=((ptr[8] << 8) | ptr[9]) & 0x1fff;		        
       pmt_hdr->reserved_4=(ptr[10] >> 4) & 0xf;		        
-      pmt_hdr->program_info_length=((ptr[10] << 8) | ptr[11]) & 0xfff;	        
+    
+      //pmt_hdr->program_info_length=((ptr[10] << 8) | ptr[11]) & 0x0fff;	           
+      //print_pmt(pmt_hdr);
             
       int buf_len=0,len=0;
-	  unsigned int i=0;
+      unsigned int i=0;
       
       buf_len = pmt_hdr->section_length - 9;
       ptr += 12; // 12 byte header
@@ -524,7 +547,9 @@ int parse_pmt_ca_desc(unsigned char *buf, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_
                            case EnhancedAC3DescriptorTag:
                            case DTSDescriptorTag:
                            case AACDescriptorTag:
-                               espids[*es_pid_num].type = dtag;
+                                 espids[*es_pid_num].type = dtag;
+                                 //go to next pid
+ 
                        }
                }            
            }
@@ -534,13 +559,14 @@ int parse_pmt_ca_desc(unsigned char *buf, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_
         }
         tmp[es_info_len_pos] = (cur_len >> 8) & 0xff;
         tmp[es_info_len_pos+1] = cur_len & 0xff;       
-        //go to next pid
-        (*es_pid_num)++;
-        if (*es_pid_num >= MAX_ES_PIDS) {
-              info ("ERROR: ES pids array index out bounds !\n");
-              break;
-        }            
-      
+        if (espids[*es_pid_num].type) {
+              //go to next pid
+              (*es_pid_num)++;
+              if (*es_pid_num >= MAX_ES_PIDS) {
+                    info ("ERROR: ES pids array index out bounds (pids %d sid %d)!\n", *es_pid_num, pmt_hdr->program_number);
+                    break;
+              }          
+        }                 
       }
       
       //parsing ok we can take this ES level descriptors
@@ -595,7 +621,7 @@ int parse_cat_sect(unsigned char *buf, si_cad_t *emm)
           info("CRCcc: 0x%lx\n",crc);
 #endif
           if (crc & 0xffffffff) {
-            info("CRC32 error (0x%lx)!\n",crc);
+            info("CAT:CRC32 error (0x%lx)!\n",crc);
             return -1;
           }
 #endif
@@ -644,7 +670,7 @@ int parse_pat_sect(unsigned char *buf, pmt_pid_list_t *pmt)
         u_long crc = dvb_crc32 ((char *)buf,p.section_length+3);  
         //FIXME: is it the right way ?
         if (crc & 0xffffffff) {
-          info("CRC32 error (0x%lx)!\n",crc);
+          info("PAT:CRC32 error (0x%lx)!\n",crc);
           return -1;
         }
 #endif

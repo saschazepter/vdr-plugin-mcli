@@ -357,6 +357,7 @@ static void stop_ten_receive (recv_info_t * r)
 //		}
 				
 		dbg ("cancel TEN done receiver %p\n", r);
+		pthread_detach (r->recv_ten_thread);
 		pthread_null(r->recv_ten_thread);
 	}
 }
