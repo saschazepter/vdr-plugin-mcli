@@ -348,7 +348,7 @@ int main(int argc, char **argv)
 	int show_uuids=0,show_tuners=0,show_sats=0,show_state=0,show_cams=0;
 	int show_count=0, show_versions=0;
 #ifdef API_SOCK
-	char path[256]="/var/run/mcli.sock";
+	char path[256]=API_SOCK_NAMESPACE;
 #endif
 #ifdef API_WIN
 	char path[256]="\\\\.\\pipe\\mcli";

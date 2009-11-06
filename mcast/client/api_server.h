@@ -7,7 +7,7 @@
  */
 
 #define API_SHM_NAMESPACE "/mcli"
-#define API_SOCK_NAMESPACE "/var/run/mcli.sock"
+#define API_SOCK_NAMESPACE "/var/tmp/mcli.sock"
 
 typedef enum { 	API_IDLE,
 		API_REQUEST,

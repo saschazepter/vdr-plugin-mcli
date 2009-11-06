@@ -37,7 +37,7 @@ char device[256]="eth0";
 char *uuids[256]={0};
 char *versions[256]={0};
 int num_uuids=0;
-char socket_path[256]="/var/run/mcli.sock";
+char socket_path[256]=API_SOCK_NAMESPACE;
 
 #ifdef USE_MCLI_API
 /*------------------------------------------------------------------------*/
