@@ -33,7 +33,7 @@ VDRDIR=../../../../..
 
 ifdef ARMEL
   XML_INC := -I/usr/arm-linux-gnueabi/include/libxml2
-  XML_LIB := -lxml2 -lz -lm
+  XML_LIB := -lxml2
   CROSS = arm-linux-gnueabi-
 else
 ifeq ($(MIPSEL),1)
@@ -76,7 +76,7 @@ LDLIBS:= -lpthreadGC2 -lxml2 -lz -lws2_32 -liphlpapi
 else
 CFLAGS:= $(CFLAGS)  -I../dvbloop $(XML_INC)
 LDFLAGS:=$(LDFLAGS)
-LDLIBS:=$(XML_LIB) -lpthread
+LDLIBS:=$(XML_LIB) -lpthread -lz -lm
 endif
 
 ifdef DEBUG
