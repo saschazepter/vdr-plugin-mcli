@@ -33,7 +33,7 @@ VDRDIR=../../../../..
 
 ifdef ARMEL
   XML_INC := -I/usr/arm-linux-gnueabi/include/libxml2
-  XML_LIB := -lxml2
+  XML_LIB := -lxml2 -lz -lm
   CROSS = arm-linux-gnueabi-
 else
 ifeq ($(MIPSEL),1)
