@@ -337,10 +337,6 @@ extern pthread_mutex_t _loglock;
 	#endif
 #endif
 
-/* Booleans */
-#define false	0
-#define true	(!false)
-
 #ifndef MICROBLAZE
   #define FE_DVBS2 (FE_ATSC+1)
 #endif

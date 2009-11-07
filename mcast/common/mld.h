@@ -12,6 +12,10 @@
 /* Wrappers so we don't have to change the copied stuff ;) */
 #define __u8 uint8_t
 #define __u16 uint16_t
+/* Booleans */
+#define false	0
+#define true	(!false)
+
 
 /* Determine Endianness */
 #if ! defined __LITTLE_ENDIAN_BITFIELD && ! defined __BIG_ENDIAN_BITFIELD
