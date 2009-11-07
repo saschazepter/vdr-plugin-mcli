@@ -479,6 +479,7 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	if (IsTunedToTransponder (Channel) && !is_scan) {
 //                printf("Already tuned to transponder on %d\n",CardIndex () + 1);
 		m_chan = Channel;
+		m_pos = pos;
 		return true;
 	} else {
 		memset (&m_ten, 0, sizeof (tra_t));

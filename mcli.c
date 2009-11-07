@@ -133,7 +133,7 @@ cPluginMcli::cPluginMcli (void)
 
 cPluginMcli::~cPluginMcli ()
 {
-	printf ("cPluginMcli::~cPluginMcli\n");
+//	printf ("cPluginMcli::~cPluginMcli\n");
 	ExitMcli ();
 
 }
@@ -179,7 +179,7 @@ const char *cPluginMcli::CommandLineHelp (void)
 
 bool cPluginMcli::ProcessArgs (int argc, char *argv[])
 {
-	printf ("cPluginMcli::ProcessArgs\n");
+//	printf ("cPluginMcli::ProcessArgs\n");
 	int tuners = 0, i;
 	char c;
 	int ret;
@@ -261,7 +261,9 @@ int cPluginMcli::CAMAvailable (bool lock)
 int cPluginMcli::CAMAlloc (void)
 {
 	LOCK_THREAD;
+#ifdef DEBUG_RESOURCES
 	printf ("Alloc CAM %d\n", m_cams_inuse + 1);
+#endif
 	if (CAMAvailable (false)) {
 		m_cams_inuse++;
 		return m_cams_inuse;
@@ -271,7 +273,9 @@ int cPluginMcli::CAMAlloc (void)
 int cPluginMcli::CAMFree (void)
 {
 	LOCK_THREAD;
+#ifdef DEBUG_RESOURCES
 	printf ("FreeCAM %d\n", m_cams_inuse - 1);
+#endif
 	if (m_cams_inuse) {
 		m_cams_inuse--;
 	}
@@ -486,7 +490,7 @@ bool cPluginMcli::TunerFree(tuner_pool_t *tp, bool lock)
 void cPluginMcli::Action (void)
 {
 	netceiver_info_list_t *nc_list = nc_get_list ();
-	printf ("Looking for netceivers out there....\n");
+//	printf ("Looking for netceivers out there....\n");
 	bool channel_switch_ok = false;
 	
 	while (Running ()) {
@@ -516,13 +520,15 @@ void cPluginMcli::Action (void)
 				if (((now - nci->lastseen) > MCLI_DEVICE_TIMEOUT) || (nci->tuner[i].preference < 0) || !strlen (nci->tuner[i].uuid)) {
 					if (t) {
 						int pos=TunerPoolDel(nci->tuner[i].uuid);
-						printf ("Remove Tuner %s [%s] @ %d\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, pos);
+						printf  ("mcli: Remove Tuner %s [%s] @ %d\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, pos);
+						isyslog ("mcli: Remove Tuner %s [%s] @ %d", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, pos);
 					}
 					continue;
 				}
 				if (!t) {
 					tpa=TunerPoolAdd(nci->tuner+i);
-					printf ("  Tuner: %s [%s], Type %d @ %d\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, nci->tuner[i].fe_info.type, tpa);
+					printf ("mcli: Add Tuner: %s [%s], Type %d @ %d\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, nci->tuner[i].fe_info.type, tpa);
+					isyslog ("mcli: Add Tuner: %s [%s], Type %d @ %d", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, nci->tuner[i].fe_info.type, tpa);
 				}
 			}
 		}
@@ -591,7 +597,8 @@ bool cPluginMcli::Initialize (void)
 
 bool cPluginMcli::Start (void)
 {
-	printf ("cPluginMcli::Start\n");
+//	printf ("cPluginMcli::Start\n");
+	isyslog("mcli v"MCLI_PLUGIN_VERSION" started");
 	cThread::Start ();
 	// Start any background activities the plugin shall perform.
 	return true;
@@ -599,7 +606,7 @@ bool cPluginMcli::Start (void)
 
 void cPluginMcli::Stop (void)
 {
-	printf ("cPluginMcli::Stop\n");
+//	printf ("cPluginMcli::Stop\n");
 	cThread::Cancel (0);
 	for (cMcliDeviceObject * d = m_devs.First (); d; d = m_devs.Next (d)) {
 		d->d ()->SetEnable (false);
@@ -632,14 +639,14 @@ void cPluginMcli::MainThreadHook (void)
 
 cString cPluginMcli::Active (void)
 {
-	printf ("cPluginMcli::Active\n");
+//	printf ("cPluginMcli::Active\n");
 	// Return a message string if shutdown should be postponed
 	return NULL;
 }
 
 time_t cPluginMcli::WakeupTime (void)
 {
-	printf ("cPluginMcli::WakeupTime\n");
+//	printf ("cPluginMcli::WakeupTime\n");
 	// Return custom wakeup time for shutdown script
 	return 0;
 }
@@ -667,7 +674,7 @@ void cPluginMcli::reconfigure (void)
 
 cOsdObject *cPluginMcli::MainMenuAction (void)
 {
-	printf ("cPluginMcli::MainMenuAction\n");
+//	printf ("cPluginMcli::MainMenuAction\n");
 	// Perform the action when selected from the main VDR menu.
 	return new cCamMenu (&m_cmd);
 }
@@ -675,7 +682,7 @@ cOsdObject *cPluginMcli::MainMenuAction (void)
 
 cMenuSetupPage *cPluginMcli::SetupMenu (void)
 {
-	printf ("cPluginMcli::SetupMenu\n");
+//	printf ("cPluginMcli::SetupMenu\n");
 	// Return a setup menu in case the plugin supports one.
 	return new cMenuSetupMcli (&m_cmd);
 }
@@ -734,7 +741,7 @@ bool cPluginMcli::Service (const char *Id, void *Data)
 
 const char **cPluginMcli::SVDRPHelpPages (void)
 {
-	printf ("cPluginMcli::SVDRPHelpPages\n");
+//	printf ("cPluginMcli::SVDRPHelpPages\n");
 	// Return help text for SVDRP commands this plugin implements
 	static const char *HelpPages[] = {
 		"REINIT [dev]\n" "    Reinitalize the plugin on a certain network device - e.g.: plug mcli REINIT eth0",
@@ -745,7 +752,7 @@ const char **cPluginMcli::SVDRPHelpPages (void)
 
 cString cPluginMcli::SVDRPCommand (const char *Command, const char *Option, int &ReplyCode)
 {
-	printf ("cPluginMcli::SVDRPCommand\n");
+//	printf ("cPluginMcli::SVDRPCommand\n");
 	// Process SVDRP commands this plugin implements
 
 	if (strcasecmp (Command, "REINIT") == 0) {
