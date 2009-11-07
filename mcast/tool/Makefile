@@ -23,8 +23,7 @@ DEFINES  += -DAPPLE
 APPLE=1
 endif
 
-VDRDIR=../../../../../../..
--include $(VDRDIR)/Make.config
+-include ../../../../../Make.config
 
 ifdef ARMEL
   XML_INC := -I/usr/arm-linux-gnueabi/include/libxml2

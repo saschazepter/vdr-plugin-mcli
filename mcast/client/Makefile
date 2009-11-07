@@ -28,7 +28,7 @@ DEFS:=$(DEFS) -I../common/darwin/include/ -DAPPLE
 APPLE=1
 endif
 
-VDRDIR=../../../../../../..
+VDRDIR=../../../../..
 -include $(VDRDIR)/Make.config
 
 ifdef ARMEL
