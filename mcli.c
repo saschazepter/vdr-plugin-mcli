@@ -328,6 +328,9 @@ bool cPluginMcli::TunerSatelitePositionLookup(tuner_pool_t *tp, int pos) const
 	if((tp->type != FE_QPSK) && (tp->type != FE_DVBS2)) {
 		return true;
 	}
+	if(pos == NO_SAT_POS) {
+		return true;
+	}
 	nc_lock_list ();
 	netceiver_info_list_t *nc_list = nc_get_list ();
 	satellite_list_t *satlist=NULL;
