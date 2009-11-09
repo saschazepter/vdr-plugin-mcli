@@ -187,7 +187,6 @@ bool cMcliDevice::SetTempDisable (bool now)
 			m_mcli->TunerFree(m_tunerref, false);
 			m_tunerref = NULL;
 			m_fetype = -1;
-			m_chan = NULL;
 		}
 		if(!now) {
 			Unlock();
