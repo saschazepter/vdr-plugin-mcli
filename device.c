@@ -57,6 +57,44 @@ static int handle_ten (tra_t * ten, void *p)
 	return 0;
 }
 
+cMcliDevice::cMcliDevice (void)
+{
+	m_enable = false;
+	m_tuned = false;
+	StartSectionHandler ();
+	m_PB = new cMyPacketBuffer (10000 * TS_SIZE, 10000);
+	m_PB->SetTimeouts (0, 1000 * 20);
+	m_filters = new cMcliFilters ();
+//	printf ("cMcliDevice: got device number %d\n", CardIndex () + 1);
+	m_pidsnum = 0;
+	m_mcpidsnum = 0;
+	m_filternum = 0;
+	m_chan = NULL;
+	m_mcli = NULL;
+	m_fetype = -1;
+	m_last = 0;
+	m_showtuning = 0;
+	m_ca_enable = false;
+	m_ca_override = false;
+	memset (m_pids, 0, sizeof (m_pids));
+	memset (&m_ten, 0, sizeof (tra_t));
+	m_pids[0].pid=-1;
+	m_disabletimeout = TEMP_DISABLE_TIMEOUT_DEFAULT;
+	m_tunerref = NULL;
+	InitMcli ();
+}
+
+cMcliDevice::~cMcliDevice ()
+{
+	LOCK_THREAD;
+	StopSectionHandler ();
+	printf ("Device %d gets destructed\n", CardIndex () + 1);
+	Cancel (0);
+	m_locked.Broadcast ();
+	ExitMcli ();
+	DELETENULL (m_filters);
+	DELETENULL (m_PB);
+}
 
 void cMcliDevice::SetTenData (tra_t * ten)
 {
@@ -143,9 +181,13 @@ bool cMcliDevice::SetTempDisable (bool now)
 			m_mcli->CAMFree();
 		}
 		if(m_tunerref) {
+#ifdef DEBUG_TUNE
+			printf("Releasing tuner on %d (%s)\n",CardIndex()+1, m_chan->Name());
+#endif			
 			m_mcli->TunerFree(m_tunerref, false);
 			m_tunerref = NULL;
 			m_fetype = -1;
+			m_chan = NULL;
 		}
 		if(!now) {
 			Unlock();
@@ -185,32 +227,6 @@ int cMcliDevice::HandleTsData (unsigned char *buffer, size_t len)
 	return len;
 }
 
-cMcliDevice::cMcliDevice (void)
-{
-	m_enable = false;
-	m_tuned = false;
-	StartSectionHandler ();
-	m_PB = new cMyPacketBuffer (10000 * TS_SIZE, 10000);
-	m_PB->SetTimeouts (0, 1000 * 20);
-	m_filters = new cMcliFilters ();
-	printf ("cMcliDevice: got device number %d\n", CardIndex () + 1);
-	m_pidsnum = 0;
-	m_mcpidsnum = 0;
-	m_filternum = 0;
-	m_chan = NULL;
-	m_mcli = NULL;
-	m_fetype = -1;
-	m_last = 0;
-	m_showtuning = 0;
-	m_ca_enable = false;
-	m_ca_override = false;
-	memset (m_pids, 0, sizeof (m_pids));
-	memset (&m_ten, 0, sizeof (tra_t));
-	m_pids[0].pid=-1;
-	m_disabletimeout = TEMP_DISABLE_TIMEOUT_DEFAULT;
-	m_tunerref = NULL;
-	InitMcli ();
-}
 
 void cMcliDevice::InitMcli (void)
 {
@@ -226,18 +242,6 @@ void cMcliDevice::ExitMcli (void)
 	register_ts_handler (m_r, NULL, NULL);
 	recv_del (m_r);
 	m_r = NULL;
-}
-
-cMcliDevice::~cMcliDevice ()
-{
-	LOCK_THREAD;
-	StopSectionHandler ();
-	printf ("Device %d gets destructed\n", CardIndex () + 1);
-	Cancel (0);
-	m_locked.Broadcast ();
-	ExitMcli ();
-	DELETENULL (m_filters);
-	DELETENULL (m_PB);
 }
 
 bool cMcliDevice::ProvidesSource (int Source) const
@@ -450,7 +454,7 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 		SetCaEnable();
 	}
 
-	if(m_tunerref && !m_mcli->TunerSatelitePositionLookup(m_tunerref, pos)) {
+	if(m_tunerref && (m_fetype != type || !m_mcli->TunerSatelitePositionLookup(m_tunerref, pos))) {
 		m_mcli->TunerFree(m_tunerref);
 		m_tunerref = NULL;
 	}
@@ -477,7 +481,9 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 
 
 	if (IsTunedToTransponder (Channel) && !is_scan) {
-//                printf("Already tuned to transponder on %d\n",CardIndex () + 1);
+#ifdef DEBUG_TUNE
+                printf("Already tuned to transponder on %d\n",CardIndex () + 1);
+#endif
 		m_chan = Channel;
 		m_pos = pos;
 		return true;
@@ -588,7 +594,7 @@ bool cMcliDevice::HasLock (int TimeoutMs)
 bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 {
 #ifdef DEBUG_TUNE
-	printf ("SetPid %d Pid=%d, Type=%d, On=%d, used=%d %d %d %d %d\n",  CardIndex () + 1, Handle->pid, Type, On, Handle->used, ptAudio, ptVideo, ptDolby, ptOther);
+	printf ("SetPid %d Pid=%d (%s), Type=%d, On=%d, used=%d %d %d %d %d\n",  CardIndex () + 1, Handle->pid, m_chan->Name(), Type, On, Handle->used, ptAudio, ptVideo, ptDolby, ptOther);
 #endif
 	dvb_pid_t pi;
 	memset (&pi, 0, sizeof (dvb_pid_t));

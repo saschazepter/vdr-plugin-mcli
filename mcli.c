@@ -540,12 +540,18 @@ void cPluginMcli::Action (void)
 		if (tpa) {
 			if(!m_devs.Count()) {
 				for(int i=0; i < MCLI_MAX_DEVICES; i++) {
-					cMcliDevice *m = new cMcliDevice;
-					m->SetMcliRef (this);
-					m->SetEnable ();
-					cMcliDeviceObject *d = new cMcliDeviceObject (m);
-					m_devs.Add (d);
-					cPluginManager::CallAllServices ("OnNewMcliDevice-" MCLI_DEVICE_VERSION, m);
+					cMcliDevice *m = NULL;
+					cPluginManager::CallAllServices ("OnNewMcliDevice-" MCLI_DEVICE_VERSION, &m);
+					if(!m) {
+						m = new cMcliDevice;
+					}
+					if(m) {
+						m->SetMcliRef (this);
+						m->SetEnable ();
+						cMcliDeviceObject *d = new cMcliDeviceObject (m);
+						m_devs.Add (d);
+						cPluginManager::CallAllServices ("OnNewMcliDevice-" MCLI_DEVICE_VERSION, m);
+					}
 				}
 			}
 //TB: reelvdr itself tunes if the first tuner appears, don't do it twice
