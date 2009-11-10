@@ -118,12 +118,14 @@ cPluginMcli::cPluginMcli (void)
 	}
 	m_cmd.port = 23000;
 	m_cmd.mld_start = 1;
-	m_cams_inuse = 0;
 	m_mmi_init_done = 0;
 	m_recv_init_done = 0;
 	m_mld_init_done = 0;
 	m_api_init_done = 0;
-	memset (m_cam_pool, 0, sizeof (int) * CAM_POOL_MAX);
+	memset (m_cam_pool, 0, sizeof (cam_pool_t) * CAM_POOL_MAX);
+	for(i=0; i<CAM_POOL_MAX; i++) {
+		m_cam_pool[i].max = -1;
+	}
 	strcpy (m_cmd.cmd_sock_path, API_SOCK_NAMESPACE);
 	memset (m_tuner_pool, 0, sizeof(tuner_pool_t)*TUNER_POOL_MAX);
 	for(i=0; i<TUNER_POOL_MAX; i++) {
@@ -239,48 +241,152 @@ bool cPluginMcli::ProcessArgs (int argc, char *argv[])
 	return true;
 }
 
-int cPluginMcli::CAMAvailable (bool lock)
+cam_pool_t *cPluginMcli::CAMFindByUUID (const char *uuid, int slot)
 {
-	int ret, sum = 0;
+	cam_pool_t *cp;
+	for(int i=0; i<CAM_POOL_MAX; i++) {
+		cp = m_cam_pool + i;
+		if(cp->max >= 0 && !strcmp(cp->uuid, uuid) && (slot == -1 || slot == cp->slot)) {
+			return cp;
+		}
+	}
+	return NULL;
+}
+
+cam_pool_t *cPluginMcli::CAMPoolFindFree(void)
+{
+	for(int i=0; i<CAM_POOL_MAX; i++) {
+		cam_pool_t *cp = m_cam_pool + i;
+		if(cp->max == -1) {
+			return cp;
+		}
+	}
+	return NULL;
+}
+int cPluginMcli::CAMPoolAdd(netceiver_info_t *nci)
+{
+	bool update = false;
+	int ret = 0;
+	for(int j=0; j < nci->cam_num; j++) {
+		update = false;
+		cam_pool_t *cp=CAMFindByUUID(nci->uuid, nci->cam[j].slot);
+		if(!cp) {
+			cp=CAMPoolFindFree();
+			if(!ret) {
+				ret = 1;
+			}
+		} else {
+			update = true;
+			ret = 2;
+		}
+		if(!cp){
+			return ret;
+		}
+		if (nci->cam[j].status) {
+			switch (nci->cam[j].flags) {
+				case CA_SINGLE:
+				case CA_MULTI_SID:
+					cp->max = 1;
+					break;
+				case CA_MULTI_TRANSPONDER:
+					cp->max = 3;	//FIXME use provisioning value from NetCeiver
+					break;
+			}
+		} else {
+			cp->max = 0;
+		}
+		if(!update) {
+			cp->slot = nci->cam[j].slot;
+			strcpy(cp->uuid, nci->uuid);
+			cp->use = 0;
+		}
+	}
+	return ret;
+}
+bool cPluginMcli::CAMPoolDel(const char *uuid)
+{
+	cam_pool_t *cp;
+	bool ret=false;
+	for(int i=0; i<CAM_POOL_MAX; i++) {
+		cp = m_cam_pool + i;
+		if(cp->max>=0 && !strcmp(cp->uuid, uuid)) {
+			cp->max = -1;
+			ret=true;
+		}
+	}
+	return ret;
+}
+
+cam_pool_t *cPluginMcli::CAMAvailable (const char *uuid, int slot, bool lock)
+{
+	cam_pool_t *ret = NULL;
 	if(lock) {
 		Lock();
 	}
-	for (int i = 0; i < CAM_POOL_MAX; i++) {
-		sum += m_cam_pool[i];
+	cam_pool_t *cp;
+	for(int i=0; i<CAM_POOL_MAX; i++) {
+		cp = m_cam_pool + i;
+		if(cp->max>0 && (!uuid || !strcmp(cp->uuid, uuid)) && (slot == -1 || (cp->slot == slot))) {
+			if((cp->max - cp->use) > 0){
+				ret = cp;
+				break;
+			}
+		}
 	}
-	ret = sum - m_cams_inuse;
-//	printf ("AvailableCAMs: %d/%d\n", m_cams_inuse, ret);
+#ifdef DEBUG_RESOURCES
+	if(ret) {
+		printf("CAMAvailable %s %d -> %s %d\n", uuid, slot, ret->uuid, ret->slot);
+	}
+#endif
 	if(lock) {
 		Unlock();
 	}
-	if (ret >= 0) {
-		return ret;
-	}
-	return 0;
+	return ret;
 }
-int cPluginMcli::CAMAlloc (void)
+cam_pool_t *cPluginMcli::CAMAlloc (const char *uuid, int slot)
 {
 	LOCK_THREAD;
 #ifdef DEBUG_RESOURCES
-	printf ("Alloc CAM %d\n", m_cams_inuse + 1);
+	printf ("Alloc CAM %s %d\n", uuid, slot);
 #endif
-	if (CAMAvailable (false)) {
-		m_cams_inuse++;
-		return m_cams_inuse;
+	cam_pool_t *cp;
+	if ((cp = CAMAvailable (uuid, slot, false))) {
+		cp->use++;
+		return cp;
 	}
-	return 0;
+	return NULL;
 }
-int cPluginMcli::CAMFree (void)
+int cPluginMcli::CAMFree (cam_pool_t *cp)
 {
 	LOCK_THREAD;
 #ifdef DEBUG_RESOURCES
-	printf ("FreeCAM %d\n", m_cams_inuse - 1);
+	printf ("FreeCAM %s %d\n", cp->uuid, cp->slot);
 #endif
-	if (m_cams_inuse) {
-		m_cams_inuse--;
+	if (cp->use > 0) {
+		cp->use--;
 	}
-	return m_cams_inuse;
+	return cp->use;
 }
+bool cPluginMcli::CAMSteal(const char *uuid, int slot, bool force)
+{
+		for (cMcliDeviceObject * d = m_devs.First (); d; d = m_devs.Next (d)) {
+			cam_pool_t *cp=d->d()->GetCAMref();
+			if(d->d()->Priority()<0 && d->d()->GetCaEnable() && (slot == -1 || slot == cp->slot)) {
+#ifdef DEBUG_RESOURCES
+				printf("Can Steal CAM on slot %d from %d\n", slot, d->d()->CardIndex()+1);
+#endif
+				if(force) {
+					d->d ()->SetTempDisable (true);
+#ifdef DEBUG_RESOURCES
+					printf("Stole CAM on slot %d from %d\n", slot, d->d()->CardIndex()+1);
+#endif
+				}
+				return true;
+			}
+		}
+		return false;
+}
+
 satellite_list_t *cPluginMcli::TunerFindSatList(const netceiver_info_t *nc_info, const char *SatelliteListName) const
 {
 	if(SatelliteListName == NULL) {
@@ -393,15 +499,11 @@ bool  cPluginMcli::TunerPoolAdd(tuner_info_t *t)
 	}
 	return false;
 }
-bool cPluginMcli::TunerPoolDel(const char *uuid)
+bool cPluginMcli::TunerPoolDel(tuner_pool_t *tp)
 {
-	tuner_pool_t *tp;
-	for(int i=0; i<TUNER_POOL_MAX; i++) {
-		tp=m_tuner_pool+i;
-		if(tp->type != -1 && !strcmp(uuid, tp->uuid)) {
-			tp->type=-1;
-			return true;
-		}
+	if(tp->type != -1) {
+		tp->type=-1;
+		return true;
 	}
 	return false;
 }
@@ -500,29 +602,27 @@ void cPluginMcli::Action (void)
 		Lock ();
 		nc_lock_list ();
 		time_t now = time (NULL);
-		memset (m_cam_pool, 0, sizeof (int) * CAM_POOL_MAX);
 		bool tpa = false;
 		
 		for (int n = 0; n < nc_list->nci_num; n++) {
 			netceiver_info_t *nci = nc_list->nci + n;
-			for (int i = 0; i < nci->cam_num; i++) {
-				if (nci->cam[i].status) {
-					switch (nci->cam[i].flags) {
-					case CA_SINGLE:
-					case CA_MULTI_SID:
-						m_cam_pool[CAM_POOL_SINGLE]++;
-						break;
-					case CA_MULTI_TRANSPONDER:
-						m_cam_pool[CAM_POOL_MULTI] += 3;	//FIXME use provisioning value from NetCeiver
-						break;
-					}
+			if ((now - nci->lastseen) > MCLI_DEVICE_TIMEOUT) {
+				if(CAMPoolDel(nci->uuid)) {
+					printf  ("mcli: Remove CAMs from NetCeiver %s\n", nci->uuid);
+					isyslog ("mcli: Remove CAMs from NetCeiver %s\n", nci->uuid);
 				}
 			}
+			int cpa = CAMPoolAdd(nci);
+			if(cpa==1) {
+				printf ("mcli: Add CAMs from NetCeiver %s -> %d\n", nci->uuid, cpa);
+				isyslog ("mcli: Add CAMs from NetCeiver %s -> %d\n", nci->uuid, cpa);
+			}
+
 			for (int i = 0; i < nci->tuner_num; i++) {
 				tuner_pool_t *t = TunerFindByUUID (nci->tuner[i].uuid);
 				if (((now - nci->lastseen) > MCLI_DEVICE_TIMEOUT) || (nci->tuner[i].preference < 0) || !strlen (nci->tuner[i].uuid)) {
 					if (t) {
-						int pos=TunerPoolDel(nci->tuner[i].uuid);
+						int pos=TunerPoolDel(t);
 						printf  ("mcli: Remove Tuner %s [%s] @ %d\n", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, pos);
 						isyslog ("mcli: Remove Tuner %s [%s] @ %d", nci->tuner[i].fe_info.name, nci->tuner[i].uuid, pos);
 					}
@@ -550,7 +650,6 @@ void cPluginMcli::Action (void)
 						m->SetEnable ();
 						cMcliDeviceObject *d = new cMcliDeviceObject (m);
 						m_devs.Add (d);
-						cPluginManager::CallAllServices ("OnNewMcliDevice-" MCLI_DEVICE_VERSION, m);
 					}
 				}
 			}
@@ -579,24 +678,6 @@ void cPluginMcli::TempDisableDevices(bool now)
 			d->d ()->SetTempDisable (now);
 		}
 
-}
-bool cPluginMcli::StealCAM(bool force)
-{
-		for (cMcliDeviceObject * d = m_devs.First (); d; d = m_devs.Next (d)) {
-			if(d->d()->Priority()<0 && d->d()->GetCaEnable()) {
-#ifdef DEBUG_RESOURCES
-				printf("Can Steal CAM from %d\n",d->d()->CardIndex()+1);
-#endif
-				if(force) {
-					d->d ()->SetTempDisable (true);
-#ifdef DEBUG_RESOURCES
-					printf("Stole CAM from %d\n",d->d()->CardIndex()+1);
-#endif
-				}
-				return true;
-			}
-		}
-		return false;
 }
 bool cPluginMcli::Initialize (void)
 {

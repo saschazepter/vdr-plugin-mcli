@@ -27,8 +27,7 @@
 #define TEMP_DISABLE_DEVICE
 
 #define TUNER_POOL_MAX 32
-
-typedef enum { CAM_POOL_SINGLE, CAM_POOL_MULTI, CAM_POOL_EXTRA, CAM_POOL_MAX} cam_pool_t;
+#define CAM_POOL_MAX 10
 
 class cMcliDeviceObject:public cListObject
 {
@@ -66,6 +65,13 @@ typedef struct tuner_pool {
 	bool inuse;
 } tuner_pool_t;
 
+typedef struct cam_pool {
+	char uuid[UUID_SIZE+1];
+	int slot;
+	int use;
+	int max;
+} cam_pool_t;
+
 class cPluginMcli:public cPlugin, public cThread
 {
       private:
@@ -73,8 +79,7 @@ class cPluginMcli:public cPlugin, public cThread
 	cMcliDeviceList m_devs;
 	cmdline_t m_cmd;
 	UDPContext *m_cam_mmi;
-	int m_cam_pool[CAM_POOL_MAX]; 
-	int m_cams_inuse;
+	cam_pool_t m_cam_pool[CAM_POOL_MAX]; 
 	int m_mmi_init_done;
 	int m_recv_init_done;
 	int m_mld_init_done;
@@ -131,10 +136,15 @@ class cPluginMcli:public cPlugin, public cThread
 	void ExitMcli (void);
 	bool InitMcli (void);
 	void reconfigure (void);
-	
-	int CAMAvailable(bool lock=true);
-	int CAMAlloc(void);
-	int CAMFree(void);
+
+	int CAMPoolAdd(netceiver_info_t *nci);
+	bool CAMPoolDel(const char *uuid);
+	cam_pool_t *CAMPoolFindFree(void);
+	cam_pool_t *CAMFindByUUID (const char *uuid, int slot=-1);
+	cam_pool_t *CAMAvailable (const char *uuid=NULL, int slot=-1, bool lock=true);
+	cam_pool_t *CAMAlloc (const char *uuid=NULL, int slot=-1);
+	int CAMFree (cam_pool_t *cp);
+	bool CAMSteal(const char *uuid=NULL, int slot=-1, bool force=false);
 
 	satellite_list_t *TunerFindSatList(const netceiver_info_t *nc_info, const char *SatelliteListName) const;
 	bool SatelitePositionLookup(const satellite_list_t *satlist, int pos) const;
@@ -143,14 +153,13 @@ class cPluginMcli:public cPlugin, public cThread
 	tuner_pool_t *TunerFindByUUID (const char *uuid);
 	int TunerCountByType (const fe_type_t type);
 	bool TunerPoolAdd(tuner_info_t *t);
-	bool TunerPoolDel(const char *uuid);
+	bool TunerPoolDel(tuner_pool_t *tp);
 	tuner_pool_t *TunerAvailable(fe_type_t type, int pos, bool lock=true);
 	tuner_pool_t *TunerAlloc(fe_type_t type, int pos, bool lock=true);
 	bool TunerFree(tuner_pool_t *tp, bool lock=true);
 
 	int CamPollText (mmi_info_t * text);
 	void TempDisableDevices(bool now=false);
-	bool StealCAM(bool force=false);
 	
 	virtual cOsdObject *AltMenuAction (void);
 };

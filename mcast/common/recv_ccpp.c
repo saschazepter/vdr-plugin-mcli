@@ -471,7 +471,7 @@ void *recv_ten (void *arg)
 #endif								
 								int ret = recv_redirect (r, tra_info.tra->mcg);
 								if (!ret) {
-									printf("Terminate recv_ten !\n");
+//									printf("Terminate recv_ten !\n");
 									free (tra_info.tra);
 									break;
 								}

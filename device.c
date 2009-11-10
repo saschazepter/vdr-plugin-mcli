@@ -81,6 +81,7 @@ cMcliDevice::cMcliDevice (void)
 	m_pids[0].pid=-1;
 	m_disabletimeout = TEMP_DISABLE_TIMEOUT_DEFAULT;
 	m_tunerref = NULL;
+	m_camref = NULL;
 	InitMcli ();
 }
 
@@ -115,7 +116,8 @@ void cMcliDevice::SetEnable (bool val)
 		m_tuned = false;
 		if(GetCaEnable()) {
 			SetCaEnable(false);
-			m_mcli->CAMFree();
+			m_mcli->CAMFree(m_camref);
+			m_camref = NULL;
 		}
 		if(m_tunerref) {
 			m_mcli->TunerFree(m_tunerref);
@@ -148,7 +150,15 @@ void cMcliDevice::SetEnable (bool val)
 				}
 				m_fetype = type;
 			}
-			if(m_chan->Ca() && !GetCaEnable() && m_mcli->CAMAvailable() && m_mcli->CAMAlloc()) {
+			int slot = -1;
+			if(m_chan->Ca(0)<=0xff) {
+				slot=m_chan->Ca(0)&0x03;
+				if(slot) {
+					slot--;
+				}
+			}
+
+			if(m_chan->Ca() && !GetCaEnable() && m_mcli->CAMAvailable(NULL, slot) && (m_camref=m_mcli->CAMAlloc(NULL, slot))) {
 				SetCaEnable();
 			}
 
@@ -178,7 +188,11 @@ bool cMcliDevice::SetTempDisable (bool now)
 		m_tuned = false;
 		if(GetCaEnable()) {
 			SetCaEnable(false);
-			m_mcli->CAMFree();
+#ifdef DEBUG_TUNE
+			printf("Releasing CAM on %d (%s) (disable, %d)\n",CardIndex()+1, m_chan->Name(), now);
+#endif
+			m_mcli->CAMFree(m_camref);
+			m_camref = NULL;
 		}
 		if(m_tunerref) {
 #ifdef DEBUG_TUNE
@@ -338,11 +352,20 @@ bool cMcliDevice::IsTunedToTransponder (const cChannel * Channel)
 
 bool cMcliDevice::CheckCAM(const cChannel * Channel, bool steal) const
 {
-	if(GetCaOverride()) {
+	if(GetCaOverride() || !Channel->Ca()) {
 		return true;
 	}
-
-	if(Channel->Ca() && !GetCaEnable() && !m_mcli->CAMAvailable() && !m_mcli->StealCAM(steal)) {
+	int slot = -1;
+	if(Channel->Ca(0)<=0xff) {
+		slot=Channel->Ca(0)&0x03;
+		if(slot) {
+			slot--;
+		}
+	}
+	if(m_camref && m_camref->slot == slot) {
+		return true;
+	} 
+	if(!m_mcli->CAMAvailable(NULL, slot) && !m_mcli->CAMSteal(NULL, slot, steal)) {
 		return false;
 	}
 	return true;
@@ -443,8 +466,16 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 #endif
 		return false;
 	}
+
 	if(!GetCaOverride() && Channel->Ca() && !GetCaEnable()) {
-		if(!m_mcli->CAMAlloc()) {
+		int slot = -1;
+		if(Channel->Ca(0)<=0xff) {
+			slot=Channel->Ca(0)&0x03;
+			if(slot) {
+				slot--;
+			}
+		}
+		if(!(m_camref=m_mcli->CAMAlloc(NULL, slot))) {
 #ifdef DEBUG_TUNE
 			printf("failed to get CAM on %d\n",CardIndex () + 1);
 #endif
@@ -635,10 +666,13 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 	}
 	m_mcpidsnum = recv_pids_get (m_r, m_pids);
 	if(!m_mcpidsnum) {
-		printf("##########################################    Disable CA\n");
 		if(GetCaEnable()) {
 			SetCaEnable(false);
-			m_mcli->CAMFree();
+#ifdef DEBUG_TUNE
+			printf("Releasing CAM on %d (%s) (no more pids)\n",CardIndex()+1, m_chan->Name());
+#endif
+			m_mcli->CAMFree(m_camref);
+			m_camref = NULL;
 		}
 	}
 #ifdef DEBUG_PIDS

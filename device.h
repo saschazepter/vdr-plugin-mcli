@@ -16,6 +16,7 @@
 
 class cPluginMcli;
 struct tuner_pool;
+struct cam_pool;
 
 class cMcliDevice:public cDevice
 {
@@ -42,7 +43,7 @@ class cMcliDevice:public cDevice
 	bool m_ca_enable;
 	bool m_ca_override;
 	struct tuner_pool *m_tunerref;
-      	
+	struct cam_pool *m_camref;
 
       protected:
       	cPluginMcli *m_mcli;
@@ -112,6 +113,10 @@ class cMcliDevice:public cDevice
 	bool GetCaEnable (void) const
 	{
 		return m_ca_enable;
+	}
+	struct cam_pool *GetCAMref (void) const
+	{
+		return m_camref;
 	}
 	void SetCaOverride (bool val = true) 
 	{

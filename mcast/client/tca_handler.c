@@ -48,6 +48,7 @@ static int nci_add_unique (netceiver_info_list_t * ncl, netceiver_info_t * nci)
 			err ("Cannot get memory for netceiver_info\n");
 		}
 		memcpy (ncl->nci + ncl->nci_num, nci, sizeof (netceiver_info_t));
+		(ncl->nci+ncl->nci_num)->lastseen = time(NULL);
 		ncl->nci_num++;
 		return 1;
 	} else {
