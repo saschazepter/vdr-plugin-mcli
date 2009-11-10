@@ -139,12 +139,10 @@ class cMcliDevice:public cDevice
 	{
 		return m_fetype == FE_DVBS2;
 	}
-#ifdef REELVDR
 	virtual bool HasInput (void) const
 	{
 		return m_enable;
 	}
-#endif
 #ifdef DEVICE_ATTRIBUTES
 	// Reel extension
 	virtual int GetAttribute (const char *attr_name, uint64_t * val);

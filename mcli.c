@@ -755,6 +755,9 @@ void cPluginMcli::reconfigure (void)
 	for(int i=0; i<TUNER_POOL_MAX; i++) {
 		m_tuner_pool[i].type = -1;
 	}
+	for(int i=0; i<CAM_POOL_MAX; i++) {
+		m_cam_pool[i].max = -1;
+	}
 	InitMcli ();
 	for (cMcliDeviceObject * d = m_devs.First (); d; d = m_devs.Next (d)) {
 		d->d ()->InitMcli ();
