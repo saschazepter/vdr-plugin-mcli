@@ -173,15 +173,15 @@ bool cMcliDevice::SetTempDisable (bool now)
 	if(!now) {
 		Lock();
 	}
-#ifndef REELVDR // they might find it out in some other place
+//#ifndef REELVDR // they might find it out in some other place
 	// Check for tuning timeout
-	if(m_showtuning && Receiving(false) && ((time(NULL)-m_ten.lastseen)>=LASTSEEN_TIMEOUT)) {
+	if(m_showtuning && Receiving(true) && ((time(NULL)-m_ten.lastseen)>=LASTSEEN_TIMEOUT)) {
 		if(m_chan) {
 			Skins.QueueMessage(mtInfo, cString::sprintf(tr("Waiting for a free tuner (%s)"),m_chan->Name()));
 		}
 		m_showtuning = false;
 	}
-#endif
+//#endif
 //	printf("Device %d Receiving %d Priority %d\n",CardIndex () + 1, Receiving (true), Priority());
 	if(!Receiving (true) && (((time(NULL)-m_last) >= m_disabletimeout)) || now) {
 		recv_stop (m_r);
@@ -665,16 +665,6 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 		}
 	}
 	m_mcpidsnum = recv_pids_get (m_r, m_pids);
-	if(!m_mcpidsnum) {
-		if(GetCaEnable()) {
-			SetCaEnable(false);
-#ifdef DEBUG_TUNE
-			printf("Releasing CAM on %d (%s) (no more pids)\n",CardIndex()+1, m_chan->Name());
-#endif
-			m_mcli->CAMFree(m_camref);
-			m_camref = NULL;
-		}
-	}
 #ifdef DEBUG_PIDS
 	printf ("%p SetPid: Pidsnum: %d m_pidsnum: %d m_filternum: %d\n", m_r, m_mcpidsnum, m_pidsnum, m_filternum);
 	for (int i = 0; i < m_mcpidsnum; i++) {

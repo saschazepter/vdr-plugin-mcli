@@ -287,7 +287,8 @@ int descriptor(unsigned char *desc, si_cad_t *c)
         t->reserved=(ptr[4] >> 5) & 7;
         t->ca_pid=((ptr[4] << 8) | ptr[5]) & 0x1fff; 
         //header 4 bytes + 2 bytes
-        memcpy(t->private_data,ptr+6,len-4);
+        if (len - 4 > 0) 
+            memcpy(t->private_data,ptr+6,len-4);
 
         break; 
       }
@@ -405,7 +406,7 @@ int get_pmt_es_pids(unsigned char *esi_buf, int size, int *es_pids, int all)
       return pid_num;
 }
 //-----------------------------------------------------------------------------------
-int parse_pmt_ca_desc(unsigned char *buf, int sid, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_cads, pmt_t *pmt_hdr, int *fta, ca_es_pid_info_t *espids, int *es_pid_num)
+int parse_pmt_ca_desc(unsigned char *buf, int size, int sid, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_cads, pmt_t *pmt_hdr, int *fta, ca_es_pid_info_t *espids, int *es_pid_num)
 {
       unsigned char *ptr=buf, tmp[PSI_BUF_SIZE]; //sections can be only 12 bit long
 
@@ -418,7 +419,7 @@ int parse_pmt_ca_desc(unsigned char *buf, int sid, si_ca_pmt_t *pm_cads, si_ca_p
       pmt_hdr->reserved_1=(ptr[1] >> 4) & 3; 
       pmt_hdr->section_length=((ptr[1] << 8) | ptr[2]) & 0xfff;
 
-      if (pmt_hdr->section_length < 9 || pmt_hdr->section_length > 1021) {
+      if (pmt_hdr->section_length < 13 || pmt_hdr->section_length > 1021 || pmt_hdr->section_length > size) {
             info("#####\nERROR: Invalid section length!\n");
             return -1;
       }
@@ -434,17 +435,13 @@ int parse_pmt_ca_desc(unsigned char *buf, int sid, si_ca_pmt_t *pm_cads, si_ca_p
             return -1;
       }
 
-      if (pmt_hdr->section_length < 12) {
-      
-      }
-
       pmt_hdr->program_number=(ptr[3] << 8) | ptr[4];      
       if (pmt_hdr->program_number != sid) {
             info("#####\nERROR: Invalid SID in PMT !!!\n");
             return -1;
       }
       pmt_hdr->program_info_length=((ptr[10] << 8) | ptr[11]) & 0x0fff;	        
-      if (pmt_hdr->program_info_length < 0 || pmt_hdr->program_info_length > 1021 - 9) {
+      if (pmt_hdr->program_info_length < 0 || pmt_hdr->program_info_length > 1021 - 9 || pmt_hdr->program_info_length > size - 9) {
             info("#####\nERROR: Invalid PI length in PMT!\n");                  
             return -1;
       }	
@@ -471,16 +468,36 @@ int parse_pmt_ca_desc(unsigned char *buf, int sid, si_ca_pmt_t *pm_cads, si_ca_p
       for (i = 0; i < pmt_hdr->program_info_length;) {
         int dtag = ptr[0];
         int dlen = ptr[1] + 2;
+        if (dlen > size || dlen > MAX_DESC_LEN) {
+            info("PMT: Invalide CA desc. length!\n");
+            return -1;
+        }
         if (dtag == 0x09) { //we have CA descriptor
             memcpy(tmp + pm_cads->size, ptr, dlen);
             pm_cads->size+=dlen; 
             pm_cads->cads++;
             *fta=0;
         }
-        ptr+=dlen; //desc. length plus 2 bytes for tag and header;
-        buf_len-=dlen;     
         i+=dlen;
+        if (i > pmt_hdr->program_info_length) {
+            info("PMT: Index out of bounds!\n");
+            return -1;
+        }
+
+        ptr+=dlen; //desc. length plus 2 bytes for tag and header;
+        if (ptr >= buf + size) {
+            info("PMT: Invalid Buffer offset !\n");
+            return -1;        
+        }
+
+        buf_len-=dlen;     
+        if (buf_len < 0) {
+            info("PMT: Index out of bounds!\n");
+            return -1;        
+        
+        }
       }      
+
       //parsing ok we can take this program level descriptors
       if (pm_cads->size && pm_cads->cads) {
            pm_cads->cad = (unsigned char*)malloc(sizeof(unsigned char)*pm_cads->size);
@@ -491,6 +508,7 @@ int parse_pmt_ca_desc(unsigned char *buf, int sid, si_ca_pmt_t *pm_cads, si_ca_p
       info("%d bytes remaining (program info len = %d bytes)\n",buf_len,i);    
 #endif  
       
+      int err = 0;
       es_pmt_info_t esi;
       es_cads->size = es_cads->cads = 0;
       *es_pid_num = 0;
@@ -500,6 +518,13 @@ int parse_pmt_ca_desc(unsigned char *buf, int sid, si_ca_pmt_t *pm_cads, si_ca_p
         esi.elementary_pid=((ptr[1] << 8) | ptr[2]) & 0x1fff;
         esi.reserved_2=(ptr[3] >> 4) & 0xf;
         esi.es_info_length=((ptr[3] << 8) | ptr[4]) & 0x0fff;
+
+        if (esi.es_info_length > buf_len) {
+              info("PMT: Invalid ES info length !\n");
+              err = -1;
+              break;     
+        }
+
         if (espids) {
               switch(esi.stream_type) {
                     case VIDEO_11172_STREAM_TYPE: 
@@ -531,6 +556,13 @@ int parse_pmt_ca_desc(unsigned char *buf, int sid, si_ca_pmt_t *pm_cads, si_ca_p
         while(len > 0) {
            int dtag = ptr[0];
            int dlen = ptr[1] + 2; //2 bytes for tag and len
+           
+           if (dlen > len || dlen > MAX_DESC_LEN) {
+                info("PMT: Invalide CA desc. length!\n");
+                err = -1;
+                break;
+           }
+           
            if (dtag == 0x09) { //we have CA descriptor
                memcpy(tmp + es_cads->size, ptr, dlen);
                es_cads->size += dlen;   
@@ -549,24 +581,35 @@ int parse_pmt_ca_desc(unsigned char *buf, int sid, si_ca_pmt_t *pm_cads, si_ca_p
                            case AACDescriptorTag:
                                  espids[*es_pid_num].type = dtag;
                                  //go to next pid
- 
                        }
                }            
            }
+           
            ptr += dlen;      
+           if (ptr >= buf + size) {
+                info("PMT: Invalid Buffer offset !\n");
+                err = -1;                   
+                break;
+           }
+           
            len -= dlen;
            buf_len -= dlen;
         }
+        if (err == -1) {
+              break;
+        }
         tmp[es_info_len_pos] = (cur_len >> 8) & 0xff;
         tmp[es_info_len_pos+1] = cur_len & 0xff;       
-        if (espids[*es_pid_num].type) {
-              //go to next pid
-              (*es_pid_num)++;
-              if (*es_pid_num >= MAX_ES_PIDS) {
-                    info ("ERROR: ES pids array index out bounds (pids %d sid %d)!\n", *es_pid_num, pmt_hdr->program_number);
-                    break;
-              }          
-        }                 
+        if (espids) {
+            if (espids[*es_pid_num].type) {
+                  //go to next pid
+                  (*es_pid_num)++;
+                  if (*es_pid_num >= MAX_ES_PIDS) {
+                        info ("ERROR: ES pids array index out bounds (pids %d sid %d)!\n", *es_pid_num, pmt_hdr->program_number);
+                        break;
+                  }          
+            }                 
+        }
       }
       
       //parsing ok we can take this ES level descriptors
@@ -582,7 +625,7 @@ int parse_pmt_ca_desc(unsigned char *buf, int sid, si_ca_pmt_t *pm_cads, si_ca_p
 
       pmt_hdr->crc32=(ptr[0] << 24) | (ptr[1] << 16) | (ptr[2] << 8) | ptr[3]; 
 
-      if (len < 0) {
+      if (len < 0 || err == -1) {
         info("ERROR: parse_ca_desc() : section index out of bounds %d or (CRC err.) crc in sec. = 0x%x crc calc. = 0x%lx\n", buf_len,pmt_hdr->crc32, crc);
 #ifdef DBG 
         print_pmt(&pmt_hdr);
@@ -592,6 +635,7 @@ int parse_pmt_ca_desc(unsigned char *buf, int sid, si_ca_pmt_t *pm_cads, si_ca_p
             free(pm_cads->cad);
         if (es_cads->size)
             free(es_cads->cad);
+        *es_pid_num = 0;
         memset(pm_cads,0,sizeof(si_ca_pmt_t));
         memset(es_cads,0,sizeof(si_ca_pmt_t));  
         return -1;
@@ -604,7 +648,7 @@ int parse_pmt_ca_desc(unsigned char *buf, int sid, si_ca_pmt_t *pm_cads, si_ca_p
       return 0;
 }  
 //-----------------------------------------------------------------------------------
-int parse_cat_sect(unsigned char *buf, si_cad_t *emm)
+int parse_cat_sect(unsigned char *buf, int size, si_cad_t *emm)
 {
           unsigned char *ptr=buf;
           int len,i,ret;
@@ -614,6 +658,11 @@ int parse_cat_sect(unsigned char *buf, si_cad_t *emm)
           c.section_syntax_indicator = (ptr[1] >> 7) & 1;
           c.reserved_1 = (ptr[1] >> 4) & 3; 
           c.section_length = ((ptr[1] << 8) | ptr[2]) & 0xfff;
+
+          if (c.section_length < 9 || c.section_length > 1021 || c.section_length > size) {
+                info("CAT: Invalid section length!\n");
+                return -1;          
+          }
 
 #ifdef CRC32_CHECK
           u_long crc = dvb_crc32 ((char *)buf,c.section_length+3);  
@@ -637,13 +686,22 @@ int parse_cat_sect(unsigned char *buf, si_cad_t *emm)
           len = c.section_length - 5;
           ptr+=8; //go after hdr.
 
-          for (i = 0; i < len - 4; i += ret) {  //crc32 4 bytes
-            ret = descriptor(ptr, emm);
-            if (ret < 0)
-              return -1;
-            ptr+=ret;
+          i = 0;
+          while(i > 4) { //crc32 4 bytes
+                ret = descriptor(ptr, emm);
+                if (ret < 0)
+                    return -1;
+                i+=ret;
+                if (i > size) {
+                    info("CAT: index out of bounds !\n");
+                    return -1;                
+                }                
+                ptr+=ret;
+                if (ptr >= buf + size) {
+                     info("CAT: Invalid Buffer offset !\n");
+                     break;
+                }
           }
-
 #ifdef DBG  
           info("%d bytes remaining (program info len = %d bytes)\n",len-i,len);    
 #endif  
@@ -653,7 +711,7 @@ int parse_cat_sect(unsigned char *buf, si_cad_t *emm)
           return 0;
 }
 //-----------------------------------------------------------------------------------
-int parse_pat_sect(unsigned char *buf, pmt_pid_list_t *pmt)
+int parse_pat_sect(unsigned char *buf, int size, pmt_pid_list_t *pmt)
 {
         unsigned char *ptr=buf;
         pat_t p;
@@ -665,6 +723,12 @@ int parse_pat_sect(unsigned char *buf, pmt_pid_list_t *pmt)
         p.section_syntax_indicator=(ptr[1] & 0x80) >> 7;
         p.reserved_1=(ptr[1] & 0x30) >> 4;
         p.section_length=((ptr[1] << 8) | ptr[2]) & 0x0fff;
+
+        if (p.section_length < 9 || p.section_length > 1021 || p.section_length > size) {
+              info("PAT: Invalid section length !\n");
+              return -1;
+        
+        }
 
 #ifdef CRC32_CHECK                
         u_long crc = dvb_crc32 ((char *)buf,p.section_length+3);  
@@ -688,23 +752,24 @@ int parse_pat_sect(unsigned char *buf, pmt_pid_list_t *pmt)
 
         ptr+=8;
         pmt_num=0;
-        pat_info=(pat_list_t *)malloc(sizeof(pat_list_t)*n/4);
-        for(i=0;i<n;i+=4) {
-          pat_list_t *pat = pat_info + pmt_num;
-          pat->program_number=(ptr[0] << 8) | (ptr[1]);
-          pat->reserved=(ptr[2] & 0xe0) >> 5;
-          pat->network_pmt_pid=((ptr[2] << 8) | ptr[3]) & 0x1fff;
-          if (pat->network_pmt_pid != 0x10) { //NIT => FIXME: remove other known pids
-      //      memset(&pat->desc,0,sizeof(pmt_desc_list_t));
-            pmt_num++;
-          }
-          ptr+=4;
-        }
+        if (n > 0 && ((ptr + n) < (buf + size))) {
+            pat_info=(pat_list_t *)malloc(sizeof(pat_list_t)*n/4);
+            for(i=0;i<n;i+=4) {
+              pat_list_t *pat = pat_info + pmt_num;
+              pat->program_number=(ptr[0] << 8) | (ptr[1]);
+              pat->reserved=(ptr[2] & 0xe0) >> 5;
+              pat->network_pmt_pid=((ptr[2] << 8) | ptr[3]) & 0x1fff;
+              if (pat->network_pmt_pid != 0x10) { //NIT => FIXME: remove other known pids
+          //      memset(&pat->desc,0,sizeof(pmt_desc_list_t));
+                  pmt_num++;
+              }
+              ptr+=4;
+            }
 
-        p.crc32=(ptr[0] << 24) | (ptr[1] << 16) | (ptr[2] << 8) | ptr[3]; 
-
-        pat_info=(pat_list_t *)realloc(pat_info,sizeof(pat_list_t)*pmt_num);
-        
+            p.crc32=(ptr[0] << 24) | (ptr[1] << 16) | (ptr[2] << 8) | ptr[3]; 
+            if (n != pmt_num)
+                pat_info=(pat_list_t *)realloc(pat_info,sizeof(pat_list_t)*pmt_num);
+        }        
         if (pmt) {
           pmt->p=p;
           pmt->pl=pat_info;
@@ -713,7 +778,7 @@ int parse_pat_sect(unsigned char *buf, pmt_pid_list_t *pmt)
         
         return 0;
 }
-int parse_tdt_sect(unsigned char *buf, tdt_sect_t *tdt)
+int parse_tdt_sect(unsigned char *buf, int size, tdt_sect_t *tdt)
 {
           unsigned char *ptr = buf;
                 
@@ -721,6 +786,11 @@ int parse_tdt_sect(unsigned char *buf, tdt_sect_t *tdt)
           tdt->section_syntax_indicator=(ptr[1] & 0x80) >> 7;
           tdt->reserved_1=(ptr[1] >> 4) >> 3;
           tdt->section_length=((ptr[1] << 8) | ptr[2]) & 0x0fff;            
+          
+          if (tdt->section_length != 5) {
+                info("TDT: Invalid section length !\n");
+                return -1;
+          }
           
           //copy UTC time MJD + UTC
           memcpy(tdt->dvbdate, ptr + 3, 5);  

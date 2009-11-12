@@ -12,7 +12,7 @@
 #define PSI_BUF_SIZE  (2 * 4096)	/* Section length max. 12 bits */
 #define READ_BUF_SIZE (256*TS_PACKET_LEN)  /* min. 2x TS_PACKET_LEN!!! */
 #define BILLION  1000000000L;
-#define MAX_DESC_LEN 256 //descriptor_length field 8-bit ISO/IEC 13818-1
+#define MAX_DESC_LEN 255 //descriptor_length field 8-bit ISO/IEC 13818-1
 #define MAX_ES_PIDS 32
 
 
@@ -335,10 +335,10 @@ typedef struct tdt_sect {
 int parse_ca_descriptor(unsigned char *desc, si_desc_t *t);
 
 int ts2psi_data(unsigned char *buf,psi_buf_t *p,int len, int pid_req);	
-int parse_pat_sect(unsigned char *buf, pmt_pid_list_t *pmt);
-int parse_pmt_ca_desc(unsigned char *buf, int sid, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_cads, pmt_t *pmt_hdr, int *fta, ca_es_pid_info_t *espid, int *es_pid_num);
-int parse_cat_sect(unsigned char *buf, si_cad_t *emm);
-int parse_tdt_sect(unsigned char *buf, tdt_sect_t *tdt);
+int parse_pat_sect(unsigned char *buf, int size,  pmt_pid_list_t *pmt);
+int parse_pmt_ca_desc(unsigned char *buf, int size, int sid, si_ca_pmt_t *pm_cads, si_ca_pmt_t *es_cads, pmt_t *pmt_hdr, int *fta, ca_es_pid_info_t *espid, int *es_pid_num);
+int parse_cat_sect(unsigned char *buf, int size, si_cad_t *emm);
+int parse_tdt_sect(unsigned char *buf, int size, tdt_sect_t *tdt);
 int get_ts_packet_hdr(unsigned char *buf, ts_packet_hdr_t *p);
 int si_get_video_pid(unsigned char *esi_buf, int size, int *vpid);
 int si_get_audio_pid(unsigned char *esi_buf, int size, int *apid);

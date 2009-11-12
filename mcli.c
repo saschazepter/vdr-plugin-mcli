@@ -611,11 +611,12 @@ void cPluginMcli::Action (void)
 					printf  ("mcli: Remove CAMs from NetCeiver %s\n", nci->uuid);
 					isyslog ("mcli: Remove CAMs from NetCeiver %s\n", nci->uuid);
 				}
-			}
-			int cpa = CAMPoolAdd(nci);
-			if(cpa==1) {
-				printf ("mcli: Add CAMs from NetCeiver %s -> %d\n", nci->uuid, cpa);
-				isyslog ("mcli: Add CAMs from NetCeiver %s -> %d\n", nci->uuid, cpa);
+			} else {
+				int cpa = CAMPoolAdd(nci);
+				if(cpa==1) {
+					printf ("mcli: Add CAMs from NetCeiver %s -> %d\n", nci->uuid, cpa);
+					isyslog ("mcli: Add CAMs from NetCeiver %s -> %d\n", nci->uuid, cpa);
+				}
 			}
 
 			for (int i = 0; i < nci->tuner_num; i++) {
