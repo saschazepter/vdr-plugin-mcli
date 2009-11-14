@@ -24,10 +24,20 @@
 
 #define MCLI_MAX_DEVICES 8
 #define MCLI_DEVICE_TIMEOUT 120
-#define TEMP_DISABLE_DEVICE
 
 #define TUNER_POOL_MAX 32
 #define CAM_POOL_MAX 10
+#define MAX_TUNERS_IN_MENU 16
+
+#define TEMP_DISABLE_DEVICE
+#define TEMP_DISABLE_TIMEOUT_DEFAULT (10)
+#define TEMP_DISABLE_TIMEOUT_SCAN (30)
+#define LASTSEEN_TIMEOUT (7)
+//#define ENABLE_DEVICE_PRIORITY
+
+//#define DEBUG_PIDS 
+//#define DEBUG_TUNE
+//#define DEBUG_RESOURCES
 
 class cMcliDeviceObject:public cListObject
 {

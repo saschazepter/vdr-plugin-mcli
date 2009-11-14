@@ -18,8 +18,6 @@
 #include "cam_menu.h"
 #include "mcli.h"
 
-//#define DEBUG_RESOURCES
-
 static int reconf = 0;
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -797,7 +795,6 @@ bool cPluginMcli::SetupParse (const char *Name, const char *Value)
 	return true;
 }
 
-#define MAX_TUNERS_IN_MENU 16
 typedef struct
 {
 	int type[MAX_TUNERS_IN_MENU];

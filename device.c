@@ -22,14 +22,6 @@
 #define st_Pos  0x07FF
 #define st_Neg  0x0800
 
-//#define DEBUG_PIDS 
-//#define DEBUG_TUNE
-
-#define TEMP_DISABLE_TIMEOUT_DEFAULT (10)
-#define TEMP_DISABLE_TIMEOUT_SCAN (30)
-#define LASTSEEN_TIMEOUT (7)
-//#define ENABLE_DEVICE_PRIORITY
-
 using namespace std;
 
 static int handle_ts (unsigned char *buffer, size_t len, void *p)
@@ -446,7 +438,6 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 		return false;
 	}
 	LOCK_THREAD;
-	TranslateTypePos(type, pos, Channel->Source());
 
 	is_scan = !strlen(Channel->Name()) && !strlen(Channel->Provider());
 	if(is_scan) {
@@ -455,11 +446,6 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 		m_disabletimeout = TEMP_DISABLE_TIMEOUT_DEFAULT;
 	}
 
-#if VDRVERSNUM < 10702	
-	s2=Channel->Modulation() == QPSK_S2 || Channel->Modulation() == PSK8;
-#else	
-	s2=Channel->System() == SYS_DVBS2;
-#endif	
 	if(!CheckCAM(Channel, true)) {
 #ifdef DEBUG_TUNE
 		printf("No CAM on %d available even after tried to steal one\n", CardIndex () + 1);
@@ -482,6 +468,15 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 			return false;
 		}
 		SetCaEnable();
+	}
+	TranslateTypePos(type, pos, Channel->Source());
+#if VDRVERSNUM < 10702	
+	s2=Channel->Modulation() == QPSK_S2 || Channel->Modulation() == PSK8;
+#else	
+	s2=Channel->System() == SYS_DVBS2;
+#endif	
+	if(s2) {
+		type = FE_DVBS2;
 	}
 
 	if(m_tunerref && (m_fetype != type || !m_mcli->TunerSatelitePositionLookup(m_tunerref, pos))) {
