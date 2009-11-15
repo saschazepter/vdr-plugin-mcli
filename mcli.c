@@ -808,10 +808,14 @@ bool cPluginMcli::Service (const char *Id, void *Data)
 
 	if (Id && strcmp (Id, "GetTunerInfo") == 0) {
 		int j=0;
+		time_t now = time (NULL);
 		netceiver_info_list_t *nc_list = nc_get_list ();
 		nc_lock_list ();
 		for (int n = 0; n < nc_list->nci_num; n++) {
 			netceiver_info_t *nci = nc_list->nci + n;
+			if ((now - nci->lastseen) > MCLI_DEVICE_TIMEOUT) {
+				continue;
+			}
 			for (int i = 0; i < nci->tuner_num && j < MAX_TUNERS_IN_MENU; i++) {
 				strcpy (infos->name[j], nci->tuner[i].fe_info.name);
 				infos->type[j++] = nci->tuner[i].fe_info.type;

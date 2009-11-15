@@ -764,7 +764,7 @@ int syslog_init(void)
 
 int syslog_write(char *s)
 {
-	return udp_write (syslog_fd, (uint8_t *)s, strlen(s)+1);
+	return udp_write (syslog_fd, (uint8_t *)s, strlen(s));
 }
 
 void syslog_exit(void)
