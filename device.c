@@ -14,6 +14,7 @@
 #include <vdr/eit.h>
 #include <vdr/timers.h>
 #include <vdr/skins.h>
+#include <vdr/eitscan.h>
 
 #include "filter.h"
 #include "device.h"
@@ -445,14 +446,14 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	} else {
 		m_disabletimeout = TEMP_DISABLE_TIMEOUT_DEFAULT;
 	}
-
-	if(!CheckCAM(Channel, true)) {
+	bool cam_force=!EITScanner.UsesDevice(this);
+	if(cam_force && !CheckCAM(Channel, true)) {
 #ifdef DEBUG_TUNE
 		printf("No CAM on %d available even after tried to steal one\n", CardIndex () + 1);
 #endif
 		return false;
 	}
-
+	
 	if(!GetCaOverride() && Channel->Ca() && !GetCaEnable()) {
 		int slot = -1;
 		if(Channel->Ca(0)<=0xff) {
@@ -465,9 +466,13 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 #ifdef DEBUG_TUNE
 			printf("failed to get CAM on %d\n",CardIndex () + 1);
 #endif
-			return false;
+			if(cam_force) {
+				return false;
+			}
 		}
-		SetCaEnable();
+		if(m_camref) {
+			SetCaEnable();
+		}
 	}
 	TranslateTypePos(type, pos, Channel->Source());
 #if VDRVERSNUM < 10702	
