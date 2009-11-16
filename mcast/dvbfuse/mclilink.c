@@ -92,7 +92,7 @@ again:
 		if (ret == 1) {
 			printf ("Got PAT\n");
 			pmt_pid_list_t pat;
-			ret = parse_pat_sect (si->psi.buf, &pat);
+			ret = parse_pat_sect (si->psi.buf, si->psi.len, &pat);
 			if (ret < 0) {
 				si->si_state = 0;
 			} else if (ret == 0) {
@@ -130,7 +130,7 @@ again:
 			int es_pid_num;
 //			printhex_buf ("Section", si->psi.buf, si->psi.len);
 			si->fta=1;
-			ret = parse_pmt_ca_desc (si->psi.buf, &pm, &es, &hdr, &si->fta, NULL, &es_pid_num);
+			ret = parse_pmt_ca_desc (si->psi.buf, si->psi.len, si->cdata->sid, &pm, &es, &hdr, &si->fta, NULL, &es_pid_num);
 			if (ret < 0) {
 				si->si_state = 2;
 			} else if (ret == 0) {
