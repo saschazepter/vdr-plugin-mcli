@@ -916,7 +916,7 @@ int get_tca_data (xmlChar * xmlbuff, int buffersize, netceiver_info_t * nc_info)
 						} else if ((!xmlStrcmp (cur_node->name, (const xmlChar *) "Flags"))) {
 							c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
 							if (c.key) {
-								cam->flags = atoi ((char *) c.key);								
+								cam->flags = (nc_ca_caps_t)atoi ((char *) c.key);								
 								xmlFree (c.key);
 							}
 						}
