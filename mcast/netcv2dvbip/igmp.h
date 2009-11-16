@@ -14,7 +14,11 @@
 #include "clist.h"
 #include "thread.h"
 #include "misc.h"
+#include "iface.h"
 
+#define IGMPV1_MEMBERSHIP_REPORT    0x12    /* Ver. 1 membership report */
+#define IGMPV2_MEMBERSHIP_REPORT    0x16    /* Ver. 2 membership report */
+#define IGMPV2_LEAVE_GROUP          0x17    /* Leave-group message      */
 
 #define IGMPV3_MR_MODE_IS_INCLUDE   0x01
 #define IGMPV3_MR_MODE_IS_EXCLUDE   0x02
@@ -45,13 +49,15 @@ class cIgmpListener : public cThread
 	public:
 		cIgmpListener(cIgmpMain* igmpmain);
 
-		bool Initialize(in_addr_t bindaddr);
+		bool Initialize(iface_t bindif);
 		void Destruct(void);
 		bool Membership(in_addr_t mcaddr, bool Add);
 		void IGMPSendQuery(in_addr_t Group, int Timeout);
 
 	private:
 		int m_socket;
+		in_addr_t m_bindaddr;
+
 		cIgmpMain* m_IgmpMain;
 
 		void Parse(char*, int);
@@ -65,12 +71,12 @@ class cIgmpListener : public cThread
 class cIgmpMain : public cThread
 {
 	public:
-		cIgmpMain(cStreamer* streamer, in_addr_t bindaddr);
+		cIgmpMain(cStreamer* streamer, iface_t bindif);
 		~cIgmpMain(void);
 		bool StartListener(void);
 		void Destruct(void);
-		void ProcessIgmpV3QueryMessage(in_addr_t Group, in_addr_t Sender);
-		void ProcessIgmpV3ReportMessage(int type, in_addr_t Group, in_addr_t Sender);
+		void ProcessIgmpQueryMessage(in_addr_t Group, in_addr_t Sender);
+		void ProcessIgmpReportMessage(int type, in_addr_t Group, in_addr_t Sender);
 		
 	private:
 		// Parent streamer
@@ -79,6 +85,8 @@ class cIgmpMain : public cThread
 		// Listener
 		cIgmpListener* m_IgmpListener;
 		in_addr_t m_bindaddr;
+		iface_t m_bindif;
+
 		cList<cMulticastGroup> m_Groups;
 		
 		// General Query / Timer

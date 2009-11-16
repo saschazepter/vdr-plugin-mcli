@@ -10,6 +10,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <linux/mroute.h>
 #endif
 
 #include <stdio.h>
@@ -90,7 +91,7 @@ bool cIgmpListener::Membership(in_addr_t mcaddr, bool Add)
 
     struct ip_mreq mreq;
     mreq.imr_multiaddr.s_addr = mcaddr;
-    mreq.imr_interface.s_addr = INADDR_ANY;
+    mreq.imr_interface.s_addr = m_bindaddr;
     
 	rc = ::setsockopt(m_socket, IPPROTO_IP, Add ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP,(const char*) &mreq, sizeof(mreq));
     if (rc < 0)
@@ -110,21 +111,41 @@ bool cIgmpListener::Membership(in_addr_t mcaddr, bool Add)
 
 void cIgmpListener::Destruct(void)
 {
+	int rc = 0;
+	in_addr_t defaultaddr = INADDR_ANY;
+
 	Cancel(3);
-	Membership(inet_addr("224.0.0.1"), false);
-	Membership(inet_addr("224.0.0.22"), false);
+	
+	Membership(IGMP_ALL_HOSTS, false);
+    Membership(IGMP_ALL_ROUTER, false);
+	Membership(IGMP_ALL_V3REPORTS, false);
+
+	rc = setsockopt(m_socket, IPPROTO_IP, IP_MULTICAST_IF,(char *)&defaultaddr, sizeof(defaultaddr));
+    if ( rc < 0 )
+	{
+		log_socket_error("IGMP setsockopt(IP_MULTICAST_IF)");
+	}
+
 #ifdef WIN32
 	closesocket(m_socket);
 #else
+	rc = ::setsockopt( m_socket, IPPROTO_IP, MRT_DONE, NULL, 0); 
+    if ( rc < 0 )
+	{
+		log_socket_error("IGMP setsockopt(MRT_DONE)");
+	}
 	close(m_socket);
 #endif
 }
 
-bool cIgmpListener::Initialize(in_addr_t bindaddr)
+bool cIgmpListener::Initialize(iface_t bindif)
 {
 	int rc = 0;
-	
-    m_socket = ::socket(PF_INET, SOCK_RAW, IPPROTO_IGMP);
+	int val = 0;
+
+	m_bindaddr = bindif.ipaddr;
+
+    m_socket = ::socket(AF_INET, SOCK_RAW, IPPROTO_IGMP);
 
     if (m_socket < 0)
     {
@@ -132,13 +153,51 @@ bool cIgmpListener::Initialize(in_addr_t bindaddr)
         return false;
 	}
 
-    int val = 1;
+#ifndef WIN32
+    val = 1;
+	rc = ::setsockopt( m_socket, IPPROTO_IP, MRT_INIT, (void*)&val, sizeof(val) ); 
+    if ( rc < 0 )
+	{
+		log_socket_error("IGMP setsockopt(MRT_INIT)");
+		return false;
+	}
+
+	struct vifctl VifCtl;
+    VifCtl.vifc_vifi  = 0;
+    VifCtl.vifc_flags = 0;        /* no tunnel, no source routing, register ? */
+    VifCtl.vifc_threshold  = 1;    // Packet TTL must be at least 1 to pass them
+    VifCtl.vifc_rate_limit = 0;    // Ratelimit
+
+    VifCtl.vifc_lcl_addr.s_addr = m_bindaddr;
+    VifCtl.vifc_rmt_addr.s_addr = INADDR_ANY;
+
+	rc = ::setsockopt( m_socket, IPPROTO_IP, MRT_ADD_VIF, (char *)&VifCtl, sizeof( VifCtl ) ); 
+    if ( rc < 0 )
+	{
+		log_socket_error("IGMP setsockopt(MRT_ADD_VIF)");
+		return false;
+	}
+
+
+#endif
+/*
+	rc = setsockopt(m_socket, IPPROTO_IP, IP_MULTICAST_IF,(char *)&m_bindaddr, sizeof(m_bindaddr));
+    if ( rc < 0 )
+	{
+		log_socket_error("IGMP setsockopt(IP_MULTICAST_IF)");
+		return false;
+	}
+*/
+	/*
+    val = 1;
 	rc = ::setsockopt( m_socket, SOL_SOCKET, SO_REUSEADDR, (const char*)&val, sizeof(val) ); 
     if ( rc < 0 )
 	{
 		log_socket_error("IGMP setsockopt(SO_REUSEADDR)");
 		return false;
 	}
+	*/
+
 	/*
     val = 1;
 	rc = ::setsockopt( m_socket, SOL_IP, IP_ROUTER_ALERT, &val, sizeof(val) );
@@ -147,19 +206,18 @@ bool cIgmpListener::Initialize(in_addr_t bindaddr)
 		log_socket_error("IGMP setsockopt(IP_ROUTER_ALERT)");
 		return false;
 	}
-	*/        
+	*/    
 
+#ifdef WIN32
     //----------------------
     // Bind the socket. 
-    // At least WIN32 requires this on a specific interface! 
+    // WIN32 requires this on a specific interface! 
 	// INADDR_ANY is not allowed according to MSDN Lib for raw IGMP sockets.
-    // Linux man page ip(7) says: "On raw sockets sin_port is set to the IP protocol."
-
 	sockaddr_in m_LocalAddr;
 
     m_LocalAddr.sin_family = AF_INET;
-    m_LocalAddr.sin_port   = htons(IPPROTO_IGMP);
-    m_LocalAddr.sin_addr.s_addr = bindaddr;
+    m_LocalAddr.sin_port   = 0;
+	m_LocalAddr.sin_addr.s_addr = m_bindaddr;
 
 	rc = ::bind( m_socket, (struct sockaddr*)&m_LocalAddr, sizeof(m_LocalAddr) );
     if ( rc < 0 )
@@ -175,7 +233,17 @@ bool cIgmpListener::Initialize(in_addr_t bindaddr)
 		log_socket_error("IGMP getsockname()");
 		return false;
 	}
+#else
+	// Normal bind() for this socket does not really work. the socket does not receive anything then.
+	// However, SO_BINDTODEVICE _does_ work. Maybe because of SOCK_RAW?!
+	rc = setsockopt(m_socket, SOL_SOCKET, SO_BINDTODEVICE,(char *)&bindif.name, sizeof(bindif.name));
+    if ( rc < 0 )
+	{
+		log_socket_error("IGMP setsockopt(SO_BINDTODEVICE)");
+		return false;
+	}
 
+#endif
 
 #ifdef WIN32
 	DWORD dwCtlCode = SIO_RCVALL_IGMPMCAST;
@@ -189,7 +257,8 @@ bool cIgmpListener::Initialize(in_addr_t bindaddr)
 #endif
 
 
-	if ( Membership(inet_addr("224.0.0.1"), true) && Membership(inet_addr("224.0.0.22"), true) )
+	if ( Membership(IGMP_ALL_HOSTS, true) && Membership(IGMP_ALL_V3REPORTS, true) 
+		&& Membership(IGMP_ALL_ROUTER, true))
 	{
           Start();
           return true;
@@ -202,30 +271,59 @@ void cIgmpListener::Action()
 {
 	int recvlen;
     char recv_buf[8192];
-	
+	int MaxFD;
+    fd_set  ReadFDS;
+	struct  timeval tv;
+	struct  timeval  *timeout = &tv;
+	int Rt;
 	        
+    timeout->tv_usec = 0;
+    timeout->tv_sec = 1;
+
 	while (Running())
 	{
-			recvlen = ::recv(m_socket, (char*)&recv_buf, sizeof(recv_buf), 0);
-	        if (recvlen < 0)
-	        {
+
+		MaxFD = m_socket;
+        FD_ZERO( &ReadFDS );
+        FD_SET( m_socket, &ReadFDS );
+
+      // wait for input
+		Rt = ::select( MaxFD +1, &ReadFDS, NULL, NULL, timeout );
+
+        // log and ignore failures
+        if( Rt < 0 ) 
+		{
+            log_socket_error( "IGMP select()" );
+            continue;
+        }
+        else if( Rt > 0 ) 
+		{
+
+            // Read IGMP request, and handle it...
+			if( FD_ISSET( m_socket, &ReadFDS ) ) 
+			{
+				recvlen = ::recv(m_socket, (char*)&recv_buf, sizeof(recv_buf), 0);
+				if (recvlen < 0)
+				{
 #ifndef WIN32
-				if (errno == EINTR)
-					continue;
+					if (errno == EINTR)
+						continue;
 #else
-				if (WSAGetLastError() == WSAEINTR)
-					continue;
+					if (WSAGetLastError() == WSAEINTR)
+						continue;
 #endif
-				log_socket_error("IGMP recv()");
-				break;
+					log_socket_error("IGMP recv()");
+					break;
+				}
+				/*
+				printf("recvlen: %d\n", recvlen);
+				for(int i=0; i<recvlen; i++)
+				printf("%02x ", (unsigned char) recv_buf[i]);
+				printf("\n");
+				*/
+				Parse(recv_buf, recvlen);
 			}
-			/*
-	        printf("recvlen: %d\n", recvlen);
-	        for(int i=0; i<recvlen; i++)
-	                printf("%02x ", (unsigned char) recv_buf[i]);
-			printf("\n");
-			*/
-            Parse(recv_buf, recvlen);
+		}
 	}
 }
 
@@ -252,9 +350,46 @@ void cIgmpListener::Parse(char* buffer, int len)
         	// skip rest of ip header and move to next to next protocol header
 		len -= LO_BYTE(*buf) * 4;
 	    buf += LO_BYTE(*buf) * 4;
-		if (len == 8)
+
+        uint16_t chksum = ((*(buf+3)<<8)&0xFF00 ) | (*(buf+2) & 0x00FF);
+        *(buf+2) = 0;
+        *(buf+3) = 0;
+        if (chksum != inetChecksum((uint16_t *)buf, len))
+        {
+				printf("IGMP: INVALID CHECKSUM 0x%04x 0x%04x - discarding packet.\n", 
+								chksum, inetChecksum((uint16_t *)buf, len));
+                return;
+        }
+		
+		if ( (len == 8) )
 		{   
-			printf("IGMP: Version < 3 is used in your network! Currently not supported!\n");
+			if ( *buf == 0x11 )
+			{
+				printf("IGMP: Version: %s, Type: Membership Query\n", (*(buf+1) == 0 ) ? "1":"2");
+				printf("        Group: %d.%d.%d.%d\n", (unsigned char) *(buf+4), (unsigned char) *(buf+5), 
+													   (unsigned char) *(buf+6), (unsigned char) *(buf+7)
+													   );
+				memcpy(&groupaddr, buf+4, 4);
+				m_IgmpMain->ProcessIgmpQueryMessage( groupaddr, senderaddr );
+			} 
+			else if ( *buf == 0x12 )
+			{
+				printf("IGMP: Version: 1, Type: Membership Report\n");
+			} 
+			else if (*buf == 0x16)
+			{
+				printf("IGMP: Version: 2, Type: Membership Report\n");
+			}
+     		else if (*buf == 0x17)
+			{
+				printf("IGMP: Version: 2, Type: Leave Group\n");
+			}
+
+			printf("        Group: %d.%d.%d.%d\n", (unsigned char) *(buf+4), (unsigned char) *(buf+5), 
+													   (unsigned char) *(buf+6), (unsigned char) *(buf+7)
+													   );
+			memcpy(&groupaddr, buf+4, 4);
+			m_IgmpMain->ProcessIgmpReportMessage( (int) *buf, groupaddr, senderaddr);
 		}
 		else if ( (*buf == 0x11) && (len > 8) )
 		{
@@ -263,7 +398,7 @@ void cIgmpListener::Parse(char* buffer, int len)
 													   (unsigned char) *(buf+6), (unsigned char) *(buf+7)
 													   );
 			memcpy(&groupaddr, buf+4, 4);
-			m_IgmpMain->ProcessIgmpV3QueryMessage( groupaddr, senderaddr );
+			m_IgmpMain->ProcessIgmpQueryMessage( groupaddr, senderaddr );
 
 		}
 		else if ( (*buf == 0x22) && (len > 8) )
@@ -285,7 +420,7 @@ void cIgmpListener::Parse(char* buffer, int len)
 													   (unsigned char) *(buf+6), (unsigned char) *(buf+7)
 													   );
 				memcpy(&groupaddr, buf+4, 4);
-				m_IgmpMain->ProcessIgmpV3ReportMessage( (int) *buf, groupaddr, senderaddr);
+				m_IgmpMain->ProcessIgmpReportMessage( (int) *buf, groupaddr, senderaddr);
 
 				for(int j = 0; j<numsources; j++)
 				{
@@ -350,10 +485,12 @@ void cIgmpListener::IGMPSendQuery(in_addr_t Group, int Timeout)
 
 // -------------------------------------------------------------------------------------------------------------------------
 
-cIgmpMain::cIgmpMain(cStreamer* streamer, in_addr_t bindaddr)
+cIgmpMain::cIgmpMain(cStreamer* streamer, iface_t bindif)
 	: cThread("IGMP timeout handler")
 {
-    m_bindaddr = bindaddr;
+    m_bindaddr = bindif.ipaddr;
+	m_bindif = bindif;
+
     m_IgmpListener = new cIgmpListener(this);
     m_StartupQueryCount = IGMP_STARTUP_QUERY_COUNT;
     m_Querier = true;
@@ -371,6 +508,10 @@ void cIgmpMain::Destruct(void)
 		m_IgmpListener->Destruct();
 	}
 	
+	// Wake up timeout thread in case it is currently sleeping
+    m_CondWait.Signal();
+
+	// Now try to stop thread. After 3 seconds it will be canceled.
 	Cancel(3);
 	
 	cMulticastGroup *del = NULL;
@@ -392,16 +533,7 @@ void cIgmpMain::Destruct(void)
 
 bool cIgmpMain::StartListener(void)
 {
-	// TODO: 
-	// Empfang von IGMP geht unter Linux nicht ohne INADDR_ANY bei bind() !!!
-	// Laut MSDN sollte INADDR_ANY bei bind() für IGMP unter Windows nicht funktionieren, funzt aber trotzdem. ?!
-	// Die Adresse des Interfaces in der Variablen m_bindaddr wird also nur zum Herausfiltern von eigener Queries benutzt.
-	// Normalerweise sollte hier m_IgmpListener->Initialize(m_bindaddr) stehen !!!
-#ifndef WIN32
-	if ( m_IgmpListener && m_IgmpListener->Initialize(INADDR_ANY) )
-#else
-	if ( m_IgmpListener && m_IgmpListener->Initialize(m_bindaddr) )
-#endif
+	if ( m_IgmpListener && m_IgmpListener->Initialize(m_bindif) )
 	{
 		Start();
 		return true;
@@ -413,7 +545,7 @@ bool cIgmpMain::StartListener(void)
     }
 }
 
-void cIgmpMain::ProcessIgmpV3QueryMessage(in_addr_t groupaddr, in_addr_t senderaddr)
+void cIgmpMain::ProcessIgmpQueryMessage(in_addr_t groupaddr, in_addr_t senderaddr)
 { 
 	if (ntohl(senderaddr) < ntohl(m_bindaddr))
 	{
@@ -424,7 +556,7 @@ void cIgmpMain::ProcessIgmpV3QueryMessage(in_addr_t groupaddr, in_addr_t sendera
 	}
 }
 
-void cIgmpMain::ProcessIgmpV3ReportMessage(int type, in_addr_t groupaddr, in_addr_t senderaddr)
+void cIgmpMain::ProcessIgmpReportMessage(int type, in_addr_t groupaddr, in_addr_t senderaddr)
 {
 	cMulticastGroup* group;
 
@@ -438,6 +570,8 @@ void cIgmpMain::ProcessIgmpV3ReportMessage(int type, in_addr_t groupaddr, in_add
 	case IGMPV3_MR_MODE_IS_INCLUDE:
 		 break;
 
+	case IGMPV1_MEMBERSHIP_REPORT:
+	case IGMPV2_MEMBERSHIP_REPORT:
 	case IGMPV3_MR_MODE_IS_EXCLUDE:
 	case IGMPV3_MR_CHANGE_TO_EXCLUDE:
 				group = FindGroup(groupaddr);
@@ -451,8 +585,11 @@ void cIgmpMain::ProcessIgmpV3ReportMessage(int type, in_addr_t groupaddr, in_add
 					m_streamer->StartMulticast(group);
 				}
 				IGMPStartTimer(group, senderaddr);
+				if (type == IGMPV1_MEMBERSHIP_REPORT)
+					IGMPStartV1HostTimer(group);
 				break;
 
+	case IGMPV2_LEAVE_GROUP:
 	case IGMPV3_MR_CHANGE_TO_INCLUDE:
 				group = FindGroup(groupaddr);
 				if (group && !TV_SET(group->v1timer)) 

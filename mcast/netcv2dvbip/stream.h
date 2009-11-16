@@ -18,7 +18,7 @@ class cStream : public cListObject, public cThread
 	public:
 			cStream(int channum, in_addr_t addr, int portnum);
 			~cStream(void);
-			bool StartStream();
+			bool StartStream(in_addr_t bindaddr);
 			void StopStream();
 
 	private:

@@ -92,14 +92,14 @@ again:
 		if (ret == 1) {
 			printf ("Channel: %s - Got PAT\n", 	si->cdata->name);
 			pmt_pid_list_t pat;
-			ret = parse_pat_sect (si->psi.buf, &pat);
+			ret = parse_pat_sect (si->psi.buf, si->psi.len, &pat);
 			if (ret < 0) {
 				si->si_state = 0;
 			} else if (ret == 0) {
 //				print_pat (&pat.p, pat.pl, pat.pmt_pids);
 				unsigned int n;
 				for (n = 0; n < pat.pmt_pids; n++) {
-					if (pat.pl[n].program_number == si->cdata->sid) {
+					if (pat.pl[n].program_number == (unsigned int)si->cdata->sid) {
 						si->pmt_pid = pat.pl[n].network_pmt_pid;
 						printf ("Channel: %s - SID %d has PMT Pid %d\n", si->cdata->name, si->cdata->sid, si->pmt_pid);
 						break;
@@ -127,9 +127,10 @@ again:
 			printf ("Channel: %s - Got PMT\n", 	si->cdata->name);
 			pmt_t hdr;
 			si_ca_pmt_t pm, es;
+			int es_pid_num;
 //			printhex_buf ("Section", si->psi.buf, si->psi.len);
 			si->fta=1;
-			ret = parse_pmt_ca_desc (si->psi.buf, &pm, &es, &hdr, &si->fta);
+			ret = parse_pmt_ca_desc (si->psi.buf, si->psi.len, si->cdata->sid, &pm, &es, &hdr, &si->fta, NULL, &es_pid_num);
 			if (ret < 0) {
 				si->si_state = 2;
 			} else if (ret == 0) {

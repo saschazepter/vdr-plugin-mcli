@@ -1,3 +1,5 @@
+#include "defs.h"
+
 #include <stdio.h>
 
 #include "misc.h"
@@ -15,9 +17,10 @@ cStreamer::cStreamer()
 	m_portnum = 0;
 }
 
-void cStreamer::SetBindAddress(in_addr_t bindaddr)
+void cStreamer::SetBindIf(iface_t bindif)
 {
-	m_bindaddr = bindaddr;
+	m_bindaddr = bindif.ipaddr;
+	m_bindif = bindif;
 }
 
 void cStreamer::SetStreamPort(int portnum)
@@ -29,7 +32,7 @@ void cStreamer::Run()
 {
 	if ( m_IgmpMain == NULL )
 	{
-		m_IgmpMain = new cIgmpMain(this, m_bindaddr);
+		m_IgmpMain = new cIgmpMain(this, m_bindif);
 		m_IgmpMain->StartListener();
 	}
 	return;
@@ -46,10 +49,15 @@ void cStreamer::Stop()
 	return;
 }
 
+void cStreamer::SetNumGroups(int numgroups)
+{
+	m_numgroups = numgroups;
+}
+
 bool cStreamer::IsGroupinRange(in_addr_t groupaddr)
 {
         in_addr_t g = htonl(groupaddr);
-        if ( (g > MULTICAST_PRIV_MIN) && (g <= MULTICAST_PRIV_MAX) )
+        if ( (g > MULTICAST_PRIV_MIN) && (g <= MULTICAST_PRIV_MIN+m_numgroups) &&(g <= MULTICAST_PRIV_MAX) )
         {
                 return true;
         }
@@ -66,7 +74,7 @@ void cStreamer::StartMulticast(cMulticastGroup* Group)
         if (Group->stream == NULL)
         {
                 Group->stream = new cStream(channel,  Group->group, m_portnum);
-                Group->stream->StartStream();
+                Group->stream->StartStream(m_bindaddr);
         }
 }
 

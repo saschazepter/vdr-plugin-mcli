@@ -41,7 +41,7 @@ cStream::~cStream(void)
 		delete(buf);
 }
 
-bool cStream::StartStream()
+bool cStream::StartStream(in_addr_t bindaddr)
 {
 
 	peer.sin_family = AF_INET;
@@ -54,6 +54,14 @@ bool cStream::StartStream()
 		log_socket_error("Stream: socket()");
 		return false;
 	}
+
+	int rc = setsockopt(udp_socket, IPPROTO_IP, IP_MULTICAST_IF,(char *)&bindaddr, sizeof(bindaddr));
+    if ( rc < 0 )
+	{
+		log_socket_error("STREAM setsockopt(IP_MULTICAST_IF)");
+		return false;
+	}
+				
 
 	pthread_mutex_lock(&lock);
 

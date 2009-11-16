@@ -1,5 +1,5 @@
 This is a tool for streaming DVB TS packets via udp multicasts on demand from the netceiver.
-It listens for IGMPv3 join/leave multicast group messages on the network and starts/stops 
+It listens for IGMP(v1/v2/v3) join/leave multicast group messages on the network and starts/stops 
 the corresponding streams accordingly. It uses a channels.conf file for channel information.
 Each channel is mapped to one multicast group starting with 239.255.0.1 and so on.
 
@@ -24,26 +24,73 @@ Quick Compile Howto:
 1)
 svn co https://svn.baycom.de/repos/vdr-mcli-plugin/mcast/
 
-2) 
-wget netcv2dvbip-0.0.1.tar.bz2
+2)
+cd mcast
 
 3)
-cd mcast
-tar xfj ../netcv2dvbip-0.0.1.tar.bz2
-cd ..
-
-4)
 cd client
 make 
 cd ..
 
-5) 
+4) 
 cd netcv2dvbip
 make
 
-6)
-./netcv2dvbip -b <ip_address of streaming interface> -i <interface with netceiver network> 
+5)
+./netcv2dvbip 
 
+------------------------------------------------------------
 
+Notes:
+
+	* Each UDP packet contains 7*188=1316 bytes ( 7 TS packets)
+	* channels.conf: only frontend paramters are needed. PIDs are
+	  extracted from the PAT/PMT on demand.
+	* Windows: MS Loopback Adapter Driver has to be installed if you only
+	  want to stream local multicasts.
+	  Configure a static unused IP for this adapter and add a route for
+	  239.255.0.0/16 to this ip
+	  eg.: route add 239.255.0.0 mask 255.255.0.0 10.11.12.13
+	  where 10.11.12.13 is the static IP address of the loopback
+	  adapter.
+	  Linux: specify the option "-b lo" and make sure that the
+	  multicast flag is set on the lo device. 
+	  If not, type: ifconfig lo multicast
+
+Known Issues:
+
+	* Linux: netcv2dvbip make use of the multicast routing API to be
+	  able to receive all IGMP (v1,v2) messages on the subnet without joining 
+	  all groups. If you have configured 200 channels, then at least
+	  those 200 groups would have to be joined to receive the group
+	  specific queries. IGMPv3 does not suffer this "problem", since
+	  all reports are sent to the group 224.0.0.22.
+	  So, if you are already using software that make use of this API,
+	  netcv2dvbip will fail to start, because only one program can make
+	  use of this API.
+
+------------------------------------------------------------
+
+Possible clients:
+
+	* VLC [Linux, Windows]
+	* vdr-iptv-plugin [Linux]
+	* DVBLink for IPTV (http://www.dvblogic.com/) [Windows]
+	* ...
+
+------------------------------------------------------------
+
+Command line Options:
+
+	-b <interface on which to listen for IGMP mesages and to send streams to> 
+	   Default: first found running interface
+
+	-p <port to send streams to> 
+	   Default: 12345
+
+	-i <interface with netceiver network> 
+	   Default: first found IPv6 interface 
+
+	-c <channels.conf file>
 
 

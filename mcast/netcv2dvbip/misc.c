@@ -87,3 +87,79 @@ uint64_t cTimeMs::Elapsed(void)
 {
   return Now() - begin;
 }
+
+#ifdef WIN32
+bool IsUserAdmin( bool* pbAdmin )
+{
+#if WINVER < 0x0500
+	HANDLE hAccessToken = NULL;
+	PBYTE pInfoBuffer = NULL;
+	DWORD dwInfoBufferSize = 1024; // starting buffer size
+	PTOKEN_GROUPS ptgGroups = NULL;
+#endif
+	PSID psidAdministrators = NULL;
+	SID_IDENTIFIER_AUTHORITY siaNtAuthority = SECURITY_NT_AUTHORITY;
+	BOOL bResult = FALSE;
+
+__try
+{
+
+	// initialization of the security id
+	if( !AllocateAndInitializeSid(
+			&siaNtAuthority, 2, SECURITY_BUILTIN_DOMAIN_RID,
+			DOMAIN_ALIAS_RID_ADMINS, 0,0,0,0,0,0, &psidAdministrators ) )
+		__leave;
+
+#if WINVER < 0x0500
+	// code for the OS < W2k
+	// open process token
+	if( !OpenProcessToken( GetCurrentProcess(),TOKEN_QUERY,&hAccessToken ) )
+		__leave;
+
+	do // lets make a buffer for the information from the token
+	{
+		if( pInfoBuffer )
+		delete pInfoBuffer;
+		pInfoBuffer = new BYTE[dwInfoBufferSize];
+		if( !pInfoBuffer )
+			__leave;
+		SetLastError( 0 );
+		if( !GetTokenInformation( hAccessToken,	TokenGroups, pInfoBuffer, dwInfoBufferSize, &dwInfoBufferSize ) &&
+			( ERROR_INSUFFICIENT_BUFFER != GetLastError() ) )
+			__leave;
+		else
+			ptgGroups = (PTOKEN_GROUPS)pInfoBuffer;
+	}
+	while( GetLastError() ); // if we encounter an error, then the initializing buffer too small, lets make it bigger
+
+	// lets check the security id one by one, while we find one we need
+	for( UINT i = 0; i < ptgGroups->GroupCount; i++ )
+	{
+		if( EqualSid(psidAdministrators,ptgGroups->Groups[i].Sid) )
+		{
+			*pbAdmin = TRUE;
+			bResult = TRUE;
+			__leave;
+		}
+	}
+#else
+	// this is code for the W2K
+	bResult = CheckTokenMembership( NULL, psidAdministrators, pbAdmin );
+#endif
+}
+
+__finally
+{
+#if WINVER < 0x0500
+	if( hAccessToken )
+		CloseHandle( hAccessToken );
+	if( pInfoBuffer )
+		delete pInfoBuffer;
+#endif
+	if( psidAdministrators )
+		FreeSid( psidAdministrators );
+}
+
+return bResult;
+}
+#endif

@@ -13,9 +13,10 @@ class cStreamer
 			
 			void Run();
 			void Stop();
-			void SetBindAddress(in_addr_t bindaddr);
+			void SetBindIf(iface_t bindif);
 			void SetStreamPort(int portnum);
-			
+			void SetNumGroups(int numgroups);
+
 			bool IsGroupinRange(in_addr_t groupaddr);
 			void StartMulticast(cMulticastGroup* Group);
 			void StopMulticast(cMulticastGroup* Group);
@@ -24,7 +25,9 @@ class cStreamer
 	private:
 			cIgmpMain* m_IgmpMain;
 			in_addr_t m_bindaddr;
+			iface_t m_bindif;
 			int m_portnum;
+			int m_numgroups;
 };
 
 #endif

@@ -26,7 +26,7 @@ DEFS:=$(DEFS) -g -DCLIENT
 LDADD:=$(LDADD) -L../client
 LIBS:=$(LIBS) $(XML_LIB) -lpthread -lmcli
 
-netcv2dvbip_OBJECTS=main.o parse.o mclilink.o siparser.o crc32.o clist.o stream.o thread.o misc.o streamer.o igmp.o
+netcv2dvbip_OBJECTS=main.o parse.o mclilink.o siparser.o crc32.o clist.o stream.o thread.o misc.o streamer.o igmp.o iface.o
 
 all: netcv2dvbip
 
