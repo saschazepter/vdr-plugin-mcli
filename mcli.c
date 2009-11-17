@@ -16,6 +16,7 @@
 #include "filter.h"
 #include "device.h"
 #include "cam_menu.h"
+#include "mcli_service.h"
 #include "mcli.h"
 
 static int reconf = 0;
@@ -795,16 +796,10 @@ bool cPluginMcli::SetupParse (const char *Name, const char *Value)
 	return true;
 }
 
-typedef struct
-{
-	int type[MAX_TUNERS_IN_MENU];
-	char name[MAX_TUNERS_IN_MENU][128];
-} mytuner_info_t;
-
 bool cPluginMcli::Service (const char *Id, void *Data)
 {
 	//printf ("cPluginMcli::Service: \"%s\"\n", Id);
-	mytuner_info_t *infos = (mytuner_info_t *) Data;
+	mclituner_info_t *infos = (mclituner_info_t *) Data;
 
 	if (Id && strcmp (Id, "GetTunerInfo") == 0) {
 		int j=0;
@@ -818,7 +813,8 @@ bool cPluginMcli::Service (const char *Id, void *Data)
 			}
 			for (int i = 0; i < nci->tuner_num && j < MAX_TUNERS_IN_MENU; i++) {
 				strcpy (infos->name[j], nci->tuner[i].fe_info.name);
-				infos->type[j++] = nci->tuner[i].fe_info.type;
+				infos->type[j] = nci->tuner[i].fe_info.type;
+				infos->preference[j++] = nci->tuner[i].preference;
 				//printf("Tuner: %s\n", nci->tuner[i].fe_info.name);
 			}
 		}
