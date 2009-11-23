@@ -743,7 +743,7 @@ time_t cPluginMcli::WakeupTime (void)
 
 void cPluginMcli::reconfigure (void)
 {
-	LOCK_THREAD;
+	Lock();
 	for (cMcliDeviceObject * d = m_devs.First (); d;) {
 		cMcliDeviceObject *next = m_devs.Next (d);
 		d->d ()->SetEnable (false);
@@ -761,6 +761,10 @@ void cPluginMcli::reconfigure (void)
 	InitMcli ();
 	for (cMcliDeviceObject * d = m_devs.First (); d; d = m_devs.Next (d)) {
 		d->d ()->InitMcli ();
+	}
+	Unlock();
+	usleep(3*1000*1000);
+	for (cMcliDeviceObject * d = m_devs.First (); d; d = m_devs.Next (d)) {
 		d->d ()->SetEnable (true);
 	}
 }

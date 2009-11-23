@@ -172,8 +172,10 @@ bool cMcliFilter::PutSection (const uchar * Data, int Length, bool Pusi)
 
 void cMcliFilter::Reset (void)
 {
+#ifdef DEBUG_FILTER
 	if (m_Used)
 		dsyslog ("cMcliFilter::Reset skipping %d bytes", m_Used);
+#endif		
 	m_Used = 0;
 }
 
