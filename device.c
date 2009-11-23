@@ -355,7 +355,7 @@ bool cMcliDevice::CheckCAM(const cChannel * Channel, bool steal) const
 			slot--;
 		}
 	}
-	if(m_camref && m_camref->slot == slot) {
+	if(m_camref && (m_camref->slot == slot || slot == -1)) {
 		return true;
 	} 
 	if(!m_mcli->CAMAvailable(NULL, slot) && !m_mcli->CAMSteal(NULL, slot, steal)) {
