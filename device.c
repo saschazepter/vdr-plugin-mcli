@@ -624,7 +624,7 @@ bool cMcliDevice::HasLock (int TimeoutMs)
 bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 {
 #ifdef DEBUG_TUNE
-	printf ("SetPid %d Pid=%d (%s), Type=%d, On=%d, used=%d %d %d %d %d\n",  CardIndex () + 1, Handle->pid, m_chan->Name(), Type, On, Handle->used, ptAudio, ptVideo, ptDolby, ptOther);
+	printf ("SetPid %d Pid:%d (%s), Type:%d, On:%d, used:%d sid:%d ca_enable:%d channel_ca:%d\n",  CardIndex () + 1, Handle->pid, m_chan->Name(), Type, On, Handle->used, m_chan->Sid(), GetCaEnable(), m_chan->Ca (0));
 #endif
 	dvb_pid_t pi;
 	memset (&pi, 0, sizeof (dvb_pid_t));
