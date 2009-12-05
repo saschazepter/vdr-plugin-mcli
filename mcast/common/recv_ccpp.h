@@ -34,6 +34,10 @@ typedef struct cam_info {
 	
 	uint8_t slot;
 	uint8_t status;
+	int max_sids;
+	int use_sids;
+	int capmt_flag;
+	int reserved;
 	nc_ca_caps_t flags;
 	
 	char menu_string[MAX_MENU_STR_LEN];
@@ -52,6 +56,7 @@ typedef struct netceiver_info
 	char Serial[UUID_SIZE];
 	char Vendor[UUID_SIZE];
 	char uuid[UUID_SIZE];
+	char Description[UUID_SIZE];
 	struct in6_addr ip;
 	int DefCon;
 	time_t SystemUptime;
@@ -101,6 +106,8 @@ typedef struct tra_info
 
 	tra_t *tra;
 	int tra_num;
+	cam_info_t cam[MAX_CAMS];
+	int cam_num;
 #ifdef P2P
 	int quit;	
 	int tca_id;

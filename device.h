@@ -32,7 +32,7 @@ class cMcliDevice:public cDevice
 	dvb_pid_t m_pids[RECV_MAX_PIDS];
 	tra_t m_ten;
 	int m_fetype;
-	const cChannel *m_chan;
+	cChannel m_chan;
 	cMutex mutex;
 	bool m_enable;
 	time_t m_last;
@@ -83,7 +83,7 @@ class cMcliDevice:public cDevice
 #ifdef REELVDR
 	const cChannel *CurChan () const
 	{
-		return m_chan;
+		return &m_chan;
 	};
 #endif
 	unsigned int FrequencyToHz (unsigned int f)

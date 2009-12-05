@@ -48,6 +48,7 @@ int handle_tra(tra_info_t *tra_info)
 		for (i = 0; i < tra_info->tra_num; i++) {
 			tra_add_unique (&tra_list, tra_info->tra+i);
 		}
+		memcpy(tra_list.cam, tra_info->cam, MAX_CAMS*sizeof(cam_info_t));
 		free (tra_info->tra);
 		return 1;
 	}
