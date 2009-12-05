@@ -36,7 +36,7 @@ static int handle_ten (tra_t * ten, void *p)
 {
 	cMcliDevice *m = (cMcliDevice *) p;
 	if (ten) {
-//              fprintf (stderr, "Status:%02X, Strength:%04X, SNR:%04X, BER:%04X\n", ten->s.st, ten->s.strength, ten->s.snr, ten->s.ber);
+//              fprintf (stderr, "Status: %02X, Strength: %04X, SNR: %04X, BER: %04X\n", ten->s.st, ten->s.strength, ten->s.snr, ten->s.ber);
 		m->SetTenData (ten);
 		if (ten->s.st & FE_HAS_LOCK) {
 			m->m_locked.Broadcast ();
@@ -62,6 +62,7 @@ cMcliDevice::cMcliDevice (void)
 	m_pidsnum = 0;
 	m_mcpidsnum = 0;
 	m_filternum = 0;
+	m_chan = NULL;
 	m_mcli = NULL;
 	m_fetype = -1;
 	m_last = 0;
@@ -117,39 +118,40 @@ void cMcliDevice::SetEnable (bool val)
 			m_fetype = -1;
 		}
 	} else {
-		if(m_tunerref == NULL) {
+		if (m_chan) {
+			if(m_tunerref == NULL) {
 #if VDRVERSNUM < 10702	
-			bool s2=m_chan.Modulation() == QPSK_S2 || m_chan.Modulation() == PSK8;
+				bool s2=m_chan->Modulation() == QPSK_S2 || m_chan->Modulation() == PSK8;
 #else	
-			bool s2=m_chan.System() == SYS_DVBS2;
+				bool s2=m_chan->System() == SYS_DVBS2;
 #endif
-			bool ret = false;
-			int pos;
-			int type;
+				bool ret = false;
+				int pos;
+				int type;
 				
-			TranslateTypePos(type, pos, m_chan.Source());
-			if(s2) {
-				type=FE_DVBS2;
-			}
-			ret = m_mcli->TunerAvailable((fe_type_t)type, pos);
-			if(!ret && type == FE_QPSK) {
-				type = FE_DVBS2;
+				TranslateTypePos(type, pos, m_chan->Source());
+				if(s2) {
+					type=FE_DVBS2;
+				}
 				ret = m_mcli->TunerAvailable((fe_type_t)type, pos);
+				if(!ret && type == FE_QPSK) {
+					type = FE_DVBS2;
+					ret = m_mcli->TunerAvailable((fe_type_t)type, pos);
+				}
+				if(!ret) {
+					return;
+				}
+				m_fetype = type;
 			}
-			if(!ret) {
-				return;
-			}
-			m_fetype = type;
-
 			int slot = -1;
-			if(m_chan.Ca(0)<=0xff) {
-				slot=m_chan.Ca(0)&0x03;
+			if(m_chan->Ca(0)<=0xff) {
+				slot=m_chan->Ca(0)&0x03;
 				if(slot) {
 					slot--;
 				}
 			}
 
-			if(m_chan.Ca() && !GetCaEnable() && m_mcli->CAMAvailable(NULL, slot) && (m_camref=m_mcli->CAMAlloc(NULL, slot))) {
+			if(m_chan->Ca() && !GetCaEnable() && m_mcli->CAMAvailable(NULL, slot) && (m_camref=m_mcli->CAMAlloc(NULL, slot))) {
 				SetCaEnable();
 			}
 
@@ -167,7 +169,9 @@ bool cMcliDevice::SetTempDisable (bool now)
 //#ifndef REELVDR // they might find it out in some other place
 	// Check for tuning timeout
 	if(m_showtuning && Receiving(true) && ((time(NULL)-m_ten.lastseen)>=LASTSEEN_TIMEOUT)) {
-		Skins.QueueMessage(mtInfo, cString::sprintf(tr("Waiting for a free tuner (%s)"),m_chan.Name()));
+		if(m_chan) {
+			Skins.QueueMessage(mtInfo, cString::sprintf(tr("Waiting for a free tuner (%s)"),m_chan->Name()));
+		}
 		m_showtuning = false;
 	}
 //#endif
@@ -178,14 +182,14 @@ bool cMcliDevice::SetTempDisable (bool now)
 		if(GetCaEnable()) {
 			SetCaEnable(false);
 #ifdef DEBUG_TUNE
-			printf("Releasing CAM on %d (%s) (disable, %d)\n",CardIndex()+1, m_chan.Name(), now);
+			printf("Releasing CAM on %d (%s) (disable, %d)\n",CardIndex()+1, m_chan->Name(), now);
 #endif
 			m_mcli->CAMFree(m_camref);
 			m_camref = NULL;
 		}
 		if(m_tunerref) {
 #ifdef DEBUG_TUNE
-			printf("Releasing tuner on %d (%s)\n",CardIndex()+1, m_chan.Name());
+			printf("Releasing tuner on %d (%s)\n",CardIndex()+1, m_chan->Name());
 #endif			
 			m_mcli->TunerFree(m_tunerref, false);
 			m_tunerref = NULL;
@@ -273,7 +277,7 @@ bool cMcliDevice::ProvidesSource (int Source) const
 		}
 	} 
 #ifdef DEBUG_TUNE
-	printf ("ProvidesSource:%d Type:%d Pos:%d -> %d\n", CardIndex () + 1, type, pos, ret);
+	printf ("ProvidesSource %d Type %d Pos %d -> %d\n", CardIndex () + 1, type, pos, ret);
 #endif
 	return ret;
 }
@@ -311,22 +315,22 @@ bool cMcliDevice::ProvidesTransponder (const cChannel * Channel) const
 		}
 	}
 #ifdef DEBUG_TUNE
-	printf ("ProvidesTransponder:%d S2:%d %s@%p -> %d\n", CardIndex () + 1, s2, Channel->Name (), this, ret);
+	printf ("ProvidesTransponder %d S2:  %d %s@%p -> %d\n", CardIndex () + 1, s2, Channel->Name (), this, ret);
 #endif
 	return ret;
 }
 
 bool cMcliDevice::IsTunedToTransponderConst (const cChannel * Channel) const
 {
-//      printf ("IsTunedToTransponder %s == %s \n", Channel->Name (), m_chan.Name ());
-	if (!m_enable || !m_tuned) {
+//      printf ("IsTunedToTransponder %s == %s \n", Channel->Name (), m_chan ? m_chan->Name () : "");
+	if (!m_enable || !m_tuned || !m_chan) {
 		return false;
 	}
 
-	if (m_ten.s.st & FE_HAS_LOCK && m_chan.Source() == Channel->Source() &&
-	        m_chan.Transponder() == Channel->Transponder() && m_chan.Frequency() == Channel->Frequency() &&
-	                m_chan.Modulation() == Channel->Modulation() &&
-	                        m_chan.Srate() == Channel->Srate()) {
+	if (m_ten.s.st & FE_HAS_LOCK && m_chan->Source() == Channel->Source() &&
+	        m_chan->Transponder() == Channel->Transponder() && m_chan->Frequency() == Channel->Frequency() &&
+	                m_chan->Modulation() == Channel->Modulation() &&
+	                        m_chan->Srate() == Channel->Srate()) {
 //              printf ("Yes!!!");
 		return true;
 	}
@@ -370,7 +374,7 @@ bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool 
 	}
 	if(!CheckCAM(Channel, false)) {
 #ifdef DEBUG_TUNE
-		printf ("ProvidesChannel:%d Channel:%s, Prio:%d this->Prio:%d m_chan.Name:%s -> %d\n", CardIndex () + 1, Channel->Name (), Priority, this->Priority (), m_chan.Name(), false);
+		printf ("ProvidesChannel %d Channel=%s, Prio=%d this->Prio=%d -> %d\n", CardIndex () + 1, Channel->Name (), Priority, this->Priority (), false);
 #endif
 		return false;
 	}
@@ -386,7 +390,7 @@ bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool 
 		}
 	}
 #ifdef DEBUG_TUNE
-	printf ("ProvidesChannel:%d Channel:%s, Prio:%d this->Prio:%d m_chan.Name:%s NeedsDetachReceivers:%d -> %d\n", CardIndex () + 1, Channel->Name (), Priority, this->Priority (), m_chan.Name(), needsDetachReceivers, result);
+	printf ("ProvidesChannel %d Channel=%s, Prio=%d this->Prio=%d NeedsDetachReceivers: %d -> %d\n", CardIndex () + 1, Channel->Name (), Priority, this->Priority (), needsDetachReceivers, result);
 #endif
 	if (NeedsDetachReceivers) {
 		*NeedsDetachReceivers = needsDetachReceivers;
@@ -398,7 +402,7 @@ void cMcliDevice::TranslateTypePos(int &type, int &pos, const int Source) const
 {
 	pos = Source;
 	pos = ((pos & st_Neg) ? 1 : -1) * (pos & st_Pos);
-//      printf ("Position:%d\n", spos);
+//      printf ("Position: %d\n", spos);
 	if (pos) {
 		pos += 1800;
 	} else {
@@ -427,17 +431,16 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	int pos;
 	int type;
 	bool s2;
-
-	is_scan = !strlen(Channel->Name()) && !strlen(Channel->Provider());
 	
 #ifdef DEBUG_TUNE
-	printf ("SetChannelDevice:%d Channel(%p):%s, Provider:%s, Source:%d, LiveView:%s, IsScan:%d, m_chan.Name:%s\n", CardIndex () + 1, Channel, Channel->Name (), Channel->Provider (), Channel->Source (), LiveView ? "true" : "false", is_scan, m_chan.Name());
+	printf ("SetChannelDevice %d Channel(%p): %s, Provider: %s, Source: %d, LiveView: %s, IsScan: %d\n", CardIndex () + 1, Channel, Channel->Name (), Channel->Provider (), Channel->Source (), LiveView ? "true" : "false", is_scan);
 #endif
 	if (!m_enable) {
 		return false;
 	}
 	LOCK_THREAD;
 
+	is_scan = !strlen(Channel->Name()) && !strlen(Channel->Provider());
 	if(is_scan) {
 		m_disabletimeout = TEMP_DISABLE_TIMEOUT_SCAN;
 	} else {
@@ -501,28 +504,27 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 			m_tunerref = m_mcli->TunerAlloc((fe_type_t)type, pos);
 		}
 		if(m_tunerref == NULL) {
-			m_tuned = false;
 			return false;
 		}
 		m_fetype = type;
 	}
 
-	m_pos = pos;
 
 	if (IsTunedToTransponder (Channel) && !is_scan) {
-		m_chan = *Channel;
-
 #ifdef DEBUG_TUNE
                 printf("Already tuned to transponder on %d\n",CardIndex () + 1);
 #endif
+		m_chan = Channel;
+		m_pos = pos;
 		return true;
 	} else {
 		memset (&m_ten, 0, sizeof (tra_t));
 	}
 	memset (&m_sec, 0, sizeof (recv_sec_t));
 	memset (&m_fep, 0, sizeof (struct dvb_frontend_parameters));
-	m_chan = *Channel;
 
+	m_chan = Channel;
+	m_pos = pos;
 //	printf("Really tuning on %d\n",CardIndex () + 1);
 	switch (m_fetype) {
 	case FE_DVBS2:
@@ -592,9 +594,9 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 //		printf("add dummy pid 0 @ %p\n", this);
 	}
 #ifdef DEBUG_PIDS
-	printf ("%p SetChannelDevice: Pidsnum:%d m_pidsnum:%d\n", m_r, m_mcpidsnum, m_pidsnum);
+	printf ("%p SetChannelDevice: Pidsnum: %d m_pidsnum: %d\n", m_r, m_mcpidsnum, m_pidsnum);
 	for (int i = 0; i < m_mcpidsnum; i++) {
-		printf ("Pid:%d\n", m_pids[i].pid);
+		printf ("Pid: %d\n", m_pids[i].pid);
 	}
 #endif
 	m_ten.lastseen=m_last=time(NULL);
@@ -622,7 +624,7 @@ bool cMcliDevice::HasLock (int TimeoutMs)
 bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 {
 #ifdef DEBUG_TUNE
-	printf ("SetPid %d Pid:%d (%s), Type:%d, On:%d, used:%d sid:%d ca_enable:%d channel_ca:%d\n",  CardIndex () + 1, Handle->pid, m_chan.Name(), Type, On, Handle->used, m_chan.Sid(), GetCaEnable(), m_chan.Ca (0));
+	printf ("SetPid %d Pid:%d (%s), Type:%d, On:%d, used:%d sid:%d ca_enable:%d channel_ca:%d\n",  CardIndex () + 1, Handle->pid, m_chan->Name(), Type, On, Handle->used, m_chan->Sid(), GetCaEnable(), m_chan->Ca (0));
 #endif
 	dvb_pid_t pi;
 	memset (&pi, 0, sizeof (dvb_pid_t));
@@ -638,10 +640,10 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 
 		if (On) {
 			pi.pid = Handle->pid;
-			if (GetCaEnable() && m_chan.Ca (0)) {
-				pi.id= m_chan.Sid();
-				if(m_chan.Ca(0)<=0xff) {
-					pi.priority=m_chan.Ca(0)&0x03;
+			if (GetCaEnable() && m_chan && m_chan->Ca (0)) {
+				pi.id= m_chan->Sid();
+				if(m_chan->Ca(0)<=0xff) {
+					pi.priority=m_chan->Ca(0)&0x03;
 				}
 			} 
 #ifdef ENABLE_DEVICE_PRIORITY
@@ -655,18 +657,18 @@ bool cMcliDevice::SetPid (cPidHandle * Handle, int Type, bool On)
 			else if(Prio == -1) // Live
 				pi.priority |= 1<<2;
 #endif
-//			printf ("Add Pid:%d Sid:%d Type:%d Prio:%d %d\n", pi.pid, pi.id, Type, pi.priority, m_chan.Ca(0));
+//			printf ("Add Pid: %d Sid:%d Type:%d Prio: %d %d\n", pi.pid, pi.id, Type, pi.priority, m_chan ? m_chan->Ca(0) : -1);
 			recv_pid_add (m_r, &pi);
 		} else {
-//                     	printf ("Del Pid:%d\n", Handle->pid);
+//                     	printf ("Del Pid: %d\n", Handle->pid);
 			recv_pid_del (m_r, Handle->pid);
 		}
 	}
 	m_mcpidsnum = recv_pids_get (m_r, m_pids);
 #ifdef DEBUG_PIDS
-	printf ("%p SetPid: Pidsnum:%d m_pidsnum:%d m_filternum:%d\n", m_r, m_mcpidsnum, m_pidsnum, m_filternum);
+	printf ("%p SetPid: Pidsnum: %d m_pidsnum: %d m_filternum: %d\n", m_r, m_mcpidsnum, m_pidsnum, m_filternum);
 	for (int i = 0; i < m_mcpidsnum; i++) {
-		printf ("Pid:%d\n", m_pids[i].pid);
+		printf ("Pid: %d\n", m_pids[i].pid);
 	}
 #endif
 	m_last=time(NULL);
@@ -728,13 +730,13 @@ int cMcliDevice::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 	dvb_pid_t pi;
 	memset (&pi, 0, sizeof (dvb_pid_t));
 	pi.pid = Pid;
-//      printf ("Add Pid:%d\n", pi.pid);
+//      printf ("Add Pid: %d\n", pi.pid);
 	recv_pid_add (m_r, &pi);
 	m_mcpidsnum = recv_pids_get (m_r, m_pids);
 #ifdef DEBUG_PIDS
-	printf ("%p OpenFilter: Pidsnum:%d m_pidsnum:%d\n", m_r, m_mcpidsnum, m_pidsnum);
+	printf ("%p OpenFilter: Pidsnum: %d m_pidsnum: %d\n", m_r, m_mcpidsnum, m_pidsnum);
 	for (int i = 0; i < m_mcpidsnum; i++) {
-		printf ("Pid:%d\n", m_pids[i].pid);
+		printf ("Pid: %d\n", m_pids[i].pid);
 	}
 #endif
 	return m_filters->OpenFilter (Pid, Tid, Mask);
