@@ -288,7 +288,7 @@ int cPluginMcli::CAMPoolAdd(netceiver_info_t *nci)
 					cp->max = 1;
 					break;
 				case CA_MULTI_TRANSPONDER:
-					cp->max = 3;	//FIXME use provisioning value from NetCeiver
+					cp->max = nci->cam[j].max_sids/* - nci->cam[j].use_sids*/;
 					break;
 			}
 		} else {

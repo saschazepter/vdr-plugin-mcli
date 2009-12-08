@@ -16,8 +16,8 @@
 #include "device.h"
 #include "cam_menu.h"
 
-#define MCLI_DEVICE_VERSION "0.9.0"
-#define MCLI_PLUGIN_VERSION "0.9.0"
+#define MCLI_DEVICE_VERSION "0.9.1"
+#define MCLI_PLUGIN_VERSION "0.9.1"
 #define MCLI_PLUGIN_DESCRIPTION trNOOP ("NetCeiver Client Application")
 #define MCLI_SETUPMENU_DESCRIPTION trNOOP ("NetCeiver Client Application")
 #define MCLI_MAINMENU_DESCRIPTION trNOOP ("Common Interface")
@@ -35,8 +35,9 @@
 //#define ENABLE_DEVICE_PRIORITY
 
 //#define DEBUG_PIDS 
-//#define DEBUG_TUNE
-//#define DEBUG_RESOURCES
+//#define DEBUG_TUNE_EXTRA
+#define DEBUG_TUNE
+#define DEBUG_RESOURCES
 
 class cMcliDeviceObject:public cListObject
 {

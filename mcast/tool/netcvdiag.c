@@ -114,13 +114,21 @@ void show_it(int show_count, int show_uuids, int show_tuners, int show_sats, int
                 if(api_cmd->u.nc_info.magic != MCLI_MAGIC || api_cmd->u.nc_info.version != MCLI_VERSION) {
                 	err("API version mismatch!\n");
                 }
-		if (show_uuids||show_versions)
+		if (show_uuids||show_versions) {
+			char buf[UUID_SIZE];
+			if(strlen(api_cmd->u.nc_info.Description)) {
+				sprintf(buf, "%s, ", api_cmd->u.nc_info.Description);
+			} else {
+				buf[0]=0;
+			}
 			printf("NetCeiver %i:\n"
-			       "  UUID <%s>, %s, tuners %d\n",
+			       "  UUID <%s>, %s%s, tuners %d\n",
 			       i,
 			       api_cmd->u.nc_info.uuid, 
+			       buf,
 			       (unsigned int) api_cmd->u.nc_info.lastseen<(now-10)?"DEAD":"ALIVE",
 			       api_cmd->u.nc_info.tuner_num);
+		}
 		if (show_versions) {
 			printf("  OS <%s>, App <%s>, FW <%s>, HW <%s>\n",
 			       api_cmd->u.nc_info.OSVersion, api_cmd->u.nc_info.AppVersion,
@@ -130,6 +138,8 @@ void show_it(int show_count, int show_uuids, int show_tuners, int show_sats, int
 			       api_cmd->u.nc_info.Serial, api_cmd->u.nc_info.Vendor, api_cmd->u.nc_info.DefCon);
 			printf("  SystemUptime %d, ProcessUptime %d\n",
 			       (int)api_cmd->u.nc_info.SystemUptime, (int)api_cmd->u.nc_info.ProcessUptime);
+			printf("  TunerTimeout %d\n",
+			       (int)api_cmd->u.nc_info.TunerTimeout);
 		}
 		if (show_cams) {
 			int i;
@@ -153,7 +163,7 @@ void show_it(int show_count, int show_uuids, int show_tuners, int show_sats, int
 					case CA_MULTI_TRANSPONDER:
 						cammode="CA_MULTI_TRANSPONDER";break;
 				}	
-				printf("  CI-Slot %d: State <%s>, Mode <%s>, CAM <%s>\n", api_cmd->u.nc_info.cam[i].slot, camstate, cammode, api_cmd->u.nc_info.cam[i].menu_string);
+				printf("  CI-Slot %d: State <%s>, Mode <%s>, SIDs %d/%d, CAM <%s>\n", api_cmd->u.nc_info.cam[i].slot, camstate, cammode, api_cmd->u.nc_info.cam[i].use_sids, api_cmd->u.nc_info.cam[i].max_sids, api_cmd->u.nc_info.cam[i].menu_string);
 			}
 		}
 		if (show_tuners) {

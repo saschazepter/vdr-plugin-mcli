@@ -364,6 +364,56 @@ int get_tra_data (xmlChar * xmlbuff, int buffersize, tra_info_t * tra_info)
 					}
 					tra->lastseen=t;
 					tra_info->tra_num++;
+				} else if (c.str && (!xmlStrcmp (c.str, (const xmlChar *) "CAM"))) {
+					cur_node = cur_node->children;
+					cam_info_t *cam = tra_info->cam + tra_info->cam_num;
+					while(cur_node) {
+						if ((!xmlStrcmp (cur_node->name, (const xmlChar *) "Slot"))) {
+							c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
+							if (c.key) {
+								cam->slot = atoi ((char *) c.key);
+								xmlFree (c.key);
+							}
+						} else if ((!xmlStrcmp (cur_node->name, (const xmlChar *) "Status"))) {
+							c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
+							if (c.key) {
+								cam->status = atoi ((char *) c.key);								
+								xmlFree (c.key);
+							}
+						} else if ((!xmlStrcmp (cur_node->name, (const xmlChar *) "MenuString"))) {
+							c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
+							if (c.key) {
+								strncpy(cam->menu_string, (char *) c.key, MAX_MENU_STR_LEN-1);								
+								xmlFree (c.key);
+							}
+						} else if ((!xmlStrcmp (cur_node->name, (const xmlChar *) "Flags"))) {
+							c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
+							if (c.key) {
+								cam->flags = (nc_ca_caps_t)atoi ((char *) c.key);								
+								xmlFree (c.key);
+							}
+						} else if ((!xmlStrcmp (cur_node->name, (const xmlChar *) "MaxSids"))) {
+							c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
+							if (c.key) {
+								cam->max_sids = atoi ((char *) c.key);								
+								xmlFree (c.key);
+							}
+						} else if ((!xmlStrcmp (cur_node->name, (const xmlChar *) "UseSids"))) {
+							c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
+							if (c.key) {
+								cam->use_sids = atoi ((char *) c.key);								
+								xmlFree (c.key);
+							}
+						} else if ((!xmlStrcmp (cur_node->name, (const xmlChar *) "PmtFlag"))) {
+							c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
+							if (c.key) {
+								cam->capmt_flag = atoi ((char *) c.key);								
+								xmlFree (c.key);
+							}
+						}  						
+						cur_node = cur_node->next;				
+					}
+					tra_info->cam_num++;	
 				}
 				xmlFree (c.str);
 				root_element = root_element->next;
@@ -667,6 +717,13 @@ int get_tca_data (xmlChar * xmlbuff, int buffersize, netceiver_info_t * nc_info)
 								strncpy (nc_info->uuid, (char *) c.key, UUID_SIZE-1);
 								xmlFree (c.key);
 							}
+						} else if ((!xmlStrcmp (cur_node->name, (const xmlChar *) "Description"))) {
+							c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
+							if (c.key) {
+								dbg ("Description: %s\n", c.key);
+								strncpy (nc_info->Description, (char *) c.key, UUID_SIZE-1);
+								xmlFree (c.key);
+							}
 						} else if ((!xmlStrcmp (cur_node->name, (const xmlChar *) "IP"))) {
 							c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
 							if (c.key) {
@@ -686,6 +743,13 @@ int get_tca_data (xmlChar * xmlbuff, int buffersize, netceiver_info_t * nc_info)
 							if (c.key) {
 								dbg ("SystemUptime: %s\n", c.key);
 								nc_info->SystemUptime=atoi((char *)c.key);
+								xmlFree (c.key);
+							}
+						} else if ((!xmlStrcmp (cur_node->name, (const xmlChar *) "TunerTimeout"))) {
+							c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
+							if (c.key) {
+								dbg ("TunerTimeout: %s\n", c.key);
+								nc_info->TunerTimeout=atoi((char *)c.key);
 								xmlFree (c.key);
 							}
 						}
@@ -919,7 +983,25 @@ int get_tca_data (xmlChar * xmlbuff, int buffersize, netceiver_info_t * nc_info)
 								cam->flags = (nc_ca_caps_t)atoi ((char *) c.key);								
 								xmlFree (c.key);
 							}
-						}
+						} else if ((!xmlStrcmp (cur_node->name, (const xmlChar *) "MaxSids"))) {
+							c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
+							if (c.key) {
+								cam->max_sids = atoi ((char *) c.key);								
+								xmlFree (c.key);
+							}
+						} else if ((!xmlStrcmp (cur_node->name, (const xmlChar *) "UseSids"))) {
+							c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
+							if (c.key) {
+								cam->use_sids = atoi ((char *) c.key);								
+								xmlFree (c.key);
+							}
+						} else if ((!xmlStrcmp (cur_node->name, (const xmlChar *) "PmtFlag"))) {
+							c.key = xmlNodeListGetString (c.doc, cur_node->xmlChildrenNode, 1);
+							if (c.key) {
+								cam->capmt_flag = atoi ((char *) c.key);								
+								xmlFree (c.key);
+							}
+						}  						
 						cur_node = cur_node->next;
 					}			
 					nc_info->cam_num++;						
