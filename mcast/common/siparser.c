@@ -903,9 +903,9 @@ int ts2psi_data(unsigned char *buf,psi_buf_t *p,int len, int pid_req)
         len-=4;
         
         if (h.sync_byte != 0x47) {
-//#ifdef DBG
+#ifdef SERVER
               sys("%s:No sync byte in header !\n",__FUNCTION__);
-//#endif          
+#endif          
               return -1;
         }
 
