@@ -142,6 +142,74 @@ void print_pat(pat_t *p, pat_list_t *pl, int pmt_num)
 
 }
 //-----------------------------------------------------------------------------------
+char *si_caid_to_name(unsigned int caid)
+{
+
+	str_table  table[] = {
+		// -- updated from dvb.org 2003-10-16
+            {  0x0000, 0x0000,  "Reserved" },
+            {  0x0001, 0x00FF,  "Standardized Systems" },
+            {  0x0100, 0x01FF,  "Canal Plus (Seca/MediaGuard)" },
+            {  0x0200, 0x02FF,  "CCETT" },
+            {  0x0300, 0x03FF,  "MSG MediaServices GmbH" },
+            {  0x0400, 0x04FF,  "Eurodec" },
+            {  0x0500, 0x05FF,  "France Telecom (Viaccess)" },
+            {  0x0600, 0x06FF,  "Irdeto" },
+            {  0x0700, 0x07FF,  "Jerrold/GI/Motorola" },
+            {  0x0800, 0x08FF,  "Matra Communication" },
+            {  0x0900, 0x09FF,  "News Datacom (Videoguard)" },
+            {  0x0A00, 0x0AFF,  "Nokia" },
+            {  0x0B00, 0x0BFF,  "Norwegian Telekom (Conax)" },
+            {  0x0C00, 0x0CFF,  "NTL" },
+            {  0x0D00, 0x0DFF,  "Philips (Cryptoworks)" },
+            {  0x0E00, 0x0EFF,  "Scientific Atlanta (Power VU)" },
+            {  0x0F00, 0x0FFF,  "Sony" },
+            {  0x1000, 0x10FF,  "Tandberg Television" },
+            {  0x1100, 0x11FF,  "Thompson" },
+            {  0x1200, 0x12FF,  "TV/COM" },  
+            {  0x1300, 0x13FF,  "HPT - Croatian Post and Telecommunications" },
+            {  0x1400, 0x14FF,  "HRT - Croatian Radio and Television" },
+            {  0x1500, 0x15FF,  "IBM" },
+            {  0x1600, 0x16FF,  "Nera" },
+            {  0x1700, 0x17FF,  "Beta Technik (Betacrypt)" },
+            {  0x1800, 0x18FF,  "Kudelski SA"},
+            {  0x1900, 0x19FF,  "Titan Information Systems"},
+            {  0x2000, 0x20FF,  "TelefXnica Servicios Audiovisuales"},
+            {  0x2100, 0x21FF,  "STENTOR (France Telecom, CNES and DGA)"},
+            {  0x2200, 0x22FF,  "Scopus Network Technologies"},
+            {  0x2300, 0x23FF,  "BARCO AS"},
+            {  0x2400, 0x24FF,  "StarGuide Digital Networks  "},
+            {  0x2500, 0x25FF,  "Mentor Data System, Inc."},
+            {  0x2600, 0x26FF,  "European Broadcasting Union"},
+            {  0x4700, 0x47FF,  "General Instrument"},
+            {  0x4800, 0x48FF,  "Telemann"},
+            {  0x4900, 0x49FF,  "Digital TV Industry Alliance of China"},
+            {  0x4A00, 0x4A0F,  "Tsinghua TongFang"},
+            {  0x4A10, 0x4A1F,  "Easycas"},
+            {  0x4A20, 0x4A2F,  "AlphaCrypt"},
+            {  0x4A30, 0x4A3F,  "DVN Holdings"},
+            {  0x4A40, 0x4A4F,  "Shanghai Advanced Digital Technology Co. Ltd. (ADT)"},
+            {  0x4A50, 0x4A5F,  "Shenzhen Kingsky Company (China) Ltd"},
+            {  0x4A60, 0x4A6F,  "@SKY"},
+            {  0x4A70, 0x4A7F,  "DreamCrypt"},
+            {  0x4A80, 0x4A8F,  "THALESCrypt"},
+            {  0x4A90, 0x4A9F,  "Runcom Technologies"},
+            {  0x4AA0, 0x4AAF,  "SIDSA"},
+            {  0x4AB0, 0x4ABF,  "Beijing Comunicate Technology Inc."},
+            {  0x4AC0, 0x4ACF,  "Latens Systems Ltd"},
+	    {  0,0, NULL }
+	};
+	
+	int i = 0;
+	while (table[i].str) {
+		if (table[i].from <= caid && table[i].to >= caid)
+			return (char *) table[i].str;
+		i++;
+	}
+   	
+	return (char *) "ERROR: Undefined!";
+}
+//-----------------------------------------------------------------------------------
 void get_time_mjd (unsigned long mjd, long *year , long *month, long *day)
 {
     if (mjd > 0) {
@@ -835,7 +903,9 @@ int ts2psi_data(unsigned char *buf,psi_buf_t *p,int len, int pid_req)
         len-=4;
         
         if (h.sync_byte != 0x47) {
-              info("%s:No sync byte in header !\n",__FUNCTION__);
+//#ifdef DBG
+              sys("%s:No sync byte in header !\n",__FUNCTION__);
+//#endif          
               return -1;
         }
 
@@ -865,7 +935,9 @@ int ts2psi_data(unsigned char *buf,psi_buf_t *p,int len, int pid_req)
             return -1;
           }
           if (h.transport_scrambling_control) {
+#ifdef DBG
             info("Transport scrambling flag set !\n");
+#endif          
             //return -1;
           }   
           
@@ -881,7 +953,9 @@ int ts2psi_data(unsigned char *buf,psi_buf_t *p,int len, int pid_req)
             b+=si_offset;
             len-=si_offset; 
             if (len < 0 || len > 184) {
+#ifdef DBG
                   info("WARNING 1: TS Packet damaged !\n");
+#endif          
                   return -1;
             }
             //move to buffer              

@@ -163,7 +163,7 @@ void show_it(int show_count, int show_uuids, int show_tuners, int show_sats, int
 					case CA_MULTI_TRANSPONDER:
 						cammode="CA_MULTI_TRANSPONDER";break;
 				}	
-				printf("  CI-Slot %d: State <%s>, Mode <%s>, SIDs %d/%d, CAM <%s>\n", api_cmd->u.nc_info.cam[i].slot, camstate, cammode, api_cmd->u.nc_info.cam[i].use_sids, api_cmd->u.nc_info.cam[i].max_sids, api_cmd->u.nc_info.cam[i].menu_string);
+				printf("  CI-Slot %d: State <%s>, Mode <%s>, CAPMT-Flag: %d, SIDs %d/%d, CAM <%s>\n", api_cmd->u.nc_info.cam[i].slot, camstate, cammode, api_cmd->u.nc_info.cam[i].capmt_flag, api_cmd->u.nc_info.cam[i].use_sids, api_cmd->u.nc_info.cam[i].max_sids, api_cmd->u.nc_info.cam[i].menu_string);
 			}
 		}
 		if (show_tuners) {

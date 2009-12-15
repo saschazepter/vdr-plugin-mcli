@@ -16,7 +16,7 @@ typedef struct
 #ifdef SERVER
 	int tuner_number;
 	char cfgpath[_POSIX_PATH_MAX];
-	int log;
+	int verbose;
 #endif
 #ifdef CLIENT
 	char disec_conf_path[_POSIX_PATH_MAX];

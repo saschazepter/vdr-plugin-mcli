@@ -111,7 +111,18 @@ int mmi_cam_reset (char *uuid, char *intf, int port, int slot)
 	closesocket (sock);
 	return 0;
 }
-
+//---------------------------------------------------------------------------------------------
+int mmi_cam_reinit (char *uuid, char *intf, int port, int slot)
+{
+	int cmd = (slot << 12) | 0xeee;
+	printf ("Reinitializing slot %d (cmd %x)...\n", slot, cmd);
+	int sock = mmi_open_menu_session (uuid, intf, port, cmd);
+	if (sock < 1) {
+		printf ("Unable to reset slot %d on netceiver %s...\n", slot, uuid);
+	}
+	closesocket (sock);
+	return 0;
+}
 //---------------------------------------------------------------------------------------------
 int mmi_get_menu_text (int sockfd, char *buf, int buf_len, int timeout)
 {

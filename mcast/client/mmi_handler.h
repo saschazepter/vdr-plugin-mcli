@@ -41,5 +41,6 @@ DLL_SYMBOL int mmi_poll_for_menu_text(UDPContext *s, mmi_info_t *m, int timeout)
 DLL_SYMBOL int mmi_open_menu_session(char *uuid, char *iface,int port, int cmd);
 DLL_SYMBOL void mmi_close_menu_session(int s);
 DLL_SYMBOL int mmi_cam_reset(char *uuid, char *intf, int port, int slot);
+DLL_SYMBOL int mmi_cam_reinit(char *uuid, char *intf, int port, int slot);
 
 #endif

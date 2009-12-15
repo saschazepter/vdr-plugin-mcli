@@ -332,6 +332,13 @@ typedef struct tdt_sect {
       uint8_t  dvbdate[5];
 } tdt_sect_t;
 
+typedef struct _str_table {
+    unsigned int       from;          
+    unsigned int       to;            
+    const char  	*str;          
+} str_table;
+            
+
 int parse_ca_descriptor(unsigned char *desc, si_desc_t *t);
 
 int ts2psi_data(unsigned char *buf,psi_buf_t *p,int len, int pid_req);	
@@ -352,7 +359,7 @@ void print_ca_bytes(si_desc_t *p);
 void get_time_mjd (unsigned long mjd, long *year , long *month, long *day);
 void print_tdt(tdt_sect_t *tdt, uint16_t mjd, uint32_t utc);
 int ca_free_cpl_desc(ca_pmt_list_t *cpl);
-
+char *si_caid_to_name(unsigned int caid);
 
 #endif
 
