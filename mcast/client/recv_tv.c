@@ -153,7 +153,7 @@ static pid_info_t *find_slot_by_pid (recv_info_t * r, int pid, int id)
 {
 	pid_info_t *slot;
 	DVBMC_LIST_FOR_EACH_ENTRY (slot, &r->slots.list, pid_info_t, list) {
-		if (slot->run && slot->pid.pid == pid && slot->pid.id == id) {
+		if (slot->run && slot->pid.pid == pid  && (id == -1 || slot->pid.id == id)) {
 			return slot;
 		}
 	}
@@ -599,10 +599,24 @@ int recv_pids_get (recv_info_t *r, dvb_pid_t *pids)
 
 int recv_pid_add (recv_info_t * r, dvb_pid_t *pid)
 {
+	int i;
 	int ret=0;
 	
 	pthread_mutex_lock (&lock);
-	pid_info_t *p=find_slot_by_pid (r, pid->pid, pid->id);
+	pid_info_t *p=find_slot_by_pid (r, pid->pid, -1);
+	if(p) {
+		if(!p->pid.id && pid->id) { // already got unencrypted pid but now need encrypted
+			//replace sid 
+			for (i = 0; i < r->pidsnum; i++) {
+				if(r->pids[i].pid==pid->pid || ret) {
+					r->pids[i].re = 0;
+					r->pids[i]=*pid;
+					update_mcg(r, 1);
+					ret = 1;
+				}
+			}
+		}
+	}
 	if(!p && (r->pidsnum < (RECV_MAX_PIDS-2))) {
 #if defined(RE)
 		r->pids[r->pidsnum].re = 0;
