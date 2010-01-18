@@ -608,11 +608,12 @@ int recv_pid_add (recv_info_t * r, dvb_pid_t *pid)
 		if(!p->pid.id && pid->id) { // already got unencrypted pid but now need encrypted
 			//replace sid 
 			for (i = 0; i < r->pidsnum; i++) {
-				if(r->pids[i].pid==pid->pid || ret) {
+				if(r->pids[i].pid==pid->pid) {
 					r->pids[i].re = 0;
 					r->pids[i]=*pid;
 					update_mcg(r, 1);
 					ret = 1;
+					break;
 				}
 			}
 		}
