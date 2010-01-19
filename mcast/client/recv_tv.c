@@ -423,9 +423,13 @@ static void update_mcg (recv_info_t * r, int handle_ten)
 		if(p->run) {
 			int found_pid = 0;
 			for (i = 0;  i < r->pidsnum; i++) {
+				// pid already there without id but now also with id required
+				if (r->pids[i].pid == p->pid.pid && r->pids[i].id && !p->pid.id) {
+					found_pid = 0;
+					break;
+				}
 				if (r->pids[i].pid == p->pid.pid && r->pids[i].id == p->pid.id) {
 					found_pid = 1;
-					break;
 				}
 			}
 			if (!found_pid) {
@@ -436,7 +440,6 @@ static void update_mcg (recv_info_t * r, int handle_ten)
 
 	for (i = 0; i < r->pidsnum; i++) {
 		unsigned int pid = r->pids[i].pid;
-		unsigned int id = r->pids[i].id;
 		if (!find_slot_by_pid (r, pid, -1)) { //pid with any id there?
 			allocate_slot (r, &r->mcg, r->pids+i);
 		}
