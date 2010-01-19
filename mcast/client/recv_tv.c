@@ -437,7 +437,6 @@ static void update_mcg (recv_info_t * r, int handle_ten)
 	for (i = 0; i < r->pidsnum; i++) {
 		unsigned int pid = r->pids[i].pid;
 		unsigned int id = r->pids[i].id;
-		printf("PID: %d SID: %d\n", pid, id);
 		if (!find_slot_by_pid (r, pid, -1)) { //pid with any id there?
 			allocate_slot (r, &r->mcg, r->pids+i);
 		}
