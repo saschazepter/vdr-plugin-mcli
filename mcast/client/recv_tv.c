@@ -540,8 +540,10 @@ int recv_redirect (recv_info_t * r, struct in6_addr mcg)
 		}
 
 #endif
-		pthread_detach (r->recv_ten_thread);
-		pthread_null (r->recv_ten_thread);
+		if(pthread_exist(r->recv_ten_thread)) {
+			pthread_detach (r->recv_ten_thread);
+			pthread_null (r->recv_ten_thread);
+		}
 		update_mcg (r, 0);
 	} else { 
 		ret = 1;
