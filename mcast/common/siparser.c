@@ -12,29 +12,29 @@ void printhex_buf(char *msg,unsigned char *buf,int len)
   int width=8;
 
   i=k=0;
-  info ("%s: %d bytes (0x%04x)\n",msg,len,len);
-  info ("---------------------------------------------------------------\n");    
+  sys ("%s: %d bytes (0x%04x)\n",msg,len,len);
+  sys ("---------------------------------------------------------------\n");    
   while(len) {
-    info ("%04x	",k++*width*2);
+    sys ("%04x	",k++*width*2);
     j=i;
     for(;i < j + width ; i++){ 
       if (i >= len) break; 
-      info ("%02x ",buf[i]);  
+      sys ("%02x ",buf[i]);  
     }
     if (i >= len) {
-      info ("\n");
+      sys ("\n");
       break;
     }
-    info("	");
+    sys("	");
     j=i;
     for(;i < j + width ; i++){
       if (i >= len) break;
-      info("%02x ",buf[i]);      
+      sys("%02x ",buf[i]);      
     }
-    info("\n");
+    sys("\n");
     if (i >= len) break;
   }    
-  info("---------------------------------------------------------------\n");    
+  sys("---------------------------------------------------------------\n");    
 }
 //-----------------------------------------------------------------------------------
 void writehex_buf(FILE *f, char *msg,unsigned char *buf,int len)

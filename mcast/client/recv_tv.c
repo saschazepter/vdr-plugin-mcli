@@ -389,6 +389,19 @@ static void start_ten_receive (recv_info_t * r)
 
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+static int cmppids(const void *p1, const void *p2)
+{
+	dvb_pid_t *pid1=(dvb_pid_t *)p1;
+	dvb_pid_t *pid2=(dvb_pid_t *)p2;
+
+	if(pid1->pid == pid2->pid) {
+		return pid1->id < pid2->id;
+	}
+	return pid1->pid < pid2->pid;
+}
+
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 static void update_mcg (recv_info_t * r, int handle_ten)
 {
 	int i;
@@ -403,7 +416,8 @@ static void update_mcg (recv_info_t * r, int handle_ten)
 		}
 	}
 	dbg("update_mcg(%p, %d)\n", r, handle_ten);
-	
+	qsort(r->pids, r->pidsnum, sizeof(dvb_pid_t), cmppids);
+
 	DVBMC_LIST_FOR_EACH_ENTRY_SAFE (p, ptmp, &r->slots.list, pid_info_t, list) {
 		//dbg ("DVBMC_LIST_FOR_EACH_ENTRY_SAFE: %p\n", p);
 		if(p->run) {
@@ -423,7 +437,8 @@ static void update_mcg (recv_info_t * r, int handle_ten)
 	for (i = 0; i < r->pidsnum; i++) {
 		unsigned int pid = r->pids[i].pid;
 		unsigned int id = r->pids[i].id;
-		if (!find_slot_by_pid (r, pid, id)) {
+		printf("PID: %d SID: %d\n", pid, id);
+		if (!find_slot_by_pid (r, pid, -1)) { //pid with any id there?
 			allocate_slot (r, &r->mcg, r->pids+i);
 		}
 	}
@@ -599,25 +614,10 @@ int recv_pids_get (recv_info_t *r, dvb_pid_t *pids)
 
 int recv_pid_add (recv_info_t * r, dvb_pid_t *pid)
 {
-	int i;
 	int ret=0;
 	
 	pthread_mutex_lock (&lock);
-	pid_info_t *p=find_slot_by_pid (r, pid->pid, -1);
-	if(p) {
-		if(!p->pid.id && pid->id) { // already got unencrypted pid but now need encrypted
-			//replace sid 
-			for (i = 0; i < r->pidsnum; i++) {
-				if(r->pids[i].pid==pid->pid) {
-					r->pids[i].re = 0;
-					r->pids[i]=*pid;
-					update_mcg(r, 1);
-					ret = 1;
-					break;
-				}
-			}
-		}
-	}
+	pid_info_t *p=find_slot_by_pid (r, pid->pid, pid->id);
 	if(!p && (r->pidsnum < (RECV_MAX_PIDS-2))) {
 #if defined(RE)
 		r->pids[r->pidsnum].re = 0;

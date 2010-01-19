@@ -261,6 +261,7 @@ extern pthread_mutex_t _loglock;
   #define err(format, arg...) {fprintf(stderr,"%s (%d): " format, strerror(errno), errno, ## arg);exit(-1);}
   #define info(format, arg...) printf(format , ## arg)
   #define warn(format, arg...) fprintf(stderr, format , ## arg)
+  #define sys(format, arg...) printf(format, ## arg)
 #endif
 
 #else

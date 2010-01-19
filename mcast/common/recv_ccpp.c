@@ -520,11 +520,14 @@ void *recv_ten (void *arg)
 								dbg ("Redirect for receiver %p: MCG is at %s\n", r, hostname);
 #endif								
 								int ret = recv_redirect (r, tra_info.tra->mcg);
+
+#if 0 //Enable/Disable TEN Termination on already accomplished redirects
 								if (!ret) {
 //									printf("Terminate recv_ten !\n");
 									free (tra_info.tra);
 									break;
 								}
+#endif
 							}
 						}
 						free (tra_info.tra);
