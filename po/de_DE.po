@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: vdr-mcli 1.0\n"
 "Report-Msgid-Bugs-To: <see README>\n"
-"POT-Creation-Date: 2009-10-28 10:26+0100\n"
+"POT-Creation-Date: 2010-01-21 15:18+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: German <reelbox-devel@mailings.reelbox.org>\n"
@@ -30,3 +30,9 @@ msgstr "DVB-S"
 
 msgid "DVB-S2"
 msgstr "DVB-S2"
+
+msgid "Module '%s' ready"
+msgstr "'%s'-Modul bereit"
+
+msgid "Module '%s' removed"
+msgstr "'%s'-Modul entfernt"

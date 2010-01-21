@@ -178,11 +178,11 @@ int cCamMenu::CamFind (cam_list_t * cam_list)
 	Clear ();
 	int n, cnt = 0, i;
 	netceiver_info_list_t *nc_list = nc_get_list ();
-	printf ("Looking for netceivers out there....\n");
+	//printf ("Looking for netceivers out there....\n");
 	nc_lock_list ();
 	for (n = 0; n < nc_list->nci_num; n++) {
 		netceiver_info_t *nci = nc_list->nci + n;
-		printf ("\nFound NetCeiver: %s \n", nci->uuid);
+		//printf ("\nFound NetCeiver: %s \n", nci->uuid);
 		char buf[128];
 		Add (new cOsdItem ("Netceiver", osUnknown, false));
 		snprintf (buf, 128, "    %s: %s", "ID", nci->uuid);
@@ -223,7 +223,7 @@ int cCamMenu::CamFind (cam_list_t * cam_list)
 
 int cCamMenu::CamMenuOpen (cam_list_t * cam)
 {
-	printf ("Opening CAM Menu at NetCeiver %s Slot %d Current: %i\n", cam->uuid, cam->slot, currentSelected);
+	//printf ("Opening CAM Menu at NetCeiver %s Slot %d Current: %i\n", cam->uuid, cam->slot, currentSelected);
 
 	int mmi_session = mmi_open_menu_session (cam->uuid, m_cmd->iface, 0, cam->slot);
 	if (mmi_session > 0) {
@@ -235,7 +235,7 @@ int cCamMenu::CamMenuOpen (cam_list_t * cam)
 
 int cCamMenu::CamMenuOpen (mmi_info_t * mmi_info)
 {
-	printf ("Opening CAM Menu at NetCeiver %s Slot %d\n", mmi_info->uuid, mmi_info->slot);
+	//printf ("Opening CAM Menu at NetCeiver %s Slot %d\n", mmi_info->uuid, mmi_info->slot);
 
 	char buf[MMI_TEXT_LENGTH * 2];
 
@@ -243,7 +243,7 @@ int cCamMenu::CamMenuOpen (mmi_info_t * mmi_info)
 	inCamMenu = true;
 	cCharSetConv conv = cCharSetConv ("ISO-8859-1", "UTF-8");
 	conv.Convert (mmi_info->mmi_text, buf, MMI_TEXT_LENGTH * 2);
-	printf ("MMI-UTF8: \"%s\"\n", buf);
+	//printf ("MMI-UTF8: \"%s\"\n", buf);
 	char *saveptr = NULL;
 	char *ret = strtok_r (buf, "\n", &saveptr);
 	if (ret) {
@@ -257,7 +257,7 @@ int cCamMenu::CamMenuOpen (mmi_info_t * mmi_info)
 
 	int mmi_session = mmi_open_menu_session (mmi_info->uuid, m_cmd->iface, 0, mmi_info->slot);
 
-	printf ("CamMenuOpen: mmi_session: %i\n", mmi_session);
+	//printf ("CamMenuOpen: mmi_session: %i\n", mmi_session);
 	return mmi_session;
 }
 
@@ -327,15 +327,15 @@ eOSState cCamMenu::ProcessKey (eKeys Key)
 		pinCounter = 0;	// reset pin
 		if (inCamMenu && inputRequested) {
 			inputRequested = eInputNone;	// input was sent
-			printf ("Sending pin: \"%s\"\n", pin);
+			//printf ("Sending pin: \"%s\"\n", pin);
 			CamMenuSend (mmi_session, pin);
 			Receive ();
 		} else if (inMMIBroadcastMenu) {
-			printf ("Sending: \"%s\"\n", Get (Current())->Text());
+			//printf ("Sending: \"%s\"\n", Get (Current())->Text());
 			CamMenuSend (mmi_session, Get (Current ())->Text ());
 			Receive ();
 		} else if (inCamMenu) {
-			printf ("Sending: \"%s\"\n", Get (Current ())->Text ());
+			//printf ("Sending: \"%s\"\n", Get (Current ())->Text ());
             if (strcmp(Get ( Current ())->Text(), trVDR("Error"))) // never send Error...
 			    CamMenuSend (mmi_session, Get (Current ())->Text ());
 			Receive ();
@@ -380,7 +380,7 @@ eOSState cCamMenu::ProcessKey (eKeys Key)
 			bla = CamMenuReceive (mmi_session, buf, MMI_TEXT_LENGTH);
 			if (bla > 0) {
 				alreadyReceived = true;
-				printf ("bla: %i\n", bla);
+				//printf ("bla: %i\n", bla);
 				Receive ();
 			}
 		}

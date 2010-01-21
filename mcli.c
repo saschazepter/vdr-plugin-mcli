@@ -596,6 +596,16 @@ void cPluginMcli::Action (void)
 	netceiver_info_list_t *nc_list = nc_get_list ();
 //	printf ("Looking for netceivers out there....\n");
 	bool channel_switch_ok = false;
+#define NOTIFY_CAM_CHANGE 1
+#ifdef NOTIFY_CAM_CHANGE
+    int cam_stats[CAM_POOL_MAX] = { 0 };
+    char menu_strings[CAM_POOL_MAX][MAX_MENU_STR_LEN];
+    bool first_run = true;
+    int nrCamChanged = 0;
+
+    for (int i = 0; i < CAM_POOL_MAX; i++)
+        menu_strings[i][0] = '\0';
+#endif
 	
 	while (Running ()) {
 		Lock ();
@@ -617,6 +627,37 @@ void cPluginMcli::Action (void)
 					isyslog ("mcli: Add CAMs from NetCeiver %s -> %d\n", nci->uuid, cpa);
 				}
 			}
+
+#if NOTIFY_CAM_CHANGE
+            if (n == 0) {
+                bool camAdded = false;
+                bool camRemoved = false;
+                for(int j = 0; j < nci->cam_num && j < CAM_POOL_MAX; j++) {
+                    if (nci->cam[j].status != cam_stats[j]) {
+                        if (nci->cam[j].status && nci->cam[j].status == 2) {
+                            camAdded = true;
+                            strncpy(menu_strings[j], nci->cam[j].menu_string, MAX_MENU_STR_LEN);
+                        } else if (nci->cam[j].status == 0)
+                            camRemoved = true;
+                        cam_stats[j] = nci->cam[j].status;
+                    }
+                }
+                if (!first_run) {
+                    char buf[64];
+                    if (camAdded) {
+                        //printf("mcli: Module '%s' ready\n", menu_strings[nrCamChanged]);
+                        snprintf(buf, 64, tr("Module '%s' ready"), menu_strings[nrCamChanged]);
+                        Skins.QueueMessage(mtInfo, buf);
+                    } else if (camRemoved){
+                        //printf("mcli: Module '%s' removed\n", menu_strings[nrCamChanged]);
+                        snprintf(buf, 64, tr("Module '%s' removed"), (char*)menu_strings[nrCamChanged]);
+                        Skins.QueueMessage(mtInfo, buf);
+                        menu_strings[nrCamChanged][0] = '\0';
+                    }
+                } else
+                    first_run = false;
+            }
+#endif
 
 			for (int i = 0; i < nci->tuner_num; i++) {
 				tuner_pool_t *t = TunerFindByUUID (nci->tuner[i].uuid);
@@ -689,6 +730,9 @@ bool cPluginMcli::Start (void)
 {
 //	printf ("cPluginMcli::Start\n");
 	isyslog("mcli v"MCLI_PLUGIN_VERSION" started");
+#ifdef REELVDR
+    if (access("/dev/dvb/adapter0", F_OK) != 0) //TB: this line allows the client to be used with usb-sticks without conflicts
+#endif
 	cThread::Start ();
 	// Start any background activities the plugin shall perform.
 	return true;
