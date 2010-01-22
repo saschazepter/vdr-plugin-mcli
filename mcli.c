@@ -601,7 +601,6 @@ void cPluginMcli::Action (void)
     int cam_stats[CAM_POOL_MAX] = { 0 };
     char menu_strings[CAM_POOL_MAX][MAX_MENU_STR_LEN];
     bool first_run = true;
-    int nrCamChanged = 0;
 
     for (int i = 0; i < CAM_POOL_MAX; i++)
         menu_strings[i][0] = '\0';
@@ -630,32 +629,27 @@ void cPluginMcli::Action (void)
 
 #if NOTIFY_CAM_CHANGE
             if (n == 0) {
-                bool camAdded = false;
-                bool camRemoved = false;
                 for(int j = 0; j < nci->cam_num && j < CAM_POOL_MAX; j++) {
                     if (nci->cam[j].status != cam_stats[j]) {
-                        if (nci->cam[j].status && nci->cam[j].status == 2) {
-                            camAdded = true;
+                        char buf[64];
+                        if (nci->cam[j].status) {
+                            if(nci->cam[j].status == 2 && !first_run) {
+                                snprintf(buf, 64, tr("Module '%s' ready"), nci->cam[j].menu_string);
+                                Skins.QueueMessage(mtInfo, buf);
+                            }
+                            cam_stats[j] = nci->cam[j].status;
                             strncpy(menu_strings[j], nci->cam[j].menu_string, MAX_MENU_STR_LEN);
-                        } else if (nci->cam[j].status == 0)
-                            camRemoved = true;
-                        cam_stats[j] = nci->cam[j].status;
+                        } else if (nci->cam[j].status == 0) {
+                            cam_stats[j] = nci->cam[j].status;
+                            if (!first_run) {
+                                snprintf(buf, 64, tr("Module '%s' removed"), (char*)menu_strings[j]);
+                                Skins.QueueMessage(mtInfo, buf);
+                            }
+                            menu_strings[j][0] = '\0';
+                        }
                     }
                 }
-                if (!first_run) {
-                    char buf[64];
-                    if (camAdded) {
-                        //printf("mcli: Module '%s' ready\n", menu_strings[nrCamChanged]);
-                        snprintf(buf, 64, tr("Module '%s' ready"), menu_strings[nrCamChanged]);
-                        Skins.QueueMessage(mtInfo, buf);
-                    } else if (camRemoved){
-                        //printf("mcli: Module '%s' removed\n", menu_strings[nrCamChanged]);
-                        snprintf(buf, 64, tr("Module '%s' removed"), (char*)menu_strings[nrCamChanged]);
-                        Skins.QueueMessage(mtInfo, buf);
-                        menu_strings[nrCamChanged][0] = '\0';
-                    }
-                } else
-                    first_run = false;
+                first_run = false;
             }
 #endif
 
