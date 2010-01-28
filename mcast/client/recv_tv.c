@@ -518,7 +518,7 @@ int stop_sid_mcgs(recv_info_t *r, int sid)
         DVBMC_LIST_FOR_EACH_ENTRY_SAFE (p, ptmp, &r->slots.list, pid_info_t, list) {
                 if(p->run) {
                         if (p->pid.pid && p->pid.id == sid) {
-                                info ("Deallocating PID %d ID %d RE %d from slot %p\n", p->pid.pid,p->pid.id,p->pid.re, p);
+                                //info ("Deallocating PID %d ID %d RE %d from slot %p\n", p->pid.pid,p->pid.id,p->pid.re, p);
                                 deallocate_slot (r, p);
                         }
                 }
@@ -537,7 +537,7 @@ int rejoin_mcgs(recv_info_t *r, int sid)
                 if (!find_slot_by_pid (r, pid, id) && id == sid) {
                         char addr_str[INET6_ADDRSTRLEN];
                         inet_ntop (AF_INET6, &r->mcg, addr_str, INET6_ADDRSTRLEN);
-                        info ("Rejoin mcg %s with no ID (PID %d ID %d RE %d)...\n", addr_str, pid, id, r->pids[i].re);
+                        //info ("Rejoin mcg %s with no ID (PID %d ID %d RE %d)...\n", addr_str, pid, id, r->pids[i].re);
                         allocate_slot (r, &r->mcg, r->pids+i);
                 }
         }
