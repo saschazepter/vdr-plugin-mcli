@@ -509,6 +509,42 @@ int set_redirected(recv_info_t *r, int sid)
 
 	return 0;
 }
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+int stop_sid_mcgs(recv_info_t *r, int sid)
+{
+        pid_info_t *p;   
+        pid_info_t *ptmp;
+
+        DVBMC_LIST_FOR_EACH_ENTRY_SAFE (p, ptmp, &r->slots.list, pid_info_t, list) {
+                if(p->run) {
+                        if (p->pid.pid && p->pid.id == sid) {
+                                info ("Deallocating PID %d ID %d RE %d from slot %p\n", p->pid.pid,p->pid.id,p->pid.re, p);
+                                deallocate_slot (r, p);
+                        }
+                }
+        }        
+                 
+        return 0;
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+int rejoin_mcgs(recv_info_t *r, int sid)
+{
+
+        int i;
+        for (i = 0; i < r->pidsnum; i++) {
+                unsigned int pid = r->pids[i].pid;
+                unsigned int id = r->pids[i].id;
+                if (!find_slot_by_pid (r, pid, id) && id == sid) {
+                        char addr_str[INET6_ADDRSTRLEN];
+                        inet_ntop (AF_INET6, &r->mcg, addr_str, INET6_ADDRSTRLEN);
+                        info ("Rejoin mcg %s with no ID (PID %d ID %d RE %d)...\n", addr_str, pid, id, r->pids[i].re);
+                        allocate_slot (r, &r->mcg, r->pids+i);
+                }
+        }
+
+        return 0;
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #endif
 int recv_redirect (recv_info_t * r, struct in6_addr mcg)
 {
@@ -528,23 +564,22 @@ int recv_redirect (recv_info_t * r, struct in6_addr mcg)
 	//printf("SID in: %d\n",sid);
 
 	if (!sid || ( !check_if_already_redirected(r, sid) && check_if_sid_in(r, sid)) ) {
-		stop_receive (r, 0);
-		r->mcg = mcg;	
-		
-		if (sid)
-			set_redirected(r, sid);
-
-#if 0		
-		if (!check_if_already_redirected(r,sid)) {
-			set_redirected(r, sid);		
+		if (sid == 0) {
+			stop_receive (r, 0);
+			r->mcg = mcg;	
+			
+			if(pthread_exist(r->recv_ten_thread)) {
+				pthread_detach (r->recv_ten_thread);
+				pthread_null (r->recv_ten_thread);
+			}
+			update_mcg (r, 0);
+		} else {
+			//stop sid mcgs
+			stop_sid_mcgs(r, sid);
+			set_redirected(r, sid);         
+			//start new mcgs with no sid
+			rejoin_mcgs(r, sid);				
 		}
-
-#endif
-		if(pthread_exist(r->recv_ten_thread)) {
-			pthread_detach (r->recv_ten_thread);
-			pthread_null (r->recv_ten_thread);
-		}
-		update_mcg (r, 0);
 	} else { 
 		ret = 1;
 	}
