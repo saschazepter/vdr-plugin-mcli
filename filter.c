@@ -398,9 +398,10 @@ void cMcliFilters::Action (void)
 		if (block) {
 			int tid = -1;
 			u_short pid = (((u_short) block[1] & PID_MASK_HI) << 8) | block[2];
+			int offset = ((block[3] & 0x20) >> 5) * (block[4] + 1); // offset is the length of the adaption field (see vdr/remux.c).
 			bool Pusi = (block[1] & 0x40) >> 6;
 			if (Pusi) {
-				tid = (int) block[5];
+				tid = (int) block[5 + offset];
 				m_pl.SetPid (pid, tid);
 //                              printf("Pusi pid %d tid %d\n", pid, tid);
 			} else {
@@ -409,7 +410,7 @@ void cMcliFilters::Action (void)
 //					printf ("Failed to get tid for pid %d\n", pid);
 				}
 			}
-			int len = 188 - 4 - Pusi;	//(block[5+Pusi]&0xf)<<8|block[6+Pusi];
+			int len = 188 - 4 - Pusi - offset;	//(block[5+Pusi]&0xf)<<8|block[6+Pusi];
 //                      printf("pid:%d tid:%d Pusi: %d len: %d\n", pid, tid, Pusi, len);
 
 			LOCK_THREAD;
@@ -418,7 +419,7 @@ void cMcliFilters::Action (void)
 				cMcliFilter *next = Next (f);
 				if (tid != -1 && f->Matches (pid, tid)) {
 //                                      printf("Match!!!!");
-					if (!f->PutSection (block + 4 + Pusi, len, Pusi)) {
+					if (!f->PutSection (block + 4 + Pusi + offset, len, Pusi)) {
 						if (errno != ECONNREFUSED && errno != ECONNRESET && errno != EPIPE) {
 							esyslog ("mcli: couldn't send section packet");
 						}
