@@ -396,43 +396,68 @@ void cMcliFilters::Action (void)
 		int size;
 		const uchar *block = m_PB->GetStart (&size, 0, 0);
 		if (block) {
-			int tid = -1;
 			u_short pid = (((u_short) block[1] & PID_MASK_HI) << 8) | block[2];
 			int offset = ((block[3] & 0x20) >> 5) * (block[4] + 1); // offset is the length of the adaption field (see vdr/remux.c).
 			bool Pusi = (block[1] & 0x40) >> 6;
-			if (Pusi) {
-				tid = (int) block[5 + offset];
-				m_pl.SetPid (pid, tid);
-//                              printf("Pusi pid %d tid %d\n", pid, tid);
-			} else {
-				tid = m_pl.GetTidFromPid (pid);
-				if (tid == -1) {
-//					printf ("Failed to get tid for pid %d\n", pid);
-				}
-			}
-			int len = 188 - 4 - Pusi - offset;	//(block[5+Pusi]&0xf)<<8|block[6+Pusi];
-//                      printf("pid:%d tid:%d Pusi: %d len: %d\n", pid, tid, Pusi, len);
-
-			LOCK_THREAD;
-			cMcliFilter *f = First ();
-			while (f) {
-				cMcliFilter *next = Next (f);
-				if (tid != -1 && f->Matches (pid, tid)) {
-//                                      printf("Match!!!!");
-					if (!f->PutSection (block + 4 + Pusi + offset, len, Pusi)) {
-						if (errno != ECONNREFUSED && errno != ECONNRESET && errno != EPIPE) {
-							esyslog ("mcli: couldn't send section packet");
-						}
-						Del (f);
-						// Filter was closed.
-						//  - need to check remaining filters for another match
-					}	// if
-				}
-				f = next;
-			}
+      int len=188-4-offset;  //payload len
+      block=block+4+offset;  //point to payload
+      if ( Pusi ) {
+        if ( len>(block[0]) ) {  //process last section chunk
+          ProcessChunk(pid,block+1,block[0],0);
+          len -= block[0]+1;
+          block += block[0]+1;
+        } else {
+          len=0; //error!?!
+        }
+      } else {
+        if ( len>0 ) {           //process section chunk
+          ProcessChunk(pid,block,len,0);
+          block +=len;
+          len = 0;
+        }
+      }  
+      while ( len>0 ) {          //process complete section or initial chunk
+        int chunklen= ( ( (block[1]<<8) | block[2] ) & 0xFFF ) + 3 ;
+        if ( chunklen>len ) {
+          chunklen=len;
+        }
+        ProcessChunk(pid,block,chunklen,1);
+        block +=chunklen;
+        len -= chunklen;        
+      }
 		}
 	}
-
 	DELETENULL (m_PB);
 	dsyslog ("McliFilters::Action() ended");
+}
+
+void cMcliFilters::ProcessChunk(u_short pid, const uchar *block, int len, bool Pusi) {
+  int tid = -1;
+  if (Pusi) {
+    tid = (int) block[0];
+    m_pl.SetPid (pid, tid);
+  } else {
+    tid = m_pl.GetTidFromPid (pid);
+    if (tid == -1) {
+      //printf("Failed to get tid for pid %d\n", pid);
+    }
+  }
+  //printf("pid:%d tid:%d Pusi: %d len: %d\n", pid, tid, Pusi, len);
+  LOCK_THREAD;
+  cMcliFilter *f = First ();
+  while (f) {
+    cMcliFilter *next = Next (f);
+    if (tid != -1 && f->Matches (pid, tid)) {
+      //printf("Match!!!!");
+      if (!f->PutSection (block, len, Pusi)) {
+        if (errno != ECONNREFUSED && errno != ECONNRESET && errno != EPIPE) {
+          esyslog ("mcli: couldn't send section packet");
+        }
+        Del (f);
+        // Filter was closed.
+        //  - need to check remaining filters for another match
+      } // if
+    }
+    f = next;
+  }
 }

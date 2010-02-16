@@ -39,6 +39,7 @@ class cMcliFilters:public cList < cMcliFilter >, public cThread
       protected:
 	  virtual void Action (void);
 	void GarbageCollect (void);
+  void ProcessChunk(u_short pid, const uchar *block, int len, bool Pusi);
 
       public:
 	  cMcliFilters (void);
