@@ -47,9 +47,9 @@ LIBRARY_PATH=/usr/lib
 endif
 endif
 ifeq ($(APPLE_DARWIN), 1)
-CFLAGS:= $(CFLAGS) -fno-common -Wall -I../common $(DEFS)
+CFLAGS:= $(CFLAGS) -fPIC -fno-common -Wall -I../common $(DEFS)
 else
-CFLAGS:= $(CFLAGS) -Wall -I../common $(DEFS)
+CFLAGS:= $(CFLAGS) -fPIC -Wall -I../common $(DEFS)
 endif
 
 ifdef BACKTRACE
@@ -70,7 +70,7 @@ DEBUG=1
 endif
 
 ifdef WIN32
-CFLAGS:= -Iwin32/include $(CFLAGS) -mno-cygwin -DWIN32
+CFLAGS:= -Iwin32/include $(CFLAGS) -mno-cygwin -fPIC -DWIN32
 LDFLAGS:= -Lwin32/lib $(LDFLAGS) -mno-cygwin
 LDLIBS:= -lpthreadGC2 -lxml2 -lz -lws2_32 -liphlpapi 
 else
