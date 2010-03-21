@@ -13,13 +13,9 @@
 uint64_t Now (void)
 {
 	struct timeval t;
-#if 0
 	if (gettimeofday (&t, NULL) == 0)
 		return (uint64_t (t.tv_sec)) * 1000 + t.tv_usec / 1000;
 	return 0;
-#else
-	return clock();		
-#endif
 }
 
 //--------------------------------------------------------------------------
