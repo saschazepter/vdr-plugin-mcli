@@ -460,7 +460,7 @@ void *recv_ten (void *arg)
 	int n;
 	tra_info_t tra_info;
 	unsigned int dstlen;
-	time_t lastrecv=0;
+	clock_t lastrecv=0;
 	int donetimeout=0;
 
 	pthread_cleanup_push (clean_ccpp_thread, &c);
@@ -505,7 +505,7 @@ void *recv_ten (void *arg)
 					
 					pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
 					if (get_tra_data (c.dst, dstlen, &tra_info)) {
-						lastrecv=time(NULL);
+						lastrecv=clock();
 						donetimeout=0;
 						if (tra_info.tra_num) {
 							r->fe_status = tra_info.tra->s;
@@ -538,7 +538,7 @@ void *recv_ten (void *arg)
 					dbg ("uncompress failed\n");
 				}
 			} else {
-				if (!donetimeout && (time(NULL)-lastrecv)>TEN_TIMEOUT) {
+				if (!donetimeout && (clock()-lastrecv)>(TEN_TIMEOUT*CLOCKS_PER_SEC)) {
 					donetimeout=1;
 					memset (&r->fe_status, 0, sizeof(recv_festatus_t));
 					if(r->handle_ten) {
