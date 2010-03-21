@@ -12,10 +12,14 @@
 
 uint64_t Now (void)
 {
+#if 0
 	struct timeval t;
-	if (gettimeofday (&t, NULL) == 0)
-		return (uint64_t (t.tv_sec)) * 1000 + t.tv_usec / 1000;
-	return 0;
+        if (gettimeofday (&t, NULL) == 0)
+                return (uint64_t (t.tv_sec)) * 1000 + t.tv_usec / 1000;
+        return 0;
+#else
+        return clock();
+#endif
 }
 
 //--------------------------------------------------------------------------
@@ -144,7 +148,7 @@ uchar *cMyPacketBuffer::GetStartSub (int *readp, int timeout, int *size, int *fl
 {
 	uint64_t starttime = 0;
 
-	if (timeout)
+	if (*readp == wp && timeout)
 		starttime = Now ();
 //      printf("GET rp %i wp %i\n",readp,wp);
 	while (*readp == wp) {
