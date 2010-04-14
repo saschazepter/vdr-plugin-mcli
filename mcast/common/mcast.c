@@ -4,6 +4,9 @@
  * See the COPYING file for copyright information and
  * how to reach the author.
  *
+ * modified by Reel Multimedia, http://www.reel-multimedia.com, info@reel-multimedia.com
+ * 01042010 DL: use a single thread for reading from network layer (uses less resources)
+ *
  */
 
 #include "headers.h"
@@ -204,7 +207,6 @@ UDPContext *server_udp_open (const struct in6_addr *mcg, int port, const char *i
 	dbg ("Multicast streamer initialized successfully ! \n");
 
 	pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
-
 	return s;
       error:
 	err ("Cannot init udp_server  !\n");
@@ -383,6 +385,269 @@ int udp_close (UDPContext * s)
 		udp_ipv6_leave_multicast_group (s->udp_fd, s->idx, (struct sockaddr *) &s->dest_addr);
 
 	closesocket (s->udp_fd);
+	free (s);
+
+	return 0;
+}
+
+//--------------------------------------------------------------------------------------------------------------------------------------------
+
+#define MAX_BUFF_SIZE 0x10000
+#define MAX_CON_LIST 128
+UDPContext *gConList[MAX_CON_LIST];
+pthread_mutex_t gConListLock = PTHREAD_MUTEX_INITIALIZER;
+static int gConListInit=0;
+
+STATIC void client_upd_cleanup (void *arg) {
+	if(!gConListInit) return;
+	pthread_mutex_lock(&gConListLock);
+  memset(&gConList, 0, sizeof(gConList));
+  gConListInit=0;
+	pthread_mutex_unlock(&gConListLock);
+} // client_upd_cleanup
+
+void *client_upd_process(void *arg) {
+#ifdef RT
+#if 1
+	if (setpriority (PRIO_PROCESS, 0, -15) == -1)
+#else
+	if (pthread_setschedprio (p->recv_ts_thread, -15))
+#endif
+	{
+		dbg ("Cannot raise priority to -15\n");
+	}
+#endif
+	unsigned char buff[MAX_BUFF_SIZE];
+	socklen_t from_len = sizeof (struct sockaddr_storage);
+	struct sockaddr_storage from_local;
+	struct timeval timeout;
+	struct pollfd fds[MAX_CON_LIST];
+
+	pthread_cleanup_push (client_upd_cleanup, 0);
+	int i;
+	while(1) {
+		int max_fd=0;
+		pthread_mutex_lock(&gConListLock);
+
+		for(i=0;i<MAX_CON_LIST;i++) {
+			if(gConList[i]) {
+				fds[max_fd].fd = gConList[i]->udp_fd;
+				fds[max_fd].events = POLLIN;
+				fds[max_fd].revents = 0;
+				gConList[i]->pfd = &fds[max_fd];
+				max_fd++;
+			} // if
+		} // for
+		pthread_mutex_unlock(&gConListLock);
+		timeout.tv_sec = 0;
+		timeout.tv_usec = 100000;
+		int rs = poll(fds, max_fd, 1000);
+		if(rs>0) {
+			pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
+			pthread_mutex_lock(&gConListLock);
+			for(i=0;i<MAX_CON_LIST;i++) {
+				if(gConList[i] && gConList[i]->pfd && (gConList[i]->pfd->revents & POLLIN)) {
+					if(gConList[i]->cb) {
+						int ret = recvfrom (gConList[i]->udp_fd, (char *)buff, MAX_BUFF_SIZE, 0, 0, 0/*(struct sockaddr *) &from_local, &from_len*/);
+						if(ret>0)
+							gConList[i]->cb(buff, ret, gConList[i]->arg);
+					} else if(gConList[i]->buff && !gConList[i]->bufflen) {
+						pthread_mutex_lock(&gConList[i]->bufflock);
+						int ret = recvfrom (gConList[i]->udp_fd, (char *)gConList[i]->buff, gConList[i]->buffmax, 0, (struct sockaddr *) &from_local, &from_len);
+						if(ret>0)
+							gConList[i]->bufflen = ret;
+						pthread_mutex_unlock(&gConList[i]->bufflock);
+					} // if
+				} // if
+			} // for
+			pthread_mutex_unlock(&gConListLock);
+			pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+		} // if
+		pthread_testcancel();			
+	} // while
+	pthread_cleanup_pop (1);
+	return NULL;
+}
+
+static int client_upd_init() {
+	pthread_mutex_lock(&gConListLock);
+	if(gConListInit) {
+		pthread_mutex_unlock(&gConListLock);
+		return 1;
+	} // if
+	memset(&gConList, 0, sizeof(gConList));
+	pthread_t client_upd_thread;
+	if(0==pthread_create (&client_upd_thread, NULL, client_upd_process, 0)) {
+		gConListInit = 1;
+		pthread_detach(client_upd_thread);
+	} // if
+	pthread_mutex_unlock(&gConListLock);
+	return gConListInit;
+} // client_upd_init
+
+UDPContext *client_udp_open_buff (const struct in6_addr *mcg, int port, const char *ifname, int buff_size) {
+	UDPContext *ret = client_udp_open_cb (mcg, port, ifname, 0, 0);
+	if(ret) {
+		ret->buff     = (unsigned char *)malloc(buff_size);
+		ret->buffmax  = buff_size;
+		ret->bufflen  = 0;
+	} // if
+	return ret;
+} // client_udp_open_buff
+
+UDPContext *client_udp_open_cb (const struct in6_addr *mcg, int port, const char *ifname, client_udp_cb cb, void *arg)
+{
+	if(!client_upd_init()) return NULL;
+
+	UDPContext *s;
+	int recvfd = -1;
+	int n;
+
+	pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
+
+	s = (UDPContext *) calloc (1, sizeof (UDPContext));
+	if (!s) {
+		err ("Cannot allocate memory !\n");
+		goto error;
+	}
+
+	struct sockaddr_in6 *addr = (struct sockaddr_in6 *) &s->dest_addr;
+#ifndef WIN32
+	addr->sin6_addr=*mcg;
+#else
+	struct in6_addr any=IN6ADDR_ANY_INIT;
+	addr->sin6_addr=any;
+#endif
+	addr->sin6_family = AF_INET6;
+	addr->sin6_port = htons (port);
+	s->dest_addr_len = sizeof (struct sockaddr_in6);
+
+	recvfd = socket (PF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+	if (recvfd < 0) {
+		err ("cannot get socket\n");
+	}
+#ifdef WIN32	
+# ifndef IPV6_PROTECTION_LEVEL
+#   define IPV6_PROTECTION_LEVEL 23
+#  endif
+        n = 10 /*PROTECTION_LEVEL_UNRESTRICTED*/;
+        if(setsockopt( recvfd, IPPROTO_IPV6, IPV6_PROTECTION_LEVEL, (_SOTYPE)&n, sizeof(n) ) < 0 ) {
+        	warn ("setsockopt IPV6_PROTECTION_LEVEL\n");
+        }
+#endif                                    
+	n = 1;
+	if (setsockopt (recvfd, SOL_SOCKET, SO_REUSEADDR, (_SOTYPE)&n, sizeof (n)) < 0) {
+		warn ("setsockopt REUSEADDR\n");
+	}
+
+#if ! (defined WIN32 || defined APPLE)
+	if (ifname && strlen (ifname) && setsockopt (recvfd, SOL_SOCKET, SO_BINDTODEVICE, ifname, strlen (ifname) + 1)) {
+		dbg ("setsockopt SO_BINDTODEVICE %s failed\n", ifname);
+	}
+#endif
+	if (bind (recvfd, (struct sockaddr *) &s->dest_addr, s->dest_addr_len) < 0) {
+		warn ("bind failed\n");
+		goto error;
+	}
+#ifdef WIN32
+	addr->sin6_addr=*mcg;
+#endif
+	if (udp_ipv6_is_multicast_address ((struct sockaddr *) &s->dest_addr)) {
+#if 0
+		if (ifname && strlen (ifname) && (mcast_set_if (recvfd, ifname, 0) < 0)) {
+			warn ("mcast_set_if error \n");
+			goto error;
+		}
+#endif
+		if (ifname) {
+			if ((s->idx = if_nametoindex (ifname)) == 0) {
+				s->idx = 0;
+			} else {
+				dbg("Selecting interface %s (%d)", ifname, s->idx);
+			}
+		} else {
+			s->idx = 0;
+		}
+
+		if (udp_ipv6_join_multicast_group (recvfd, s->idx, (struct sockaddr *) &s->dest_addr) < 0) {
+			warn ("Cannot join multicast group !\n");
+			goto error;
+		}
+		s->is_multicast = 1;
+	}
+
+	n = cb ? UDP_PID_BUF_SIZE : UDP_RX_BUF_SIZE;
+	if (setsockopt (recvfd, SOL_SOCKET, SO_RCVBUF, (_SOTYPE)&n, sizeof (n)) < 0) {
+		warn ("setsockopt rcvbuf");
+		goto error;
+	}
+
+	s->udp_fd = recvfd;
+	s->local_port = port;
+
+	pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+
+	s->cb       = cb;
+	s->arg      = arg;
+	pthread_mutex_init(&s->bufflock, NULL);
+	int i;
+	pthread_mutex_lock(&gConListLock);
+	for(i=0;i<MAX_CON_LIST;i++) {
+		if(!gConList[i]) {
+			gConList[i]=s;
+			break;
+		} // if
+	} // for
+	pthread_mutex_unlock(&gConListLock);
+	if(i>=MAX_CON_LIST)
+		warn("---------------------------------------------No slot found!\n");
+
+	return s;
+      error:
+	warn ("socket error !\n");
+	if (s) {
+		free (s);
+	}
+	pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+	return NULL;
+}
+
+UDPContext *client_udp_open_host_buff (const char *host, int port, const char *ifname, int buff_size)
+{
+	struct in6_addr addr;
+
+	inet_pton (AF_INET6, host, &addr);
+
+	return client_udp_open_buff (&addr, port, ifname, buff_size);
+}
+
+//--------------------------------------------------------------------------------------------------------------------------------------------
+int udp_read_buff (UDPContext * s, uint8_t * buf, int size, int timeout, struct sockaddr_storage *from)
+{
+	pthread_mutex_lock(&s->bufflock);
+	int ret = s->bufflen>size ? size : s->bufflen;
+	if(ret>0) {
+		memcpy(buf, s->buff, ret);
+		s->bufflen-=ret;
+	}
+	pthread_mutex_unlock(&s->bufflock);
+	return ret;
+}
+//----------------------------------------------------------------------------------------------------------------------------------------------------
+int udp_close_buff (UDPContext * s)
+{
+	int i;
+	pthread_mutex_lock(&gConListLock);
+	for(i=0;i<MAX_CON_LIST;i++)
+		if(gConList[i] == s)
+			gConList[i]=0;
+	pthread_mutex_unlock(&gConListLock);
+	if (s->is_multicast)
+		udp_ipv6_leave_multicast_group (s->udp_fd, s->idx, (struct sockaddr *) &s->dest_addr);
+
+	closesocket (s->udp_fd);
+	free(s->buff);
+	pthread_mutex_destroy(&s->bufflock);
 	free (s);
 
 	return 0;

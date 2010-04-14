@@ -4,6 +4,9 @@
  * See the COPYING file for copyright information and
  * how to reach the author.
  *
+ * modified by Reel Multimedia, http://www.reel-multimedia.com, info@reel-multimedia.com
+ * 01042010 DL: use a single thread for reading from network layer (uses less resources)
+ *
  */
 
 #ifndef __RECV_TV_H__
@@ -31,9 +34,9 @@ typedef struct pid_info
 	dvb_pid_t pid;
 	struct in6_addr mcg;
 	recv_info_t *recv;
-	pthread_t recv_ts_thread;
 	int run;
 	int dropped;
+	int cont_old;
 } pid_info_t;
 
 struct recv_info

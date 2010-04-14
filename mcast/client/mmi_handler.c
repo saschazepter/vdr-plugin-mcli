@@ -4,6 +4,9 @@
  * See the COPYING file for copyright information and
  * how to reach the author.
  *
+ * modified by Reel Multimedia, http://www.reel-multimedia.com, info@reel-multimedia.com
+ * 01042010 DL: use a single thread for reading from network layer (uses less resources)
+ *
  */
 
 #include "headers.h"

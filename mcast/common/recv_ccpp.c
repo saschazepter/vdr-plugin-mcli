@@ -441,7 +441,7 @@ STATIC void clean_ccpp_thread (void *arg)
 {
 	ccpp_thread_context_t *c = (ccpp_thread_context_t *) arg;
 	if (c->s) {
-		udp_close (c->s);
+		udp_close_buff (c->s);
 	}
 	if(c->buf) {
 		free (c->buf);
@@ -485,7 +485,7 @@ void *recv_ten (void *arg)
 	
 	mcg_set_streaming_group (&ten, STREAMING_TEN);
 
-	c.s = client_udp_open (&ten, port, iface);
+	c.s = client_udp_open_buff (&ten, port, iface, XML_BUFLEN);
 	if (!c.s) {
 		warn ("client_udp_open error !\n");
 	} else {
@@ -496,7 +496,8 @@ void *recv_ten (void *arg)
 #endif
 		r->ten_run = 1;
 		while (r->ten_run) {
-			if ((n = udp_read (c.s, c.buf, XML_BUFLEN, 1000, NULL)) > 0) {
+			usleep(100000); // 10 times per seconds should be enough
+			if ((n = udp_read_buff (c.s, c.buf, XML_BUFLEN, 1000, NULL)) > 0) {
 				dstlen = XML_BUFLEN*5;
 				if (!gunzip (c.dst, &dstlen, c.buf, n)) {
 					memset (&tra_info, 0, sizeof (tra_info_t));
@@ -587,7 +588,7 @@ void *recv_tra (void *arg)
 
 	mcg_init_streaming_group (&tra, STREAMING_TRA);
 	
-	c.s = client_udp_open (&tra, port, iface);
+	c.s = client_udp_open_buff (&tra, port, iface, XML_BUFLEN);
 	if (!c.s) {
 		warn ("client_udp_open error !\n");
 	} else {
@@ -598,7 +599,8 @@ void *recv_tra (void *arg)
 		dbg ("Start receive TRA at %s port %d %s\n",  host, port, iface);
 #endif
 		while (c.run) {
-			if ((n = udp_read (c.s, c.buf, XML_BUFLEN, 500000, NULL)) > 0) {
+			usleep(100000); // 10 times per seconds should be enough
+			if ((n = udp_read_buff (c.s, c.buf, XML_BUFLEN, 500000, NULL)) > 0) {
 				dstlen = XML_BUFLEN*5;
 				if (!gunzip (c.dst, &dstlen, c.buf, n)) {
 					memset (&tra_info, 0, sizeof (tra_info_t));
@@ -1252,10 +1254,9 @@ void *recv_tca (void *arg)
 		err ("Cannot get memory for TRA destination buffer\n");
 	}
 	
-
 	mcg_init_streaming_group (&tca, STREAMING_TCA);
 	
-	c.s = client_udp_open (&tca, port, iface);
+	c.s = client_udp_open_buff (&tca, port, iface, XML_BUFLEN);
 	if (!c.s) {
 		warn ("client_udp_open error !\n");
 	} else {
@@ -1266,7 +1267,8 @@ void *recv_tca (void *arg)
 		dbg ("Start Receive TCA on interface %s port %d\n", iface, port);
 #endif
 		while (c.run) {
-			if ((n = udp_read (c.s, c.buf, XML_BUFLEN, 500000, NULL)) > 0) {
+			usleep(100000); // 10 times per seconds should be enough
+			if ((n = udp_read_buff (c.s, c.buf, XML_BUFLEN, 500000, NULL)) > 0) {
 				dstlen = XML_BUFLEN * 5;
 				if (!gunzip (c.dst, &dstlen, c.buf, n)) {
 					memset (&nc_info, 0, sizeof (netceiver_info_t));

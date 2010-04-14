@@ -358,6 +358,7 @@ int descriptor(unsigned char *desc, si_cad_t *c)
         if (len - 4 > 0) 
             memcpy(t->private_data,ptr+6,len-4);
 
+        //print_ca_desc(t);
         break; 
       }
     default: { 
@@ -754,22 +755,24 @@ int parse_cat_sect(unsigned char *buf, int size, si_cad_t *emm)
           len = c.section_length - 5;
           ptr+=8; //go after hdr.
 
-          i = 0;
+          i = len;
           while(i > 4) { //crc32 4 bytes
                 ret = descriptor(ptr, emm);
-                if (ret < 0)
+                if (ret < 0) {
+                    info ("cannot parse CA descriptor in CAT !\n");
                     return -1;
-                i+=ret;
-                if (i > size) {
-                    info("CAT: index out of bounds !\n");
-                    return -1;                
-                }                
+                }
+                i-=ret;
                 ptr+=ret;
                 if (ptr >= buf + size) {
                      info("CAT: Invalid Buffer offset !\n");
                      break;
                 }
           }
+          if (i != 4) {
+              info("CAT: index out of bounds !\n");
+              return -1;                
+          }               
 #ifdef DBG  
           info("%d bytes remaining (program info len = %d bytes)\n",len-i,len);    
 #endif  
