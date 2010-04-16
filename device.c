@@ -120,8 +120,11 @@ void cMcliDevice::SetEnable (bool val)
 		if(m_tunerref == NULL) {
 #if VDRVERSNUM < 10702	
 			bool s2=m_chan.Modulation() == QPSK_S2 || m_chan.Modulation() == PSK8;
-#else	
+#elif VDRVERSNUM < 10714
 			bool s2=m_chan.System() == SYS_DVBS2;
+#else
+			cDvbTransponderParameters dtp(m_chan.Parameters());
+			bool s2=dtp.System() == SYS_DVBS2;
 #endif
 			bool ret = false;
 			int pos;
@@ -285,8 +288,11 @@ bool cMcliDevice::ProvidesTransponder (const cChannel * Channel) const
 	}
 #if VDRVERSNUM < 10702	
 	bool s2=Channel->Modulation() == QPSK_S2 || Channel->Modulation() == PSK8;
-#else	
+#elif VDRVERSNUM < 10714	
 	bool s2=Channel->System() == SYS_DVBS2;
+#else
+	cDvbTransponderParameters dtp(Channel->Parameters());
+	bool s2=dtp.System() == SYS_DVBS2;
 #endif	
 	bool ret=ProvidesSource (Channel->Source ());
 	if(ret) {
@@ -322,9 +328,18 @@ bool cMcliDevice::IsTunedToTransponderConst (const cChannel * Channel) const
 		return false;
 	}
 
+#if VDRVERSNUM > 10713
+	 cDvbTransponderParameters m_dtp(m_chan.Parameters());
+	 cDvbTransponderParameters dtp(Channel->Parameters());
+#endif
+ 
 	if (m_ten.s.st & FE_HAS_LOCK && m_chan.Source() == Channel->Source() &&
 	        m_chan.Transponder() == Channel->Transponder() && m_chan.Frequency() == Channel->Frequency() &&
+#if VDRVERSNUM > 10713
+			m_dtp.Modulation() == dtp.Modulation() &&
+#else	        
 	                m_chan.Modulation() == Channel->Modulation() &&
+#endif
 	                        m_chan.Srate() == Channel->Srate()) {
 //              printf ("Yes!!!");
 		return true;
@@ -473,8 +488,11 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 	TranslateTypePos(type, pos, Channel->Source());
 #if VDRVERSNUM < 10702	
 	s2=Channel->Modulation() == QPSK_S2 || Channel->Modulation() == PSK8;
-#else	
+#elif VDRVERSNUM < 10714	
 	s2=Channel->System() == SYS_DVBS2;
+#else
+        cDvbTransponderParameters dtp(Channel->Parameters());
+	s2=dtp.System() == SYS_DVBS2;
 #endif	
 	if(s2) {
 		type = FE_DVBS2;
@@ -529,15 +547,23 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 
 			unsigned int frequency = Channel->Frequency ();
 
+#if VDRVERSNUM < 10714
 			fe_sec_voltage_t volt = (Channel->Polarization () == 'v' || Channel->Polarization () == 'V' || Channel->Polarization () == 'r' || Channel->Polarization () == 'R') ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
+#else
+			fe_sec_voltage_t volt = (dtp.Polarization () == 'v' || dtp.Polarization () == 'V' || dtp.Polarization () == 'r' || dtp.Polarization () == 'R') ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
+#endif		
 			m_sec.voltage = volt;
 			frequency =::abs (frequency);	// Allow for C-band, where the frequency is less than the LOF
 			m_fep.frequency = frequency * 1000UL;
+#if VDRVERSNUM < 10714			
 			m_fep.inversion = fe_spectral_inversion_t (Channel->Inversion ());
+#else
+			m_fep.inversion = fe_spectral_inversion_t (dtp.Inversion ());
+#endif
 			m_fep.u.qpsk.symbol_rate = Channel->Srate () * 1000UL;
 #if VDRVERSNUM < 10702				
 			m_fep.u.qpsk.fec_inner = fe_code_rate_t (Channel->CoderateH () | (Channel->Modulation () << 16));
-#else
+#elif VDRVERSNUM < 10714
 			if(s2) {
 				int modulation = 0;
 				switch(Channel->Modulation ()) {
@@ -550,6 +576,19 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 				}
 				 m_fep.u.qpsk.fec_inner = fe_code_rate_t (Channel->CoderateH () | (modulation << 16));
 			}
+#else
+			if(s2) {
+				int modulation = 0;
+				switch(dtp.Modulation ()) {
+					case QPSK:
+						modulation = QPSK_S2;
+						break;
+					case PSK_8:
+						modulation = PSK8;
+						break;
+				}
+				 m_fep.u.qpsk.fec_inner = fe_code_rate_t (dtp.CoderateH () | (modulation << 16));
+			}
 #endif			
 		}
 		break;
@@ -557,16 +596,23 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 
 			// Frequency and symbol rate:
 			m_fep.frequency = FrequencyToHz (Channel->Frequency ());
+#if VDRVERSNUM < 10714			
 			m_fep.inversion = fe_spectral_inversion_t (Channel->Inversion ());
-			m_fep.u.qam.symbol_rate = Channel->Srate () * 1000UL;
 			m_fep.u.qam.fec_inner = fe_code_rate_t (Channel->CoderateH ());
 			m_fep.u.qam.modulation = fe_modulation_t (Channel->Modulation ());
+#else
+			m_fep.inversion = fe_spectral_inversion_t (dtp.Inversion ());
+			m_fep.u.qam.fec_inner = fe_code_rate_t (dtp.CoderateH ());
+			m_fep.u.qam.modulation = fe_modulation_t (dtp.Modulation ());
+#endif
+			m_fep.u.qam.symbol_rate = Channel->Srate () * 1000UL;
 		}
 		break;
 	case FE_OFDM:{		// DVB-T
 
 			// Frequency and OFDM paramaters:
 			m_fep.frequency = FrequencyToHz (Channel->Frequency ());
+#if VDRVERSNUM < 10714			
 			m_fep.inversion = fe_spectral_inversion_t (Channel->Inversion ());
 			m_fep.u.ofdm.bandwidth = fe_bandwidth_t (Channel->Bandwidth ());
 			m_fep.u.ofdm.code_rate_HP = fe_code_rate_t (Channel->CoderateH ());
@@ -575,6 +621,16 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 			m_fep.u.ofdm.transmission_mode = fe_transmit_mode_t (Channel->Transmission ());
 			m_fep.u.ofdm.guard_interval = fe_guard_interval_t (Channel->Guard ());
 			m_fep.u.ofdm.hierarchy_information = fe_hierarchy_t (Channel->Hierarchy ());
+#else
+			m_fep.inversion = fe_spectral_inversion_t (dtp.Inversion ());
+			m_fep.u.ofdm.bandwidth = fe_bandwidth_t (dtp.Bandwidth ());
+			m_fep.u.ofdm.code_rate_HP = fe_code_rate_t (dtp.CoderateH ());
+			m_fep.u.ofdm.code_rate_LP = fe_code_rate_t (dtp.CoderateL ());
+			m_fep.u.ofdm.constellation = fe_modulation_t (dtp.Modulation ());
+			m_fep.u.ofdm.transmission_mode = fe_transmit_mode_t (dtp.Transmission ());
+			m_fep.u.ofdm.guard_interval = fe_guard_interval_t (dtp.Guard ());
+			m_fep.u.ofdm.hierarchy_information = fe_hierarchy_t (dtp.Hierarchy ());
+#endif
 		}
 		break;
 	default:
