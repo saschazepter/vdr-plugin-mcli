@@ -392,6 +392,8 @@ int udp_close (UDPContext * s)
 
 //--------------------------------------------------------------------------------------------------------------------------------------------
 
+#ifndef WIN32
+
 #define MAX_BUFF_SIZE 0x10000
 #define MAX_CON_LIST 128
 UDPContext *gConList[MAX_CON_LIST];
@@ -652,3 +654,4 @@ int udp_close_buff (UDPContext * s)
 
 	return 0;
 }
+#endif

@@ -50,11 +50,13 @@ int udp_read (UDPContext * s, uint8_t * buf, int size, int timeout, struct socka
 int udp_write (UDPContext * s, uint8_t * buf, int size);
 int udp_close (UDPContext * s);
 
+#ifndef WIN32
 UDPContext *client_udp_open_host_buff (const char *host, int port, const char *ifname, int buff_size);
 UDPContext *client_udp_open_cb   (const struct in6_addr *mcg, int port, const char *ifname, client_udp_cb cb, void *arg);
 UDPContext *client_udp_open_buff (const struct in6_addr *mcg, int port, const char *ifname, int buff_size);
 int udp_read_buff (UDPContext * s, uint8_t * buf, int size, int timeout, struct sockaddr_storage *from);
 int udp_close_buff (UDPContext * s);
+#endif
 
 int udp_ipv6_join_multicast_group (SOCKET sockfd, int iface, struct sockaddr *addr);
 int udp_ipv6_leave_multicast_group (SOCKET sockfd, int iface, struct sockaddr *addr);

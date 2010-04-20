@@ -34,6 +34,7 @@ typedef struct pid_info
 	dvb_pid_t pid;
 	struct in6_addr mcg;
 	recv_info_t *recv;
+	pthread_t recv_ts_thread;
 	int run;
 	int dropped;
 	int cont_old;

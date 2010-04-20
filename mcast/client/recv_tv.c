@@ -44,6 +44,100 @@ static void sig_handler (int signal)
 		break;
 	}
 }
+#else
+static void clean_recv_ts_thread (void *arg)
+{
+	pid_info_t *p = (pid_info_t *) arg;
+#ifdef DEBUG
+	dbg ("Stop stream receiving for pid %d\n", p->pid.pid);
+#endif
+
+	if (p->s) {
+		udp_close (p->s);
+	}
+}
+
+//-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+static void *recv_ts (void *arg)
+{
+	unsigned char buf[32712];
+	unsigned char *ptr;
+	int n, res;
+	int cont_old = -1;
+
+	pid_info_t *p = (pid_info_t *) arg;
+	recv_info_t *r = p->recv;
+
+#ifdef RT
+#if 1
+	if (setpriority (PRIO_PROCESS, 0, -15) == -1)
+#else
+	if (pthread_setschedprio (p->recv_ts_thread, -15))
+#endif
+	{
+		dbg ("Cannot raise priority to -15\n");
+	}
+#endif
+
+	pthread_cleanup_push (clean_recv_ts_thread, p);
+#ifdef DEBUG	
+	char addr_str[INET6_ADDRSTRLEN];
+	inet_ntop (AF_INET6, p->mcg.s6_addr, addr_str, INET6_ADDRSTRLEN);
+	dbg ("Start stream receiving for %s on port %d %s\n", addr_str, port, iface);
+#endif
+	p->s = client_udp_open (&p->mcg, port, iface);
+	if (!p->s) {
+		warn ("client_udp_open error !\n");
+	} else {
+		p->run = 1;
+	}
+	while (p->run>0) {
+		n = udp_read (p->s, buf, sizeof (buf), 1000, NULL);
+		if (n >0 ) {
+			ptr = buf;
+			if (n % 188) {
+				warn ("Received %d bytes is not multiple of 188!\n", n);
+ 			}
+			int i;
+			for (i = 0; i < (n / 188); i++) {
+				unsigned char *ts = buf + (i * 188);
+				int adaption_field = (ts[3] >> 4) & 3;
+				int cont = ts[3] & 0xf;
+				int pid = ((ts[1] << 8) | ts[2]) & 0x1fff;
+				int transport_error_indicator = ts[1]&0x80;
+	
+				if (pid != 8191 && (adaption_field & 1) && (((cont_old + 1) & 0xf) != cont) && cont_old >= 0) {
+					warn ("Discontinuity on receiver %p for pid %d: %d->%d at pos %d/%d\n", r, pid, cont_old, cont, i, n / 188);
+ 				}
+				if (transport_error_indicator) {
+					warn ("Transport error indicator set on receiver %p for pid %d: %d->%d at pos %d/%d\n", r, pid, cont_old, cont, i, n / 188);
+ 				}
+				cont_old = cont;
+ 			}
+			if(r->handle_ts) {
+				while (n) {
+					res = r->handle_ts (ptr, n, r->handle_ts_context);
+					if (res != n) {
+						warn ("Not same amount of data written: res:%d<=n:%d\n", res, n);
+					}
+					if (res < 0) {
+						warn ("write of %d bytes returned %d\n", n, res);
+						perror ("Write failed");
+						break;
+					} else {
+						ptr += res;
+						n -= res;
+					}
+				}
+			}
+ 		}
+		pthread_testcancel();
+ 	}
+	pthread_cleanup_pop (1);
+
+	return NULL;
+ }
+
 #endif
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 static void recv_ts_func (unsigned char *buf, int n, void *arg) {
@@ -214,8 +308,12 @@ static void deallocate_slot (recv_info_t * r, pid_info_t *p)
 {
 	int nodrop=0;
 	
+#if defined WIN32 && ! defined __CYGWIN__
+	if (pthread_exist(p->recv_ts_thread)) {
+#else
 	if (p->run) {
-		//info ("Deallocating PID %d from slot %p\n", p->pid.pid, p);
+
+#endif		//info ("Deallocating PID %d from slot %p\n", p->pid.pid, p);
 		p->run = 0;
 
 		//Do not leave multicast group if there is another dvb adapter using the same group
@@ -228,7 +326,11 @@ static void deallocate_slot (recv_info_t * r, pid_info_t *p)
 //		if(pthread_exist(p->recv_ts_thread) && !pthread_cancel (p->recv_ts_thread)) {
 //			pthread_join (p->recv_ts_thread, NULL);
 //		}
+#if defined WIN32 && ! defined __CYGWIN__
+		udp_close(p->s);
+#else
 		udp_close_buff(p->s);
+#endif
 		p->dropped = MAX_DROP_NUM;
 	}
 	//printf("NO DROP: %d\n",nodrop);
@@ -277,12 +379,20 @@ static pid_info_t *allocate_slot (recv_info_t * r, struct in6_addr *mcg, dvb_pid
 #endif
 	p->pid = *pid;
 	p->recv = r;
-
+#if defined WIN32 && ! defined __CYGWIN__
+	int ret = pthread_create (&p->recv_ts_thread, NULL, recv_ts, p);
+	while (!ret && !p->run) {
+		usleep (10000);
+	}
+	if (ret) {
+		err ("pthread_create failed with %d\n", ret);
+#else
 	p->cont_old=-1;
 	p->s = client_udp_open_cb (&p->mcg, port, iface, recv_ts_func, p);
 	if (!p->s) {
 		warn ("client_udp_open error !\n");
 		return 0;
+#endif
 	} else {
 		p->run = 1;
 		dvbmc_list_add_head (&r->slots.list, &p->list);

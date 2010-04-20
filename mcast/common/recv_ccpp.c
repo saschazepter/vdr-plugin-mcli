@@ -441,7 +441,11 @@ STATIC void clean_ccpp_thread (void *arg)
 {
 	ccpp_thread_context_t *c = (ccpp_thread_context_t *) arg;
 	if (c->s) {
+#if defined WIN32 && ! defined __CYGWIN__
+		udp_close (c->s);
+#else
 		udp_close_buff (c->s);
+#endif
 	}
 	if(c->buf) {
 		free (c->buf);
@@ -484,8 +488,11 @@ void *recv_ten (void *arg)
 	tra_info.version=MCLI_VERSION;
 	
 	mcg_set_streaming_group (&ten, STREAMING_TEN);
-
+#if defined WIN32 && ! defined __CYGWIN__
+	c.s = client_udp_open (&ten, port, iface);
+#else	
 	c.s = client_udp_open_buff (&ten, port, iface, XML_BUFLEN);
+#endif
 	if (!c.s) {
 		warn ("client_udp_open error !\n");
 	} else {
@@ -496,8 +503,12 @@ void *recv_ten (void *arg)
 #endif
 		r->ten_run = 1;
 		while (r->ten_run) {
+#if defined WIN32 && ! defined __CYGWIN__
+			if ((n = udp_read (c.s, c.buf, XML_BUFLEN, 1000, NULL)) > 0) {
+#else
 			usleep(100000); // 10 times per seconds should be enough
 			if ((n = udp_read_buff (c.s, c.buf, XML_BUFLEN, 1000, NULL)) > 0) {
+#endif
 				dstlen = XML_BUFLEN*5;
 				if (!gunzip (c.dst, &dstlen, c.buf, n)) {
 					memset (&tra_info, 0, sizeof (tra_info_t));
@@ -588,7 +599,11 @@ void *recv_tra (void *arg)
 
 	mcg_init_streaming_group (&tra, STREAMING_TRA);
 	
+#if defined WIN32 && ! defined __CYGWIN__
+	c.s = client_udp_open (&tra, port, iface);
+#else	
 	c.s = client_udp_open_buff (&tra, port, iface, XML_BUFLEN);
+#endif
 	if (!c.s) {
 		warn ("client_udp_open error !\n");
 	} else {
@@ -599,8 +614,12 @@ void *recv_tra (void *arg)
 		dbg ("Start receive TRA at %s port %d %s\n",  host, port, iface);
 #endif
 		while (c.run) {
+#if defined WIN32 && ! defined __CYGWIN__
+			if ((n = udp_read (c.s, c.buf, XML_BUFLEN, 500000, NULL)) > 0) {
+#else
 			usleep(100000); // 10 times per seconds should be enough
 			if ((n = udp_read_buff (c.s, c.buf, XML_BUFLEN, 500000, NULL)) > 0) {
+#endif
 				dstlen = XML_BUFLEN*5;
 				if (!gunzip (c.dst, &dstlen, c.buf, n)) {
 					memset (&tra_info, 0, sizeof (tra_info_t));
@@ -1256,7 +1275,11 @@ void *recv_tca (void *arg)
 	
 	mcg_init_streaming_group (&tca, STREAMING_TCA);
 	
+#if defined WIN32 && ! defined __CYGWIN__
+	c.s = client_udp_open (&tca, port, iface);
+#else	
 	c.s = client_udp_open_buff (&tca, port, iface, XML_BUFLEN);
+#endif
 	if (!c.s) {
 		warn ("client_udp_open error !\n");
 	} else {
@@ -1267,8 +1290,12 @@ void *recv_tca (void *arg)
 		dbg ("Start Receive TCA on interface %s port %d\n", iface, port);
 #endif
 		while (c.run) {
+#if defined WIN32 && ! defined __CYGWIN__
+			if ((n = udp_read (c.s, c.buf, XML_BUFLEN, 500000, NULL)) > 0) {
+#else			
 			usleep(100000); // 10 times per seconds should be enough
 			if ((n = udp_read_buff (c.s, c.buf, XML_BUFLEN, 500000, NULL)) > 0) {
+#endif
 				dstlen = XML_BUFLEN * 5;
 				if (!gunzip (c.dst, &dstlen, c.buf, n)) {
 					memset (&nc_info, 0, sizeof (netceiver_info_t));
