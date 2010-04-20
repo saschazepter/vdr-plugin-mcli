@@ -39,7 +39,7 @@ CFLAGS ?= -Os -Wall
 
 INCLUDES += $(XML_INC) -I../dvbloop -I../common/ -I../client
 
-LDFLAGS:=$(XML_LIB) 
+LDFLAGS:=$(XML_LIB) -lpthread
 
 ifdef API_SHM
 LDFLAGS:= $(LDFLAGS) -lrt
