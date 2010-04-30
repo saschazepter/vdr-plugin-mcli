@@ -44,7 +44,9 @@ static void sig_handler (int signal)
 		break;
 	}
 }
-#else
+#endif
+
+#ifdef MULTI_THREAD_RECEIVER
 static void clean_recv_ts_thread (void *arg)
 {
 	pid_info_t *p = (pid_info_t *) arg;
@@ -138,7 +140,7 @@ static void *recv_ts (void *arg)
 	return NULL;
  }
 
-#endif
+#else
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 static void recv_ts_func (unsigned char *buf, int n, void *arg) {
 	if (n >0 ) {
@@ -182,7 +184,7 @@ static void recv_ts_func (unsigned char *buf, int n, void *arg) {
 		}
 	}
 }
-
+#endif
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 int register_ts_handler (recv_info_t * r, int (*p)(unsigned char *, size_t, void *), void *c)
@@ -308,7 +310,7 @@ static void deallocate_slot (recv_info_t * r, pid_info_t *p)
 {
 	int nodrop=0;
 	
-#if defined WIN32 && ! defined __CYGWIN__
+#ifdef MULTI_THREAD_RECEIVER
 	if (pthread_exist(p->recv_ts_thread)) {
 #else
 	if (p->run) {
@@ -323,11 +325,8 @@ static void deallocate_slot (recv_info_t * r, pid_info_t *p)
 			nodrop=1;
 		} 
 
-//		if(pthread_exist(p->recv_ts_thread) && !pthread_cancel (p->recv_ts_thread)) {
-//			pthread_join (p->recv_ts_thread, NULL);
-//		}
-#if defined WIN32 && ! defined __CYGWIN__
-		udp_close(p->s);
+#ifdef MULTI_THREAD_RECEIVER
+		pthread_join (p->recv_ts_thread, NULL);
 #else
 		udp_close_buff(p->s);
 #endif
@@ -379,7 +378,7 @@ static pid_info_t *allocate_slot (recv_info_t * r, struct in6_addr *mcg, dvb_pid
 #endif
 	p->pid = *pid;
 	p->recv = r;
-#if defined WIN32 && ! defined __CYGWIN__
+#ifdef MULTI_THREAD_RECEIVER
 	int ret = pthread_create (&p->recv_ts_thread, NULL, recv_ts, p);
 	while (!ret && !p->run) {
 		usleep (10000);

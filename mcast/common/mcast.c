@@ -392,7 +392,7 @@ int udp_close (UDPContext * s)
 
 //--------------------------------------------------------------------------------------------------------------------------------------------
 
-#ifndef WIN32
+#ifndef MULTI_THREAD_RECEIVER
 
 #define MAX_BUFF_SIZE 0x10000
 #define MAX_CON_LIST 128

@@ -830,6 +830,10 @@ int cMcliDevice::GetAttribute (const char *attr_name, uint64_t * val)
 
 	if (!strcmp (attr_name, "fe.status")) {
 		rval = m_ten.s.st;
+		if ((m_ten.lastseen+LASTSEEN_TIMEOUT)>time(0)) {
+			rval|= (m_ten.rotor_status&3)<<8;
+			rval|= (1+m_ten.slot)<<12;
+		}		                                                                
 	} else if (!strcmp (attr_name, "fe.signal")) {
 		rval = m_ten.s.strength;
 	} else if (!strcmp (attr_name, "fe.snr")) {

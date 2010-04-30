@@ -441,7 +441,7 @@ STATIC void clean_ccpp_thread (void *arg)
 {
 	ccpp_thread_context_t *c = (ccpp_thread_context_t *) arg;
 	if (c->s) {
-#if defined WIN32 && ! defined __CYGWIN__
+#ifdef	MULTI_THREAD_RECEIVER
 		udp_close (c->s);
 #else
 		udp_close_buff (c->s);
@@ -488,7 +488,7 @@ void *recv_ten (void *arg)
 	tra_info.version=MCLI_VERSION;
 	
 	mcg_set_streaming_group (&ten, STREAMING_TEN);
-#if defined WIN32 && ! defined __CYGWIN__
+#ifdef MULTI_THREAD_RECEIVER
 	c.s = client_udp_open (&ten, port, iface);
 #else	
 	c.s = client_udp_open_buff (&ten, port, iface, XML_BUFLEN);
@@ -503,7 +503,7 @@ void *recv_ten (void *arg)
 #endif
 		r->ten_run = 1;
 		while (r->ten_run) {
-#if defined WIN32 && ! defined __CYGWIN__
+#ifdef MULTI_THREAD_RECEIVER
 			if ((n = udp_read (c.s, c.buf, XML_BUFLEN, 1000, NULL)) > 0) {
 #else
 			usleep(100000); // 10 times per seconds should be enough
@@ -599,7 +599,7 @@ void *recv_tra (void *arg)
 
 	mcg_init_streaming_group (&tra, STREAMING_TRA);
 	
-#if defined WIN32 && ! defined __CYGWIN__
+#ifdef MULTI_THREAD_RECEIVER
 	c.s = client_udp_open (&tra, port, iface);
 #else	
 	c.s = client_udp_open_buff (&tra, port, iface, XML_BUFLEN);
@@ -614,7 +614,7 @@ void *recv_tra (void *arg)
 		dbg ("Start receive TRA at %s port %d %s\n",  host, port, iface);
 #endif
 		while (c.run) {
-#if defined WIN32 && ! defined __CYGWIN__
+#ifdef MULTI_THREAD_RECEIVER
 			if ((n = udp_read (c.s, c.buf, XML_BUFLEN, 500000, NULL)) > 0) {
 #else
 			usleep(100000); // 10 times per seconds should be enough
@@ -1275,7 +1275,7 @@ void *recv_tca (void *arg)
 	
 	mcg_init_streaming_group (&tca, STREAMING_TCA);
 	
-#if defined WIN32 && ! defined __CYGWIN__
+#ifdef MULTI_THREAD_RECEIVER
 	c.s = client_udp_open (&tca, port, iface);
 #else	
 	c.s = client_udp_open_buff (&tca, port, iface, XML_BUFLEN);
@@ -1290,7 +1290,7 @@ void *recv_tca (void *arg)
 		dbg ("Start Receive TCA on interface %s port %d\n", iface, port);
 #endif
 		while (c.run) {
-#if defined WIN32 && ! defined __CYGWIN__
+#ifdef MULTI_THREAD_RECEIVER
 			if ((n = udp_read (c.s, c.buf, XML_BUFLEN, 500000, NULL)) > 0) {
 #else			
 			usleep(100000); // 10 times per seconds should be enough

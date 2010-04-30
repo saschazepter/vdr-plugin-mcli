@@ -50,7 +50,7 @@ int udp_read (UDPContext * s, uint8_t * buf, int size, int timeout, struct socka
 int udp_write (UDPContext * s, uint8_t * buf, int size);
 int udp_close (UDPContext * s);
 
-#ifndef WIN32
+#ifndef MULTI_THREAD_RECEIVER
 UDPContext *client_udp_open_host_buff (const char *host, int port, const char *ifname, int buff_size);
 UDPContext *client_udp_open_cb   (const struct in6_addr *mcg, int port, const char *ifname, client_udp_cb cb, void *arg);
 UDPContext *client_udp_open_buff (const struct in6_addr *mcg, int port, const char *ifname, int buff_size);

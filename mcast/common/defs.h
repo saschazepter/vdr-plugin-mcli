@@ -75,6 +75,7 @@
 		#define API_WIN
 		#define LIBXML_STATIC
 		#define PTW32_STATIC_LIB
+		#define MULTI_THREAD_RECEIVER
 	#endif
 #else
         #if defined __cplusplus
