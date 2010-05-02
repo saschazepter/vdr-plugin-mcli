@@ -405,7 +405,7 @@ static pid_info_t *allocate_slot (recv_info_t * r, struct in6_addr *mcg, dvb_pid
 static void stop_ten_receive (recv_info_t * r)
 {
 	dbg ("stop_ten_receive on receiver %p\n",r);
-	if (pthread_exist(r->recv_ten_thread)) {
+	if (pthread_exist(r->recv_ten_thread) &&  r->ten_run) {
 		dbg ("cancel TEN receiver %p %p\n", r, r->recv_ten_thread);
 		
 		r->ten_run=0;
