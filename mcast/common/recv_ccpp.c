@@ -566,7 +566,7 @@ void *recv_ten (void *arg)
 #endif
 	}
 	pthread_cleanup_pop (1);
-
+	r->ten_run = 1;
 	return NULL;
 }
 
