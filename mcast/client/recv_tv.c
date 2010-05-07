@@ -627,11 +627,12 @@ int recv_redirect (recv_info_t * r, struct in6_addr mcg)
 		if (sid == 0) {
 			stop_receive (r, 0);
 			r->mcg = mcg;	
-			
+#if 0			
 			if(pthread_exist(r->recv_ten_thread)) {
 				pthread_detach (r->recv_ten_thread);
 				pthread_null (r->recv_ten_thread);
 			}
+#endif			
 			update_mcg (r, 0);
 		} else {
 			//stop sid mcgs
