@@ -404,17 +404,17 @@ static pid_info_t *allocate_slot (recv_info_t * r, struct in6_addr *mcg, dvb_pid
 
 static void stop_ten_receive (recv_info_t * r)
 {
-	dbg ("stop_ten_receive on receiver %p\n",r);
+	dbg ("->>>>>>>>>>>>>>>>>stop_ten_receive on receiver %p\n",r);
 	if (pthread_exist(r->recv_ten_thread) &&  r->ten_run) {
 		dbg ("cancel TEN receiver %p %p\n", r, r->recv_ten_thread);
 		
 		r->ten_run=0;
+		pthread_mutex_unlock (&lock);
 		do {
+			dbg ("wait TEN stop receiver %p %p\n", r, r->recv_ten_thread);
 			usleep(10000);
 		} while (!r->ten_run);
-//		if (pthread_exist(r->recv_ten_thread) && !pthread_cancel (r->recv_ten_thread)) {
-//			pthread_join (r->recv_ten_thread, NULL);
-//		}
+		pthread_mutex_lock (&lock);
 		r->ten_run=0;
 		dbg ("cancel TEN done receiver %p\n", r);
 		pthread_detach (r->recv_ten_thread);
@@ -626,14 +626,9 @@ int recv_redirect (recv_info_t * r, struct in6_addr mcg)
 	if (!sid || ( !check_if_already_redirected(r, sid) && check_if_sid_in(r, sid)) ) {
 		if (sid == 0) {
 			stop_receive (r, 0);
-			r->mcg = mcg;	
-#if 0			
-			if(pthread_exist(r->recv_ten_thread)) {
-				pthread_detach (r->recv_ten_thread);
-				pthread_null (r->recv_ten_thread);
-			}
-#endif			
+			r->mcg = mcg;
 			update_mcg (r, 0);
+			ret = 1;
 		} else {
 			//stop sid mcgs
 			stop_sid_mcgs(r, sid);
@@ -641,9 +636,7 @@ int recv_redirect (recv_info_t * r, struct in6_addr mcg)
 			//start new mcgs with no sid
 			rejoin_mcgs(r, sid);				
 		}
-	} else { 
-		ret = 1;
-	}
+	} 
 	
 	dbg ("Redirect done for receiver %p\n", r);
 	pthread_mutex_unlock (&lock);

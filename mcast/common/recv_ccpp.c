@@ -533,13 +533,25 @@ void *recv_ten (void *arg)
 #endif								
 								int ret = recv_redirect (r, tra_info.tra->mcg);
 
-#if 0 //Enable/Disable TEN Termination on already accomplished redirects
-								if (!ret) {
-//									printf("Terminate recv_ten !\n");
-									free (tra_info.tra);
-									break;
-								}
+								if (ret) {
+									printf("New MCG for recv_ten !\n");
+#ifdef	MULTI_THREAD_RECEIVER
+									udp_close (c.s);
+#else
+									udp_close_buff (c.s);
 #endif
+									struct in6_addr ten = r->mcg;
+									mcg_set_streaming_group (&ten, STREAMING_TEN);
+#ifdef MULTI_THREAD_RECEIVER
+									c.s = client_udp_open (&ten, port, iface);
+#else	
+									c.s = client_udp_open_buff (&ten, port, iface, XML_BUFLEN);
+#endif
+									if (!c.s) {
+										warn ("client_udp_open error !\n");
+										break;
+									}
+								}
 							}
 						}
 						free (tra_info.tra);
@@ -559,7 +571,7 @@ void *recv_ten (void *arg)
 					dbg ("Signal Timeout on receiver %p!\n", r);
 				}
 			}
-			pthread_testcancel();			
+			pthread_testcancel();
 		}
 #ifdef DEBUG		
 		dbg ("Stop receive TEN on receiver %p %s %d %s\n", r, host, port, iface);
