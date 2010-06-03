@@ -10,7 +10,11 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
+#ifdef APPLE
+#include <netinet/ip_mroute.h>
+#else
 #include <linux/mroute.h>
+#endif
 #endif
 
 #include <stdio.h>
@@ -234,6 +238,7 @@ bool cIgmpListener::Initialize(iface_t bindif)
 		return false;
 	}
 #else
+#ifndef APPLE
 	// Normal bind() for this socket does not really work. the socket does not receive anything then.
 	// However, SO_BINDTODEVICE _does_ work. Maybe because of SOCK_RAW?!
 	rc = setsockopt(m_socket, SOL_SOCKET, SO_BINDTODEVICE,(char *)&bindif.name, sizeof(bindif.name));
@@ -242,7 +247,7 @@ bool cIgmpListener::Initialize(iface_t bindif)
 		log_socket_error("IGMP setsockopt(SO_BINDTODEVICE)");
 		return false;
 	}
-
+#endif
 #endif
 
 #ifdef WIN32

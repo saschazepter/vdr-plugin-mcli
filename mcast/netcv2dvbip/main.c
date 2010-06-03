@@ -35,34 +35,53 @@ static int sighandled = 0;
 channel_t *channels=NULL;
 int channel_num=0;
 int channel_max_num=0;
+int channel_use_eit = 0;
 
 
 /*-------------------------------------------------------------------------*/
 channel_t * read_channel_list(char *filename)
 {
-	FILE *f;
+	FILE *cf;
+	FILE *pf;
 	char buf[512];
 
-	f=fopen(filename,"r");
-	if (!f) {
+	cf=fopen(filename,"r");
+	if (!cf) {
 		printf("Can't read %s: %s\n",filename,strerror(errno));
 		return NULL;
 	}
-
-	while(!feof(f)) {
+	pf =fopen("channels.m3u", "w");
+	if (!pf) {
+                printf("Can't read %s: %s\n", "channels.m3u", strerror(errno));
+                fclose(cf);
+                return NULL;
+        }
+        fprintf(pf, "#EXTM3U\n");
+        
+	while(!feof(cf)) {
 		if (channel_num==channel_max_num) {
 			channel_max_num+=200;
 			channels=(channel_t*)realloc(channels,channel_max_num*sizeof(channel_t));
 		}
-		fgets(buf,512,f);
-		if ( !feof(f) && ParseLine(buf,&channels[channel_num])) {
-			printf("%i: udp://239.255.0.%i:%i - %s \n", 
-				channel_num+1, channel_num+1, 12345, channels[channel_num].name);
+		fgets(buf,512,cf);
+		if ( !feof(cf) && ParseLine(buf,&channels[channel_num])) {
+			int ip1 = (channel_num+1)/256;
+			int ip2 = (channel_num) - (ip1*256) + 1;
+			printf("%i: udp://@239.255.%i.%i:%i - %s \n", 
+				channel_num+1, ip1, ip2, 12345, channels[channel_num].name);
+                        fprintf(pf, "#EXTINF: %i,%s\n", channel_num+1, channels[channel_num].name);
+                        fprintf(pf, "udp://@239.255.%i.%i:%i\n", ip1,ip2, 12345);
+			if (channel_use_eit)
+			{
+				channels[channel_num].NumEitpids = 1;
+				channels[channel_num].eitpids[0] = 0x12;
+			}
 			channel_num++;
 		}
 	}
-	printf("Read %i channels\n",channel_num);
-	fclose(f);
+	printf("Read %i channels, M3U playlist file \"channels.m3u\" generated.\n",channel_num);
+	fclose(pf);
+	fclose(cf);
 	return channels;
 }
 /*-------------------------------------------------------------------------*/
@@ -97,7 +116,7 @@ extern cmdline_t cmd;
 
 void usage (void)
 {
-	printf("Usage: netcv2dvbip  [-b <multicast interface>] [-p <port>] [-i <netceiver interface>] [-c channels.conf]\n");
+	printf("Usage: netcv2dvbip  [-b <multicast interface>] [-p <port>] [-i <netceiver interface>] [-c <channels.conf>] [-e activate EIT PID (EPG)\n");
 	exit(0);
 }
 
@@ -142,7 +161,7 @@ int main(int argc, char *argv[])
 
 	while(1)
 	{
-		int ret = getopt(argc,argv, "i:hc:b:p:");
+		int ret = getopt(argc,argv, "i:hc:b:p:e");
 		if (ret==-1)
 			break;
 			
@@ -167,6 +186,9 @@ int main(int argc, char *argv[])
 			case 'h':
 				usage();
 				return(0);
+			case 'e':
+				channel_use_eit = 1;
+				break;
 		}
 	}
 
@@ -201,6 +223,7 @@ int main(int argc, char *argv[])
 		exit(-1);
 
 	mcli_startup();
+	mld_client_init(cmd.iface);
 
 	printf("\n");
 	
@@ -247,6 +270,7 @@ int main(int argc, char *argv[])
 #endif
 
 	streamer.Stop();
+	mld_client_exit();
 
 	printf("netcv2dvbip stopped.\n");
 

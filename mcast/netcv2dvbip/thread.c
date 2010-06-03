@@ -4,7 +4,9 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#ifndef APPLE
 #include <malloc.h>
+#endif
 #include <pthread.h>
 #include <signal.h>
 #include <string.h>
@@ -120,7 +122,9 @@ cMutex::cMutex(void)
   locked = 0;
   pthread_mutexattr_t attr;
   pthread_mutexattr_init(&attr);
+  #ifndef APPLE
   pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK_NP);
+  #endif
   pthread_mutex_init(&mutex, &attr);
 }
 

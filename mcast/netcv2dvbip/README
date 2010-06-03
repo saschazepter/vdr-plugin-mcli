@@ -5,6 +5,8 @@ Each channel is mapped to one multicast group starting with 239.255.0.1 and so o
 
 Written by:
 Christian Cier-Zniewski <c.cier@gmx.de>
+Project homepage: http://nanodev.nfshost.com/netcv2dvbip/
+SVN source code repository: https://svn.baycom.de/repos/vdr-mcli-plugin/mcast/
 
 The software is based on source code from the following projects:
 
@@ -19,7 +21,7 @@ Baycom GmbH <info@baycom.de>
 
 -----------------------------------------------------------
 
-Quick Compile Howto:
+Quick Compile Howto (Linux):
 
 1)
 svn co https://svn.baycom.de/repos/vdr-mcli-plugin/mcast/
@@ -56,6 +58,8 @@ Notes:
 	  Linux: specify the option "-b lo" and make sure that the
 	  multicast flag is set on the lo device. 
 	  If not, type: ifconfig lo multicast
+	* Windows: netcv2dvb for Windows is compiled using Visual C++ 2008 Express Edition
+	  Therefore it needs the Microsoft Visual C++ 2008 Runtime Redistributable to be installed.
 
 Known Issues:
 
@@ -68,6 +72,13 @@ Known Issues:
 	  So, if you are already using software that make use of this API,
 	  netcv2dvbip will fail to start, because only one program can make
 	  use of this API.
+	* Windows XP does not support MLDv2 messages, so the built-in MLD-Reporter of
+	  libmcli is used in the Windows version of netcv2dvbip. 
+	  Windows Vista and Windows 7 already support MLDv2. 
+	* IMPORTANT note for VLAN users: Windows does not support VLANs as Linux does.
+	  So, if you already using a VLAN-enabled network for the Netceiver and Reel-Netclients
+	  then you must use a LAN card which offers VLAN support in the drivers.
+	  Eg.: most Intel-adapters support this ( I am using a EXPI9301CT)
 
 ------------------------------------------------------------
 
@@ -76,7 +87,8 @@ Possible clients:
 	* VLC [Linux, Windows]
 	* vdr-iptv-plugin [Linux]
 	* DVBLink for IPTV (http://www.dvblogic.com/) [Windows]
-	* ...
+	* Mediaportal with IPTV source filter (with EPG) [Windows]
+	* [...]
 
 ------------------------------------------------------------
 
@@ -92,5 +104,24 @@ Command line Options:
 	   Default: first found IPv6 interface 
 
 	-c <channels.conf file>
+	
+	-e include EIT packets in streams (EPG)
+	
+	-h help 
 
 
+ChangeLog:
+==========
+2009-??-?? version 1.0.0
+           - initial release      
+
+2010-06-03 version 1.1.0
+           - bugfixes:     * number of channels > 255 is now handled correctly
+                           * PMT PIDs > 255 had a wrong entry in the PAT
+           - new features: * DVB-C and DVB-T support
+                           * support for VDR-1.7.x channels.conf format
+                             (older formats and ReelVDR format are still supported)
+                           * playlist file generation (M3U)
+                           * EPG support: new command line option "-e" activates
+                             sending of EIT packets (PID 0x12) in the stream.
+                             

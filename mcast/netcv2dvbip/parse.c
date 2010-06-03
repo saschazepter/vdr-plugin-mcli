@@ -7,6 +7,7 @@ typedef struct
 } tChannelParameterMap;
 
 const tChannelParameterMap RolloffValues[] = {
+	{0, 0},
 	{35, 0},
 	{25, 0},
 	{20, 0},
@@ -74,7 +75,9 @@ const tChannelParameterMap ModulationValues[] = {
 };
 
 const tChannelParameterMap ModulationValuesS[] = {
+	{2, QPSK},
 	{4, QPSK},
+	{5, PSK8},
 	{42, QPSK_S2},		// S2
 	{8, PSK8},
 	{16, QAM_16},
@@ -175,6 +178,10 @@ static const char *ParseParameter (const char *s, int *Value, const tChannelPara
 bool StringToParameters (const char *s, channel_t * ch)
 {
 	int dummy;
+	bool newformat = false;
+	int deliverysystem = -1;
+	const char * start = s;
+		
 	while (s && *s) {
 		switch (toupper (*s)) {
 		case 'B':
@@ -186,6 +193,8 @@ bool StringToParameters (const char *s, channel_t * ch)
 		case 'D':
 			s = ParseParameter (s, &ch->coderateL, CoderateValues);
 			break;
+		case 'O':
+			newformat = true;
 		case 'E':
 			s = ParseParameter (s, &dummy, RolloffValues);
 			break;
@@ -210,6 +219,15 @@ bool StringToParameters (const char *s, channel_t * ch)
 			ch->polarization = SEC_VOLTAGE_13;
 			s++;
 			break;
+		case 'S':
+			newformat = true;
+			s++;
+			if (*s == '1')
+				deliverysystem = 1;
+			else if (*s == '0')
+				deliverysystem = 0;
+			s++;
+			break;
 		case 'T':
 			s = ParseParameter (s, &ch->transmission, TransmissionValues);
 			break;
@@ -221,8 +239,16 @@ bool StringToParameters (const char *s, channel_t * ch)
 			s = ParseParameter (s, &ch->hierarchy, HierarchyValues);
 			break;
 		default:
-			printf ("ERROR: unknown parameter key '%c'\n", *s);
+			printf ("ERROR: unknown parameter key '%c' at pos %d\n", *s, s-start);
 			return 0;
+		}
+	}
+	if (newformat)
+	{
+		//printf("Detected VDR-1.7.x parameter string format.\n");
+		if (deliverysystem == 1 && ch->modulation == QPSK)
+		{
+			ch->modulation = QPSK_S2;
 		}
 	}
 	return 1;
@@ -306,7 +332,9 @@ int ParseLine (const char *s, channel_t * ch)
 			if (parambuf && sourcebuf && vpidbuf && apidbuf) {
 				char *p, *dpidbuf, *q, *strtok_next;
 //				int NumApids;
-				ok = StringToParameters (parambuf, ch) && (ch->source = SourceFromString (sourcebuf)) >= 0;
+				ok = StringToParameters (parambuf, ch);
+				ch->source = SourceFromString (sourcebuf);
+				ok = ok && ((ch->source >= 0) || (ch->source == -2) || (ch->source == -3));
 
 				p = strchr (vpidbuf, '+');
 				if (p)
@@ -343,7 +371,7 @@ int ParseLine (const char *s, channel_t * ch)
 					while ((q = strtok_r (p, ",", &strtok_next)) != NULL) {
 						if (NumDpids < MAXDPIDS) {
 							char *l = strchr (q, '=');
-							ch->dpids[ch->NumDpids++] = strtol (q, NULL, 10);
+  							ch->dpids[ch->NumDpids++] = strtol (q, NULL, 10);
 						} else
 							printf ("ERROR: too many DPIDs!\n");	// no need to set ok to 'false'
 						p = NULL;

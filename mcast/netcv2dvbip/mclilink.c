@@ -34,7 +34,7 @@ int gen_pat(unsigned char *buf, unsigned int program_number, unsigned int pmt_pi
 
 	buf[i++] = program_number>>8;
 	buf[i++] = program_number&0xff;
-	buf[i++] = 0xe0 | (pmt_pid<<8);
+	buf[i++] = 0xe0 | ((pmt_pid>>8)&0x1F);
 	buf[i++] = pmt_pid&0xff;
 	
 	crc=dvb_crc32 ((char *)buf+5, i-5);
@@ -151,6 +151,14 @@ again:
 
 		}
 	case 6:
+		/*
+		for(i=0; i<len; i+=188) {
+			ret = ts2psi_data (buffer+i, &si->psi, 188, 0x12);
+			if(ret==1){
+				printf("Channel: %s - Got EIT\n", 	si->cdata->name);
+			}
+		}
+		*/
 		if ((wp + len) >= BUFFER_SIZE) {
 			int l;
 			l = BUFFER_SIZE - wp;
@@ -195,6 +203,7 @@ void *stream_watch (void *p)
 {
 	unsigned char ts[188];
 	stream_info_t *si = (stream_info_t *) p;
+	printf("Channel: %s - stream watch thread started.\n", si->cdata->name);
 	while (!si->stop) {
 		if (si->pmt_pid && si->si_state == 2) {
 			dvb_pid_t pids[3];
@@ -207,14 +216,19 @@ void *stream_watch (void *p)
 		}
 		if (si->es_pidnum && si->si_state == 5) {
 			int i,k=0;
-			size_t sz = sizeof(dvb_pid_t) * (si->es_pidnum+2);
+			size_t sz = sizeof(dvb_pid_t) * (si->es_pidnum+2 + si->cdata->NumEitpids);
 			dvb_pid_t *pids=(dvb_pid_t*)malloc(sz);
 			if(pids==NULL) {
 				err("Channel: %s - Can't get memory for pids\n", si->cdata->name);
 			}
 			memset (pids, 0, sz);
 			pids[k++].pid = si->pmt_pid;
-
+			//EIT PIDs
+			for (i = 0; i < si->cdata->NumEitpids; i++)
+			{
+				pids[k++].pid = si->cdata->eitpids[i]; 
+				printf("Channel: %s - Add EIT-PID: %d\n", si->cdata->name, si->cdata->eitpids[i]);
+			}
 			for (i = 0; i < si->es_pidnum; i++) {
 				printf ("Channel: %s - Add ES-PID: %d\n", si->cdata->name, si->es_pids[i]);
 				pids[i + k].pid = si->es_pids[i];
@@ -234,6 +248,7 @@ void *stream_watch (void *p)
 		}
 		usleep (50000);
 	}
+	printf("Channel: %s - stream watch thread stopped.\n", si->cdata->name);
 	return NULL;
 }
 
@@ -275,9 +290,12 @@ void *mcli_stream_setup (const int channum)
 
 	si->cdata = get_channel_data (cnum);
 
+	memset (&fep, 0, sizeof (struct dvb_frontend_parameters));
+	memset (&sec, 0, sizeof (recv_sec_t));
+
 	fep.frequency = si->cdata->frequency;
 	fep.inversion = INVERSION_AUTO;
-
+        // DVB-S
 	if (si->cdata->source >= 0) {
 		fep.u.qpsk.symbol_rate = si->cdata->srate * 1000;
 		fep.u.qpsk.fec_inner = (fe_code_rate_t)(si->cdata->coderateH | (si->cdata->modulation<<16));
@@ -290,13 +308,42 @@ void *mcli_stream_setup (const int channum)
 		tuner_type = FE_QPSK;
 		source = si->cdata->source;
 	}
+	// DVB-T
+	else if (si->cdata->source == -2) {
+		fep.u.ofdm.constellation = (fe_modulation_t)si->cdata->modulation;
+		fep.u.ofdm.code_rate_HP = (fe_code_rate_t)si->cdata->coderateH;
+		fep.u.ofdm.code_rate_LP = (fe_code_rate_t)si->cdata->coderateL;
+		fep.inversion = (fe_spectral_inversion_t)si->cdata->inversion;
+		fep.u.ofdm.bandwidth = (fe_bandwidth_t)si->cdata->bandwidth;
+		fep.u.ofdm.guard_interval = (fe_guard_interval_t)si->cdata->guard;
+		fep.u.ofdm.transmission_mode = (fe_transmit_mode_t)si->cdata->transmission;
+		fep.u.ofdm.hierarchy_information = (fe_hierarchy_t)si->cdata->hierarchy;
+		
+		tuner_type = FE_OFDM;
+		source = si->cdata->source;
+	}
+	// DVB-C
+	else if (si->cdata->source == -3) {
+		fep.u.qam.symbol_rate = si->cdata->srate * 1000;
+		fep.u.qam.fec_inner = (fe_code_rate_t)si->cdata->coderateH;
+		fep.u.qam.modulation = (fe_modulation_t)si->cdata->modulation;
+		fep.inversion = (fe_spectral_inversion_t)si->cdata->inversion;
+
+		tuner_type = FE_QAM;
+		source = si->cdata->source;
+	}
+
+
 
 	memset (&pids, 0, sizeof (pids));
 
-	pids[0].pid = 0;
+	pids[0].pid = 0;  // PAT
 	pids[1].pid = -1;
 
-	printf ("source %i, frequ %i, vpid %i, apid %i  srate %i\n", source, si->cdata->frequency, pids[0].pid, pids[1].pid, fep.u.qpsk.symbol_rate);
+	printf ("Tuning: source: %s, frequency: %i, PAT pid %i, symbol rate %i\n",
+			 source>=0 ? "DVB-S(2)" : source==-2 ? "DVB-T" : source==-3 ? "DVB-C" : "unknown"
+			 , si->cdata->frequency, pids[0].pid, fep.u.qpsk.symbol_rate);
+
 	recv_tune (r, tuner_type, source, &sec, &fep, pids);
 
 #ifdef WIN32THREADS
@@ -383,6 +430,8 @@ int mcli_stream_stop (void *handle)
 		if (r) {
 			register_ten_handler (r, NULL, NULL);
 			register_ts_handler (r, NULL, NULL);
+			recv_stop(r);
+			sleep(2);
 			recv_del (r);
 		}
 		pthread_mutex_unlock(&si->lock_wr);

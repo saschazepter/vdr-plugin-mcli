@@ -40,6 +40,8 @@ typedef struct
 	int NumApids;
 	int dpids[MAXDPIDS];
 	int NumDpids;
+	int eitpids[1];
+	int NumEitpids;
 } channel_t;
 
 
