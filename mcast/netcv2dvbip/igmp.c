@@ -157,6 +157,21 @@ bool cIgmpListener::Initialize(iface_t bindif)
         return false;
 	}
 
+#ifdef WIN32
+   //-------------------------
+   // Set the socket I/O mode: In this case FIONBIO
+   // enables or disables the blocking mode for the
+   // socket based on the numerical value of iMode.
+   // If iMode = 0, blocking is enabled;
+   // If iMode != 0, non-blocking mode is enabled.
+    u_long iMode = 1;
+    ioctlsocket(m_socket, FIONBIO, &iMode);
+#else
+    int x=fcntl(m_socket,F_GETFL,0);              // Get socket flags
+    fcntl(m_socket,F_SETFL,x | O_NONBLOCK);   // Add non-blocking flag
+#endif
+
+
 #ifndef WIN32
     val = 1;
 	rc = ::setsockopt( m_socket, IPPROTO_IP, MRT_INIT, (void*)&val, sizeof(val) ); 
@@ -279,21 +294,20 @@ void cIgmpListener::Action()
 	int MaxFD;
     fd_set  ReadFDS;
 	struct  timeval tv;
-	struct  timeval  *timeout = &tv;
 	int Rt;
 	        
-    timeout->tv_usec = 0;
-    timeout->tv_sec = 1;
 
 	while (Running())
 	{
-
-		MaxFD = m_socket;
+	tv.tv_usec = 0;
+        tv.tv_sec = 1;
+        
+	MaxFD = m_socket;
         FD_ZERO( &ReadFDS );
         FD_SET( m_socket, &ReadFDS );
 
       // wait for input
-		Rt = ::select( MaxFD +1, &ReadFDS, NULL, NULL, timeout );
+		Rt = ::select( MaxFD +1, &ReadFDS, NULL, NULL, &tv );
 
         // log and ignore failures
         if( Rt < 0 ) 
@@ -311,11 +325,12 @@ void cIgmpListener::Action()
 				if (recvlen < 0)
 				{
 #ifndef WIN32
-					if (errno == EINTR)
-						continue;
+                                        if ( (errno == EINTR) || (errno == EWOULDBLOCK) )
+                                                continue;
 #else
-					if (WSAGetLastError() == WSAEINTR)
-						continue;
+                                        Rt = WSAGetLastError();
+                                        if ( (Rt == WSAEINTR) || (Rt == WSAEWOULDBLOCK) )
+                                                continue;
 #endif
 					log_socket_error("IGMP recv()");
 					break;
@@ -500,6 +515,7 @@ cIgmpMain::cIgmpMain(cStreamer* streamer, iface_t bindif)
     m_StartupQueryCount = IGMP_STARTUP_QUERY_COUNT;
     m_Querier = true;
     m_streamer = streamer;
+    TV_CLR(m_GeneralQueryTimer);
 }
 
 cIgmpMain::~cIgmpMain(void)

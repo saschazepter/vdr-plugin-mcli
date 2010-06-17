@@ -36,7 +36,7 @@ channel_t *channels=NULL;
 int channel_num=0;
 int channel_max_num=0;
 int channel_use_eit = 0;
-
+int portnum = 12345;
 
 /*-------------------------------------------------------------------------*/
 channel_t * read_channel_list(char *filename)
@@ -70,7 +70,7 @@ channel_t * read_channel_list(char *filename)
 			printf("%i: udp://@239.255.%i.%i:%i - %s \n", 
 				channel_num+1, ip1, ip2, 12345, channels[channel_num].name);
                         fprintf(pf, "#EXTINF: %i,%s\n", channel_num+1, channels[channel_num].name);
-                        fprintf(pf, "udp://@239.255.%i.%i:%i\n", ip1,ip2, 12345);
+                        fprintf(pf, "udp://@239.255.%i.%i:%i\n", ip1,ip2, portnum);
 			if (channel_use_eit)
 			{
 				channels[channel_num].NumEitpids = 1;
@@ -127,7 +127,6 @@ int main(int argc, char *argv[])
 	char channels[_POSIX_PATH_MAX];
 	strcpy(channels, "channels.conf");
 	char bindiface[IFNAMSIZ];
-	int portnum = 12345;
 	iface_t iflist[MAXIF];
 
 #ifndef WIN32
@@ -223,7 +222,14 @@ int main(int argc, char *argv[])
 		exit(-1);
 
 	mcli_startup();
-	mld_client_init(cmd.iface);
+	
+#ifdef WIN32
+       if ( !IsVistaOrHigher() )
+       {
+               printf("Windows version does not support MLDv2, enabling internal MLDv2 reporter.\n");
+               mld_client_init(cmd.iface);
+       }
+#endif
 
 	printf("\n");
 	
@@ -270,9 +276,13 @@ int main(int argc, char *argv[])
 #endif
 
 	streamer.Stop();
-	mld_client_exit();
-
-	printf("netcv2dvbip stopped.\n");
+#ifdef WIN32
+       if ( !IsVistaOrHigher() )
+       {
+           mld_client_exit();
+       }
+#endif
+        printf("netcv2dvbip stopped.\n");
 
 #ifdef WIN32
 	WSACleanup();

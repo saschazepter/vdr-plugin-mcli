@@ -41,6 +41,7 @@ extern bool GetAbsTime(struct timespec *Abstime, int MillisecondsFromNow);
 #ifdef WIN32
 extern int gettimeofday(struct timeval * tp, struct timezone * tzp);
 bool IsUserAdmin( bool* pbAdmin );
+bool IsVistaOrHigher();
 #else
 #include <sys/time.h>
 #endif

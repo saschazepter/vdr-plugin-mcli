@@ -162,4 +162,18 @@ __finally
 
 return bResult;
 }
+
+bool IsVistaOrHigher()
+{
+    OSVERSIONINFO osvi;
+
+    ZeroMemory(&osvi, sizeof(OSVERSIONINFO));
+    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+
+    GetVersionEx(&osvi);
+
+	return (osvi.dwMajorVersion >= 6);
+
+}
+
 #endif

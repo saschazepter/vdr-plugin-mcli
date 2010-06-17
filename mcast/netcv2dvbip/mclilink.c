@@ -234,6 +234,7 @@ void *stream_watch (void *p)
 				pids[i + k].pid = si->es_pids[i];
 //				if(si->cdata->NumCaids) {
 				if(!si->fta) {
+					printf("Channel: %s - %s\n", si->cdata->name, si->fta ? "Free-To-Air":"Crypted");
         				pids[i + k].id =  si->cdata->sid;
 				}
 				pids[i + k +1].pid = -1;
