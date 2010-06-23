@@ -178,7 +178,7 @@ bool cIgmpListener::Initialize(iface_t bindif)
     if ( rc < 0 )
 	{
 		log_socket_error("IGMP setsockopt(MRT_INIT)");
-		return false;
+		printf("IGMPv2 won't work! Please enable multicast router option in the kernel configuration!\n");
 	}
 
 	struct vifctl VifCtl;
@@ -194,7 +194,6 @@ bool cIgmpListener::Initialize(iface_t bindif)
     if ( rc < 0 )
 	{
 		log_socket_error("IGMP setsockopt(MRT_ADD_VIF)");
-		return false;
 	}
 
 
@@ -241,6 +240,7 @@ bool cIgmpListener::Initialize(iface_t bindif)
 	rc = ::bind( m_socket, (struct sockaddr*)&m_LocalAddr, sizeof(m_LocalAddr) );
     if ( rc < 0 )
 	{
+	
 		log_socket_error("IGMP bind()");
 		return false;
 	}
