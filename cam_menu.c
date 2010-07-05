@@ -25,8 +25,244 @@
 
 #include <string.h>
 
+#define TMP_PATH "/tmp"
+#define TMP_FILE TMP_PATH"/netceiver.conf"
+
+class cCamInfo : public cOsdItem {
+	public:
+		cCamInfo(const char *uuid, int slot, const char *info) {
+			SetText(cString::sprintf ("   %s:\t%s", slot == 0 ? trVDR ("lower slot") : trVDR ("upper slot"), 
+				                                      info ? info[0] ? info : trVDR ("Error") : trVDR ("No CI-Module")));
+			if(uuid) strcpy (m_uuid, uuid); else m_uuid[0]=0;
+			if(info) strcpy (m_info, info); else m_info[0]=0;
+			m_hascam = (info!=NULL);
+			m_slot = slot;
+		}; // cCamInfo
+		int CamMenuOpen (char *iface) {
+			isyslog("Opening CAM Menu at NetCeiver %s Slot %d info %s\n", m_uuid, m_slot, m_info);
+			int mmi_session = 0;
+			if(m_slot != -1 && strlen(m_info)) {
+				mmi_session = mmi_open_menu_session (m_uuid, iface, 0, m_slot);
+				if (mmi_session > 0) {
+					sleep (1);
+					const char *c = "00000000000000\n";
+					mmi_send_menu_answer (mmi_session, (char *) c, strlen (c));
+				} else {
+					esyslog("Could not open mcli menu session for %s/%d(%s): %d", m_uuid, m_slot, m_info, mmi_session);
+					mmi_session = -1;
+				} // if
+			} // if
+			return mmi_session;
+		}; // CamMenuOpen
+		virtual void CamReset (char *iface) {
+			if(CanCamReset())
+				mmi_cam_reset(m_uuid, iface, 0, m_slot);
+		}; // CamMenuOpen
+		virtual bool CanCamReset() {
+			return (m_slot != -1) && m_hascam;
+		}; // CanCamReset
+		virtual bool MtdPossible() {
+			return MtdPossible(m_info);
+		}; // MtdPossible
+		static bool MtdPossible(const char *info) {
+			if(info && strlen(info))
+				if (strncmp(info, "Alpha", 5) == 0 || strncmp(info, "easy.TV", 7) == 0)
+					return true;
+			return false;
+		}; // MtdPossible
+	protected:
+		bool m_hascam;
+		char m_uuid[UUID_SIZE];
+		int m_slot;
+		char m_info[MMI_TEXT_LENGTH];
+}; // cCamInfo
+
+class cCamMtd : public cMenuEditIntItem {
+	friend class cNCUpdate;
+	public:
+		cCamMtd(const char *uuid, int slot, const char *info, nc_ca_caps_t flags) : 
+				cMenuEditIntItem((const char *)cString::sprintf("      %s", tr("Multi-Transponder")), &m_flags, 1, 2, trVDR("no"), trVDR("yes")) {
+			m_oflags = m_flags = flags;
+			if(uuid) strcpy (m_uuid, uuid); else m_uuid[0]=0;
+			if(info) strcpy (m_info, info); else m_info[0]=0;
+			m_slot = slot;
+			Set();
+		}; // cCamMtd
+		virtual bool MtdModified() { return m_flags != m_oflags; };
+		virtual void MtdSaved()    { m_oflags = m_flags; }
+	protected:
+		char m_uuid[UUID_SIZE];
+		int m_slot;
+		char m_info[MMI_TEXT_LENGTH];
+		int m_flags;
+		int m_oflags;
+}; // cCamMtd
+
+class cNCUpdate : public cThread {
+	public:
+		cNCUpdate(cCamMenu *menu, const char *iface) {
+			m_menu = menu;
+			m_iface = iface;
+			if(m_iface && !strlen(m_iface)) m_iface = NULL;
+			m_state=1;
+			Start();
+		}; // cNCUpdate
+		virtual bool Done() { return !m_state; };
+		virtual const char *GetStateStr() {
+			return m_statestr;
+		}; // GetStateStr
+	protected:
+		virtual void Action() {
+			char uuid[UUID_SIZE];
+			while(Running() && m_menu && m_state) {
+				switch(m_state) {
+					case 1: {
+						m_statestr=tr("Updating configuration...");
+						m_state = 0;
+						for(cOsdItem *i=m_menu->First(); i; i=m_menu->Next(i)) {
+							cCamMtd *m = dynamic_cast<cCamMtd *>(i);
+							if(m && m->MtdModified()) {
+								strcpy(uuid, m->m_uuid);
+								m_state = 2;
+								break;
+							} // if
+						} // for
+						if(!m_state) m_statestr=tr("Configuration is up to date...");
+						break;
+					} // case 1
+					case 2: {
+						m_statestr = cString::sprintf(tr("Getting configuration from Netceiver %s"), uuid);
+						cString c = cString::sprintf("rm -f %s; cd %s; netcvupdate -i %s%s%s -D", TMP_FILE, TMP_PATH, uuid, m_iface ? " -d " : "", m_iface ? m_iface : "");
+//isyslog("EXEC1 %s", (const char *)c);
+						if(SystemExec(c)) {
+							m_statestr = cString::sprintf(tr("Failed to get configuration from Netceiver %s"), uuid);
+							m_state = 0;
+							continue;
+						} // if
+						m_state = 3;
+						break;
+					} // case 2
+					case 3: {
+						m_statestr = cString::sprintf(tr("Changing configuration for Netceiver %s"), uuid);
+						xmlDocPtr doc = xmlReadFile(TMP_FILE, NULL, 0);
+						if(doc == NULL) {
+							m_statestr = cString::sprintf(tr("Failed to parse configuration from Netceiver %s"), uuid);
+							m_state = 0;
+							continue;
+						} // if
+						if(!PatchAllCamFlags(doc, uuid)) {
+							xmlFreeDoc(doc);
+							m_statestr = cString::sprintf(tr("Failed to set configuration for Netceiver %s"), uuid);
+							m_state = 0;
+							continue;
+						} // if
+						if(xmlSaveFormatFileEnc(TMP_FILE, doc, "UTF-8", 1)==-1) {
+							xmlFreeDoc(doc);
+							m_statestr = cString::sprintf(tr("Failed to save configuration for Netceiver %s"), uuid);
+							m_state = 0;
+							continue;
+						} // if
+						xmlFreeDoc(doc);
+						m_state=4;
+						break;
+					} // case 3
+					case 4: { 
+						m_statestr = cString::sprintf(tr("Saving configuration for Netceiver %s"), uuid);
+						cString c = cString::sprintf("netcvupdate -i %s%s%s -U %s -K", uuid, m_iface ? " -d " : "", m_iface ? m_iface : "", TMP_FILE);
+//isyslog("EXEC2 %s", (const char *)c);
+						if(SystemExec(c)) {
+							m_statestr = cString::sprintf(tr("Failed to save configuration for Netceiver %s"), uuid);
+							m_state = 0;
+							continue;
+						} // if
+						m_state=1;
+						break;
+					} // case 4
+				} // switch
+			} // while
+			m_state = 0;
+		}; // Action
+		virtual bool PatchAllCamFlags(xmlDocPtr doc, const char *uuid) {
+			for(cOsdItem *i=m_menu->First(); i; i=m_menu->Next(i)) {
+				cCamMtd *m = dynamic_cast<cCamMtd *>(i);
+				if(m && !strcmp(m->m_uuid, uuid)) {
+					if(!PatchCamFlags(doc, uuid, itoa(m->m_slot), itoa(m->m_flags)))
+						return false;
+					m->MtdSaved();
+				} // if
+			} // for
+			return true;
+		}; // PatchAllCamFlags
+		virtual bool PatchCamFlags(xmlDocPtr doc, const char *uuid, const char *slot, const char *flags) {
+			bool uuid_match=false;
+			bool flags_set =false;
+			xmlNode *node = xmlDocGetRootElement(doc);
+			node = node ? node->children : NULL;
+			while(node && xmlStrcmp(node->name, (const xmlChar *)"Description"))
+				node=node->next;
+			node = node ? node->children : NULL;
+			while(node) {
+				if(node && !xmlStrcmp(node->name, (const xmlChar *)"component")) {
+					xmlNode *item = node->children;
+					while(item && xmlStrcmp(item->name, (const xmlChar *)"Description")) {
+						item = item->next;
+					} // while
+					xmlChar *about = item ? xmlGetProp(item, (const xmlChar *)"about") : NULL;
+					if(about) {
+						if (!xmlStrcmp(about, (const xmlChar *)"Platform")) {
+							xmlNode *sub = item->children;
+							while(sub) {
+								if(!xmlStrcmp(sub->name, (const xmlChar *)"UUID")) {
+									xmlChar *value=xmlNodeListGetString(doc, sub->children, 1);
+									if(value) {
+										uuid_match=!xmlStrcmp(value, (const xmlChar *)uuid); 
+										xmlFree(value);
+									} // if
+								} // if
+								sub = sub->next;
+							} // while
+						} else if(!xmlStrcmp(about, (const xmlChar *)"CAM")) {
+							xmlNode *sub = item->children;
+							while(sub) {
+								if(!xmlStrcmp(sub->name, (const xmlChar *)"Slot")) {
+									xmlChar *value=xmlNodeListGetString(doc, sub->children, 1);
+									if(value) {
+										if (!xmlStrcmp(value, (const xmlChar *)slot)) {
+											xmlNode *tst = item->children;
+											while(tst) {
+												if(!xmlStrcmp(tst->name, (const xmlChar *)"Flags")) {
+													xmlReplaceNode(tst, xmlNewChild(item, xmlSearchNs(doc, tst, (const xmlChar *)"prf"), (const xmlChar *)"Flags", (const xmlChar *)flags));
+													xmlFreeNode(tst);
+													flags_set=true;
+													tst = NULL;
+													continue;
+												} // if
+												tst = tst->next;
+											} // while
+										} // if
+										xmlFree(value);
+									} // if
+								} // if
+								sub = sub->next;
+							} // while
+						} // if
+						xmlFree(about);
+					} // if
+				} // if
+				node = node->next;
+			} // while
+			return uuid_match && flags_set;
+		}; // PatchCamFlags
+		cCamMenu *m_menu;
+		const char *m_iface;
+		unsigned int m_state;
+		cString m_statestr;
+}; // cNCUpdate
+
+
 cCamMenu::cCamMenu (cmdline_t * cmd):cOsdMenu (trVDR ("Common Interface"), 18)
 {
+	NCUpdate=NULL;
 	m_cmd = cmd;
 	inCamMenu = false;
 	inMMIBroadcastMenu = false;
@@ -36,22 +272,13 @@ cCamMenu::cCamMenu (cmdline_t * cmd):cOsdMenu (trVDR ("Common Interface"), 18)
 	pinCounter = 0;
 	alreadyReceived = false;
 	mmi_session = -1;
-
-	for (int i = 0; i < MAX_CAMS_IN_MENU; i++) {
-		cam_list[i].slot = -1;
-        cam_list[i].info[0] = '\0';
-    }
-
-    SetHelp(trVDR("Reset"), NULL, NULL, NULL);
-
 	SetNeedsFastResponse (true);
-
-	// Find all operational CAMs.
-	CamFind (cam_list);
+	CamFind ();
 }
 
 cCamMenu::cCamMenu (cmdline_t * cmd, mmi_info_t * mmi_info):cOsdMenu (trVDR ("Common Interface"), 18)
 {
+	NCUpdate=NULL;
 	m_cmd = cmd;
 	inCamMenu = false;
 	inMMIBroadcastMenu = false;
@@ -61,16 +288,7 @@ cCamMenu::cCamMenu (cmdline_t * cmd, mmi_info_t * mmi_info):cOsdMenu (trVDR ("Co
 	pinCounter = 0;
 	alreadyReceived = false;
 	mmi_session = -1;
-
-	for (int i = 0; i < MAX_CAMS_IN_MENU; i++) {
-		cam_list[i].slot = -1;
-        cam_list[i].info[0] = '\0';
-    }
-
 	SetNeedsFastResponse (true);
-
-    SetHelp(trVDR("Reset"), NULL, NULL, NULL);
-
 	mmi_session = CamMenuOpen (mmi_info);
 }
 
@@ -83,19 +301,13 @@ cCamMenu::~cCamMenu ()
 void cCamMenu::OpenCamMenu ()
 {
 	bool timeout = true;
-
-	unsigned int nrInCamList = currentSelected - ((int) currentSelected / 5) * 3 - 3;	// minus the empty rows
-
-	if (cam_list[nrInCamList].slot == -1)	// just a sanity check
-		return;
-
-	Clear ();
-    Skins.Message(mtWarning, trVDR("Opening CAM menu..."));
-
-	mmi_session = CamMenuOpen (&cam_list[nrInCamList]);
+	cCamInfo *item = dynamic_cast<cCamInfo *>(Get(currentSelected));
+	mmi_session = item ? item->CamMenuOpen (m_cmd->iface) : 0;
 	char buf2[MMI_TEXT_LENGTH * 2];
 	printf ("mmi_session: %d\n", mmi_session);
 	if (mmi_session > 0) {
+		Clear ();
+		Skins.Message(mtWarning, trVDR("Opening CAM menu..."));
 		inCamMenu = true;
 		time_t t = time (NULL);
 		while ((time (NULL) - t) < CAMMENU_TIMEOUT) {
@@ -119,8 +331,9 @@ void cCamMenu::OpenCamMenu ()
 			}
 		}
 	}
-	if (timeout) {
+	if (mmi_session && timeout) {
 		printf ("%s: Error\n", __PRETTY_FUNCTION__);
+		Clear ();
 		Add (new cOsdItem (trVDR ("Error")));
 	}
 	Display ();
@@ -173,7 +386,7 @@ void cCamMenu::Receive ()
 	Display ();
 }
 
-int cCamMenu::CamFind (cam_list_t * cam_list)
+int cCamMenu::CamFind ()
 {
 	Clear ();
 	int n, cnt = 0, i;
@@ -189,48 +402,45 @@ int cCamMenu::CamFind (cam_list_t * cam_list)
 		Add (new cOsdItem (buf, osUnknown, false));
 		Add (new cOsdItem ("", osUnknown, false));
 		printf ("    CAMS [%d]: \n", nci->cam_num);
+		int nrAlphaCrypts = 0;
+		int nrOtherCams = 0;
+
+		for (i = nci->cam_num - 1; i >= 0 /*nci->cam_num */ ; i--) {
+			if((2==nci->cam[i].status)&&strlen(nci->cam[i].menu_string)) {
+				if (cCamInfo::MtdPossible(nci->cam[i].menu_string))
+					nrAlphaCrypts++;
+				else
+					nrOtherCams++;
+			} // if
+		} // for
+		bool mtdImpossible = nrAlphaCrypts > 0 && nrOtherCams > 0; // as in netcvmenu.c
 		for (i = nci->cam_num - 1; i >= 0 /*nci->cam_num */ ; i--) {
 			switch (nci->cam[i].status) {
-			case 2:	//DVBCA_CAMSTATE_READY:
-				snprintf (buf, 128, "   %s:\t%s", nci->cam[i].slot == 0 ? trVDR ("lower slot") : trVDR ("upper slot"), nci->cam[i].menu_string);
-				Add (new cOsdItem (buf));
-				printf ("    %i.CAM - Slot %i - %s\n", i + 1, nci->cam[i].slot, nci->cam[i].menu_string);
-				if (cnt < MAX_CAMS_IN_MENU) {
-					cam_list[cnt].slot = i;
-					strcpy (cam_list[cnt].uuid, nci->uuid);
-					strcpy (cam_list[cnt].info, nci->cam[i].menu_string);
+				case 2:	{//DVBCA_CAMSTATE_READY:
+					cCamInfo *item = new cCamInfo(nci->uuid, nci->cam[i].slot, nci->cam[i].menu_string);
+					Add(item);
+					if(!mtdImpossible && item->MtdPossible())
+						Add(new cCamMtd(nci->uuid, nci->cam[i].slot, nci->cam[i].menu_string, nci->cam[i].flags));
+					break;
 				}
-				break;
-            case 0: // no cam?
-				cam_list[cnt].slot = -1;
-				snprintf (buf, 128, "   %s:\t%s", nci->cam[i].slot == 0 ? trVDR ("lower slot") : trVDR ("upper slot"), trVDR ("No CI-Module"));
-				Add (new cOsdItem (buf));
-                break;
-			default:
-				cam_list[cnt].slot = -1;
-				int len = strlen (nci->cam[i].menu_string);
-				printf ("%s: Error - status: %i\n", __PRETTY_FUNCTION__, nci->cam[i].status);
-				snprintf (buf, 128, "   %s:\t%s", nci->cam[i].slot == 0 ? trVDR ("lower slot") : trVDR ("upper slot"), len == 0 ? trVDR ("Error") : nci->cam[i].menu_string);
-				Add (new cOsdItem (buf));
+				case 0: // no cam?
+					Add(new cCamInfo(nci->uuid, nci->cam[i].slot, NULL));
+					break;
+				default:
+					Add(new cCamInfo(nci->uuid, nci->cam[i].slot, nci->cam[i].menu_string));
 			}
 			cnt++;
 		}
+		if (mtdImpossible) {
+			Add (new cOsdItem ("", osUnknown, false));
+			Add(new cOsdItem(cString::sprintf("   %s", tr("Multi-Transponder-Decryption is"))));
+			Add(new cOsdItem(cString::sprintf("   %s", tr("impossible because of mixed CAMs"))));
+		} // if
+		Add (new cOsdItem ("", osUnknown, false));
 	}
 	nc_unlock_list ();
 	Display ();
 	return cnt;
-}
-
-int cCamMenu::CamMenuOpen (cam_list_t * cam)
-{
-	//printf ("Opening CAM Menu at NetCeiver %s Slot %d Current: %i\n", cam->uuid, cam->slot, currentSelected);
-
-	int mmi_session = mmi_open_menu_session (cam->uuid, m_cmd->iface, 0, cam->slot);
-	if (mmi_session > 0) {
-		sleep (1);
-		CamMenuSend (mmi_session, (char *) "00000000000000\n");
-	}
-	return mmi_session;
 }
 
 int cCamMenu::CamMenuOpen (mmi_info_t * mmi_info)
@@ -283,6 +493,18 @@ int cCamMenu::CamPollText (mmi_info_t * text)
 
 eOSState cCamMenu::ProcessKey (eKeys Key)
 {
+	if(NCUpdate) {
+		if(NCUpdate->Done()) {
+			SetStatus("");
+			Skins.Message(mtWarning, NCUpdate->GetStateStr());
+			delete NCUpdate;
+			NCUpdate=NULL;
+			return osBack;
+		} else
+			SetStatus(NCUpdate->GetStateStr());
+			Display();
+			return osContinue;
+	} // if
 	eOSState ret = cOsdMenu::ProcessKey (Key);
 
 	currentSelected = Current ();
@@ -293,15 +515,16 @@ eOSState cCamMenu::ProcessKey (eKeys Key)
 		if (inMMIBroadcastMenu)
 			return osEnd;
 		CamMenuClose (mmi_session);
-		CamFind (cam_list);
+		CamFind ();
 		return osContinue;
 	}
-
-    if (inCamMenu)
-        SetHelp(NULL, NULL, NULL, NULL);
-    else
-        SetHelp(trVDR("Reset"), NULL, NULL, NULL);
-
+	bool MtdModified=false;
+	for(cOsdItem *i=First(); i; i=Next(i)){
+		cCamMtd *m = dynamic_cast<cCamMtd *>(i);
+		if(m&&m->MtdModified()) MtdModified=true;
+	} // for
+	cCamInfo *info = dynamic_cast<cCamInfo *>(Get(Current()));
+	SetHelp(MtdModified?tr("Save"):NULL, NULL, (info&&info->CanCamReset()) ? trVDR("Reset") : NULL, NULL);
 	switch (Key) {
 #if 0
     case kUp:
@@ -315,13 +538,18 @@ eOSState cCamMenu::ProcessKey (eKeys Key)
         break;
         }
 #endif
-    case kRed:
-        {
-      	unsigned int nrInCamList = currentSelected - ((int) currentSelected / 5) * 3 - 3;	// minus the empty rows
-        if(cam_list[nrInCamList].slot != -1 && strlen(cam_list[nrInCamList].info))
-            mmi_cam_reset(cam_list[nrInCamList].uuid, m_cmd->iface, 0, cam_list[nrInCamList].slot);
-        break;
-        }
+	case kRed: { // modify mtd settings
+		NCUpdate = new cNCUpdate(this, m_cmd->iface);
+		SetHelp(NULL, NULL, NULL, NULL);
+		SetStatus(tr("Updating configuration..."));
+		Display();
+		return osContinue;
+	}
+	case kYellow: {
+		cCamInfo *item = dynamic_cast<cCamInfo *>(Get(currentSelected));
+		if(item) item->CamReset(m_cmd->iface);
+		break;
+	}
 	case kOk:
 		SetStatus ("");
 		pinCounter = 0;	// reset pin
@@ -336,8 +564,8 @@ eOSState cCamMenu::ProcessKey (eKeys Key)
 			Receive ();
 		} else if (inCamMenu) {
 			//printf ("Sending: \"%s\"\n", Get (Current ())->Text ());
-            if (strcmp(Get ( Current ())->Text(), trVDR("Error"))) // never send Error...
-			    CamMenuSend (mmi_session, Get (Current ())->Text ());
+				if (strcmp(Get ( Current ())->Text(), trVDR("Error"))) // never send Error...
+				CamMenuSend (mmi_session, Get (Current ())->Text ());
 			Receive ();
 		} else
 			OpenCamMenu ();
@@ -349,7 +577,7 @@ eOSState cCamMenu::ProcessKey (eKeys Key)
 		inCamMenu = false;
 		SetStatus ("");
 		CamMenuClose (mmi_session);
-		CamFind (cam_list);
+		CamFind ();
 		return osContinue;
 	case k0...k9:
 		if (inputRequested) {
