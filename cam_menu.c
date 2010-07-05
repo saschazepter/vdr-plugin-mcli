@@ -429,14 +429,14 @@ int cCamMenu::CamFind ()
 				default:
 					Add(new cCamInfo(nci->uuid, nci->cam[i].slot, nci->cam[i].menu_string));
 			}
+			Add (new cOsdItem ("", osUnknown, false));
 			cnt++;
 		}
 		if (mtdImpossible) {
-			Add (new cOsdItem ("", osUnknown, false));
 			Add(new cOsdItem(cString::sprintf("   %s", tr("Multi-Transponder-Decryption is"))));
 			Add(new cOsdItem(cString::sprintf("   %s", tr("impossible because of mixed CAMs"))));
+			Add (new cOsdItem ("", osUnknown, false));
 		} // if
-		Add (new cOsdItem ("", osUnknown, false));
 	}
 	nc_unlock_list ();
 	Display ();

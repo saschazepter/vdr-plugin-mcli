@@ -53,10 +53,10 @@ msgid "Saving configuration for Netceiver %s"
 msgstr "Speichere die Konfiguration von Netceiver %s"
 
 msgid "Multi-Transponder-Decryption is"
-msgstr "Multi-Transponder-Entschlüsselung"
+msgstr "Multi-Transponder-Entschlüsselung ist"
 
 msgid "impossible because of mixed CAMs"
-msgstr "nicht möglich wegen gemischten CAMs"
+msgstr "nicht möglich wegen gemischter CAMs"
 
 msgid "Save"
 msgstr "Speichern"
