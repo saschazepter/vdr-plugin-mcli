@@ -410,9 +410,22 @@ bool cMcliDevice::ProvidesChannel (const cChannel * Channel, int Priority, bool 
 
 void cMcliDevice::TranslateTypePos(int &type, int &pos, const int Source) const
 {
+#if VDRVERSNUM < 10713
 	pos = Source;
 	pos = ((pos & st_Neg) ? 1 : -1) * (pos & st_Pos);
-//      printf ("Position:%d\n", spos);
+#else
+	int n = (Source & 0xffff);
+	
+	if (n > 0x00007FFF) {
+		n |= 0xFFFF0000;
+	}
+	
+	pos=abs(n);
+	
+	if (n > 0 ){
+		pos = -pos;
+	}
+#endif
 	if (pos) {
 		pos += 1800;
 	} else {

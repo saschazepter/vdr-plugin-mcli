@@ -23,10 +23,33 @@
 #include "filter.h"
 #include "device.h"
 
+#include <vdr/plugin.h>
 #include <string.h>
 
 #define TMP_PATH "/tmp"
 #define TMP_FILE TMP_PATH"/netceiver.conf"
+
+class cCamMtd : public cMenuEditIntItem {
+	friend class cNCUpdate;
+	public:
+		cCamMtd(const char *uuid, int slot, const char *info, nc_ca_caps_t flags) : 
+				cMenuEditIntItem((const char *)cString::sprintf("      %s", tr("Multi-Transponder")), &m_flags, 1, 2, trVDR("no"), trVDR("yes")) {
+			m_oflags = m_flags = flags;
+			if(uuid) strcpy (m_uuid, uuid); else m_uuid[0]=0;
+			if(info) strcpy (m_info, info); else m_info[0]=0;
+			m_slot = slot;
+			Set();
+		}; // cCamMtd
+		virtual bool MtdModified() { return m_flags != m_oflags; };
+		virtual void MtdSaved()    { m_oflags = m_flags; }
+	protected:
+		char m_uuid[UUID_SIZE];
+		int m_slot;
+		char m_info[MMI_TEXT_LENGTH];
+		int m_flags;
+		int m_oflags;
+
+}; // cCamMtd
 
 class cCamInfo : public cOsdItem {
 	public:
@@ -76,27 +99,6 @@ class cCamInfo : public cOsdItem {
 		int m_slot;
 		char m_info[MMI_TEXT_LENGTH];
 }; // cCamInfo
-
-class cCamMtd : public cMenuEditIntItem {
-	friend class cNCUpdate;
-	public:
-		cCamMtd(const char *uuid, int slot, const char *info, nc_ca_caps_t flags) : 
-				cMenuEditIntItem((const char *)cString::sprintf("      %s", tr("Multi-Transponder")), &m_flags, 1, 2, trVDR("no"), trVDR("yes")) {
-			m_oflags = m_flags = flags;
-			if(uuid) strcpy (m_uuid, uuid); else m_uuid[0]=0;
-			if(info) strcpy (m_info, info); else m_info[0]=0;
-			m_slot = slot;
-			Set();
-		}; // cCamMtd
-		virtual bool MtdModified() { return m_flags != m_oflags; };
-		virtual void MtdSaved()    { m_oflags = m_flags; }
-	protected:
-		char m_uuid[UUID_SIZE];
-		int m_slot;
-		char m_info[MMI_TEXT_LENGTH];
-		int m_flags;
-		int m_oflags;
-}; // cCamMtd
 
 class cNCUpdate : public cThread {
 	public:
