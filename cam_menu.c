@@ -89,7 +89,10 @@ class cCamInfo : public cOsdItem {
 		}; // MtdPossible
 		static bool MtdPossible(const char *info) {
 			if(info && strlen(info))
-				if (strncmp(info, "Alpha", 5) == 0 || strncmp(info, "easy.TV", 7) == 0)
+				if (strncmp(info, "Alpha", 5) == 0 
+                                    || strncmp(info, "easy.TV", 7) == 0
+                                    || strncmp(info, "Power", 5) == 0
+                                   )
 					return true;
 			return false;
 		}; // MtdPossible

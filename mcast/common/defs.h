@@ -352,6 +352,9 @@ extern pthread_mutex_t _loglock;
 #define FEC_9_10 14
 #define QPSK_S2 9 
 #define PSK8 10
+#ifndef PSK_8
+    #define PSK_8 PSK8
+#endif
 
 #ifdef MICROBLAZE
   #define STATIC

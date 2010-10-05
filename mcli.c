@@ -516,7 +516,7 @@ tuner_pool_t *cPluginMcli::TunerAvailable(fe_type_t type, int pos, bool lock)
 //	printf("TunerAvailable: %d %d\n",type, pos);
 	if (TunerCountByType (type) == m_cmd.tuner_type_limit[type]) {
 #ifdef DEBUG_RESOURCES
-		printf("Type %d limit (%d) reached\n", type, m_cmd.tuner_type_limit[type]);
+		//printf("Type %d limit (%d) reached\n", type, m_cmd.tuner_type_limit[type]);
 #endif		
 		if(lock) {
 			Unlock();
