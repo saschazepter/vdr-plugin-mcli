@@ -577,10 +577,12 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 #if VDRVERSNUM < 10702				
 //			m_fep.u.qpsk.fec_inner = fe_code_rate_t (Channel->CoderateH () | (Channel->Modulation () << 16));
 			int modulation = Channel->Modulation ();
+#if DVB_API_VERSION > 3
 			if (modulation==PSK_8) // Needed if PSK_8 != PSK8
 				modulation = PSK8;
 			else if(modulation==PSK_8+4) // patched DVB_V5 QPSK for S2
 				modulation = QPSK_S2;
+#endif
 			m_fep.u.qpsk.fec_inner = fe_code_rate_t (Channel->CoderateH () | (modulation << 16));
 #elif VDRVERSNUM < 10714
 			if(s2) {

@@ -178,6 +178,7 @@
 //----------------------------------------------------------------------
 #ifndef __uClinux__
   //DVBAPI
+	#include <linux/dvb/version.h>
 	#include <linux/dvb/frontend.h>
 	#include <linux/dvb/ca.h>
 	#if ! (defined WIN32 || defined APPLE)
@@ -243,11 +244,11 @@ typedef struct recv_festatus
 extern char *_logstr;
 extern pthread_mutex_t _loglock;
 
-#ifdef DEBUG
-  #define dbg(format, arg...) { pthread_mutex_lock (&_loglock); sprintf(_logstr, "%s:%d " format , __FILE__ , __LINE__ , ## arg); syslog_write(_logstr); pthread_mutex_unlock (&_loglock);}
-#else
-  #define dbg(format, arg...) do {} while (0)
-#endif 
+  #ifdef DEBUG
+      #define dbg(format, arg...) { pthread_mutex_lock (&_loglock); sprintf(_logstr, "%s:%d " format , __FILE__ , __LINE__ , ## arg); syslog_write(_logstr); pthread_mutex_unlock (&_loglock);}
+  #else
+      #define dbg(format, arg...) do {} while (0)
+  #endif 
   #define err(format, arg...) {pthread_mutex_lock (&_loglock); sprintf(_logstr, "err:%s:%d: %s (%d): " format , __FILE__ , __LINE__ ,strerror(errno), errno, ## arg); fprintf(stdout, "%s", _logstr); syslog_write(_logstr);abort(); pthread_mutex_unlock (&_loglock);}	
   #define info(format, arg...){pthread_mutex_lock (&_loglock); sprintf(_logstr, format ,## arg); fprintf(stdout, "%s", _logstr); syslog_write(_logstr); pthread_mutex_unlock (&_loglock);}
   #define warn(format, arg...){pthread_mutex_lock (&_loglock); sprintf(_logstr, format ,## arg); fprintf(stdout, "%s", _logstr); syslog_write(_logstr); pthread_mutex_unlock (&_loglock);}
@@ -263,9 +264,9 @@ extern pthread_mutex_t _loglock;
   #define info(format, arg...) printf(format , ## arg)
   #define warn(format, arg...) fprintf(stderr, format , ## arg)
   #define sys(format, arg...) printf(format, ## arg)
-#endif
+#endif // SYSLOG
 
-#else
+#else // !WIN32
 	#ifdef DEBUG
 		static void inline dbg (char *format, ...) 
 		{ 
@@ -337,8 +338,8 @@ extern pthread_mutex_t _loglock;
 			va_end (args);
 		}
 
-	#endif
-#endif
+	#endif //DEBUG
+#endif // WIN32
 
 #ifndef MICROBLAZE
   #define FE_DVBS2 (FE_ATSC+1)
@@ -352,9 +353,6 @@ extern pthread_mutex_t _loglock;
 #define FEC_9_10 14
 #define QPSK_S2 9 
 #define PSK8 10
-#ifndef PSK_8
-    #define PSK_8 PSK8
-#endif
 
 #ifdef MICROBLAZE
   #define STATIC
