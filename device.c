@@ -608,7 +608,16 @@ bool cMcliDevice::SetChannelDevice (const cChannel * Channel, bool LiveView)
 						modulation = PSK8;
 						break;
 				}
-				 m_fep.u.qpsk.fec_inner = fe_code_rate_t (dtp.CoderateH () | (modulation << 16));
+				int coderateH = dtp.CoderateH ();
+				switch(dtp.CoderateH()) {
+				        case FEC_AUTO+1:                // DVB-API 5 FEC_3_5
+						coderateH = FEC_AUTO+4; // MCLI-API  FEC_3_5
+				                break;
+					case FEC_AUTO+2:                // DVB-API 5 FEC_9_10
+						coderateH = FEC_AUTO+5; // MCLI-API  FEC_9_10
+						break;
+				}
+				m_fep.u.qpsk.fec_inner = fe_code_rate_t (coderateH | (modulation << 16));
 			}
 #endif			
 		}
