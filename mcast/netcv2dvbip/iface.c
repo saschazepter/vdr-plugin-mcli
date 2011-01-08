@@ -52,9 +52,9 @@ int get_iface_ipaddress(struct ifreq *ifreq)
      return (-1);
    }
 
-   if((rval = ioctl(sock, SIOCGIFADDR , (char*) ifreq  )) < 0 )
-     perror("ioctl(SIOCGIFADDR)");
-
+   if((rval = ioctl(sock, SIOCGIFADDR , (char*) ifreq  )) < 0 ) {
+     //perror("ioctl(SIOCGIFADDR)");
+   }
    close(sock);
 
    return rval;
@@ -90,7 +90,7 @@ int discover_interfaces(iface_t iflist[])
    	ifconf.ifc_len = sizeof(ifreqs);
 
 	if(get_iface_list(&ifconf) < 0) 
-  			return false;
+  			return 0;
   			
    	nifaces =  ifconf.ifc_len/sizeof(struct ifreq);
 
@@ -101,14 +101,14 @@ int discover_interfaces(iface_t iflist[])
 		strncpy(iflist[i].name, ifreqs[i].ifr_name, IFNAMSIZ);
    	
    		u_char *addr;
-   		if(get_iface_ipaddress(&ifreqs[i])<0) 
-   			return false;
+   		if(get_iface_ipaddress(&ifreqs[i])<0)
+   			continue;
 		addr = (u_char *) & (((struct sockaddr_in *)&(ifreqs[i]).ifr_addr)->sin_addr);
 		printf("\t%i - %-10s : addr %d.%d.%d.%d\n",(i+1),ifreqs[i].ifr_name,addr[0],addr[1],addr[2],addr[3]);
 		iflist[i].ipaddr = ( (struct sockaddr_in *)&(ifreqs[i]).ifr_addr)->sin_addr.s_addr;
    			
 	}
-	return true;
+	return nifaces;
 }
 
 #endif

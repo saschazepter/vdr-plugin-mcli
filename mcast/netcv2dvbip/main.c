@@ -192,14 +192,15 @@ int main(int argc, char *argv[])
 	}
 
 	memset( iflist, 0, sizeof(iflist));
-	if ( !discover_interfaces( (iface_t*) &iflist ) )
+	int num_ifaces=discover_interfaces( (iface_t*) &iflist );
+	if ( !num_ifaces )
 		exit(-1);
 
 	int ifindex = 0;
 	if ( strlen(bindiface) > 0 )
 	{
 		int found = false;
-		while ( strlen(iflist[ifindex].name) > 0 )
+		while ( ifindex < num_ifaces )
 		{
 			if (strncmp(iflist[ifindex].name, bindiface, IFNAMSIZ) == 0)
 			{
