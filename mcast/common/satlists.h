@@ -7,6 +7,7 @@
  */
 
 #define DISEQC_MAX_EXTRA 8
+#define MAX_EXTRA_DATA 16
 
 typedef enum
 {
@@ -36,8 +37,9 @@ typedef struct
 
 typedef enum
 {
-	SAT_SRC_LNB,
-	SAT_SRC_ROTOR,
+	SAT_SRC_LNB=0,
+	SAT_SRC_ROTOR=1,
+	SAT_SRC_UNI=2,       // !!! match DISEQC_* values in dvb_server.h !!!
 } satellite_source_t;
 
 typedef struct
@@ -57,6 +59,8 @@ typedef struct
 	int AutoFocus;
 	int Latitude;
 	int Longitude;
+	int num_extra_data;
+	int extra_data[MAX_EXTRA_DATA];  // reserved
 } satellite_info_t;
 
 typedef struct satellite_list

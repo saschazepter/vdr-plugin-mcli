@@ -50,4 +50,11 @@ You should have received a copy of the GNU General Public License along with
 this program; if not, write to the Free Software Foundation, Inc., 51
 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+
+To properly integrate the mcli plugin into your VDR please apply these two
+patches:
+
+vdr-1.6.0-altmenuaction.patch (allows CAM messages to be displayed)
+vdr-1.6.0-intcamdevices.patch (enables selection of encrypted channels
+                               without local CI stack).
  

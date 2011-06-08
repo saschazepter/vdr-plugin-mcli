@@ -22,7 +22,7 @@ msgid "Updating configuration..."
 msgstr "Aktualisiere Konfiguration..."
 
 msgid "Configuration is up to date..."
-msgstr "Konfiguration ist aktuell..."
+msgstr "Konfuguration ist aktuell..."
 
 #, c-format
 msgid "Getting configuration from Netceiver %s"
@@ -30,7 +30,7 @@ msgstr "Hole Konfiguration von Netceiver %s"
 
 #, c-format
 msgid "Failed to get configuration from Netceiver %s"
-msgstr "Fehler beim Laden der Konfiguration von Netceiver %s"
+msgstr "Fehler beim Holen der Konfiguration von Netceiver %s"
 
 #, c-format
 msgid "Changing configuration for Netceiver %s"

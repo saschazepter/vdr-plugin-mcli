@@ -471,6 +471,17 @@ tuner_pool_t *cPluginMcli::TunerFindByUUID (const char *uuid)
 	return NULL;
 }
 
+bool cPluginMcli::Ready()
+{
+	tuner_pool_t *tp;
+	for(int i=0; i<TUNER_POOL_MAX; i++) {
+		tp=m_tuner_pool+i;
+		if(tp->type != -1) 
+		    return true;
+	}
+	return false;
+}
+
 int cPluginMcli::TunerCountByType (const fe_type_t type)
 {
 	int ret=0;

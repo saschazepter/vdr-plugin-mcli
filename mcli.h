@@ -161,6 +161,7 @@ class cPluginMcli:public cPlugin, public cThread
 	bool TunerSatelitePositionLookup(tuner_pool_t *tp, int pos) const;
 	
 	tuner_pool_t *TunerFindByUUID (const char *uuid);
+	bool Ready();
 	int TunerCountByType (const fe_type_t type);
 	bool TunerPoolAdd(tuner_info_t *t);
 	bool TunerPoolDel(tuner_pool_t *tp);

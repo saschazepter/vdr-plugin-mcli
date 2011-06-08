@@ -10,7 +10,7 @@
  */
 
 #include "headers.h"
-
+#include <sys/poll.h>
 //----------------------------------------------------------------------------------------------------------------------------------
 STATIC int udp_ipv6_is_multicast_address (const struct sockaddr *addr)
 {

@@ -89,6 +89,10 @@ cMcliDevice::~cMcliDevice ()
 	DELETENULL (m_PB);
 }
 
+bool cMcliDevice::Ready() {
+	return m_mcli ? m_mcli->Ready() : false;
+}
+
 void cMcliDevice::SetTenData (tra_t * ten)
 {
 	if(!ten->lastseen) {
