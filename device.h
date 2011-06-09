@@ -71,7 +71,6 @@ class cMcliDevice:public cDevice
 	cMcliFilters *m_filters;
 	cMcliDevice (void);
 	virtual ~ cMcliDevice ();
-	virtual bool Ready();
 	void SetMcliRef(cPluginMcli *m)
 	{
 		m_mcli=m;
