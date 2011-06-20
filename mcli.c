@@ -410,6 +410,7 @@ bool cPluginMcli::SatelitePositionLookup(const satellite_list_t *satlist, int po
 		satellite_info_t *s=satlist->sat+i;
 		switch(s->type){
 			case SAT_SRC_LNB:
+			case SAT_SRC_UNI:
 				if(pos == s->SatPos) {
 //					printf("satlist found\n");
 					return true;

@@ -49,7 +49,7 @@ int satellite_find_by_diseqc (satellite_reference_t * ref, recv_sec_t *sec, stru
 					     sat->SatPosMin, newpos ,  sat->SatPosMax, newpos);
 
 					// Check if coded sat pos matches
-					if (sat->type==SAT_SRC_LNB && mode == 0 &&  sec->diseqc_cmd.msg_len>0 && 
+					if ((sat->type==SAT_SRC_LNB || sat->type==SAT_SRC_UNI)  && mode == 0 &&  sec->diseqc_cmd.msg_len>0 && 
 					    (freq >= comp->RangeMin) && (freq <= comp->RangeMax) && 
 					    !memcmp (buf, &sec->diseqc_cmd.msg, sec->diseqc_cmd.msg_len)) {
 						dbg("Satpos MATCH\n");
