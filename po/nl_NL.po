@@ -8,8 +8,8 @@ msgstr ""
 "Project-Id-Version: vdr-mcli 1.0\n"
 "Report-Msgid-Bugs-To: <see README>\n"
 "POT-Creation-Date: 2010-06-29 16:08+0200\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"PO-Revision-Date: 2011-06-15 21:59+0100\n"
+"Last-Translator: TechNL <technl@reelbox4all.com>\n"
 "Language-Team: German <reelbox-devel@mailings.reelbox.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
@@ -19,51 +19,51 @@ msgid "Multi-Transponder"
 msgstr "Multi-Transponder"
 
 msgid "Updating configuration..."
-msgstr "Aktualisiere Konfiguration..."
+msgstr "Konfiguratie updaten..."
 
 msgid "Configuration is up to date..."
-msgstr "Konfuguration ist aktuell..."
+msgstr "Konfuguratie is aktueel..."
 
 #, c-format
 msgid "Getting configuration from Netceiver %s"
-msgstr "Hole Konfiguration von Netceiver %s"
+msgstr "Configuratiie van Netceiver %s ophalen"
 
 #, c-format
 msgid "Failed to get configuration from Netceiver %s"
-msgstr "Fehler beim Holen der Konfiguration von Netceiver %s"
+msgstr "Fout tijdens het ophalen van de configuratie van Netceiver %s"
 
 #, c-format
 msgid "Changing configuration for Netceiver %s"
-msgstr "Aktualisiere Konfiguration von Netceiver %s"
+msgstr "Configuratie aktualiseren van Netceiver %s"
 
 #, c-format
 msgid "Failed to parse configuration from Netceiver %s"
-msgstr "Fehler beim Parsen der Konfiguration von Netceiver %s"
+msgstr "Fout tijdens het parsen van de config van Netceiver %s"
 
 #, c-format
 msgid "Failed to set configuration for Netceiver %s"
-msgstr "Fehler beim Bearbeiten der Konfiguration von Netceiver %s"
+msgstr "Fout tijdens het instellen van de config van Netceiver %s"
 
 #, c-format
 msgid "Failed to save configuration for Netceiver %s"
-msgstr "Fehler beim Speichern der Konfiguration von Netceiver %s"
+msgstr "Fout bij het opslaan van de config van Netceiver %s"
 
 #, c-format
 msgid "Saving configuration for Netceiver %s"
-msgstr "Speichere die Konfiguration von Netceiver %s"
+msgstr "Opslaan van de configuratie van Netceiver %s"
 
 msgid "Multi-Transponder-Decryption is"
-msgstr "Multi-Transponder-Entschlüsselung ist"
+msgstr "Multi-Transponder decoderen is niet"
 
 msgid "impossible because of mixed CAMs"
-msgstr "nicht möglich wegen gemischter CAMs"
+msgstr "mogelijk omdat verschillende CAM's worden gebruikt"
 
 msgid "Save"
-msgstr "Speichern"
+msgstr "Opslaan"
 
 #, c-format
 msgid "Waiting for a free tuner (%s)"
-msgstr "Auf einen freien Tuner wird gewartet (%s)"
+msgstr "Wachten tot tuner voor (%s) beschikbaar komt"
 
 msgid "DVB-C"
 msgstr "DVB-C"
@@ -79,8 +79,9 @@ msgstr "DVB-S2"
 
 #, c-format
 msgid "Module '%s' ready"
-msgstr "'%s'-Modul bereit"
+msgstr "Module '%s' gereed"
 
 #, c-format
 msgid "Module '%s' removed"
-msgstr "'%s'-Modul entfernt"
+msgstr "Module '%s' verwijderd"
+
