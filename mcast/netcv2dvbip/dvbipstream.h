@@ -42,6 +42,8 @@ typedef struct
 	int NumDpids;
 	int eitpids[1];
 	int NumEitpids;
+	int sdtpids[1];
+	int NumSdtpids;
 } channel_t;
 
 

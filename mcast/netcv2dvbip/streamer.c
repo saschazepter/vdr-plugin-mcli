@@ -15,6 +15,7 @@ cStreamer::cStreamer()
 	m_IgmpMain = NULL;
 	m_bindaddr = 0;
 	m_portnum = 0;
+	m_table = 0;
 }
 
 void cStreamer::SetBindIf(iface_t bindif)
@@ -28,11 +29,16 @@ void cStreamer::SetStreamPort(int portnum)
         m_portnum = portnum;
 }
 
+void cStreamer::SetTable(int table)
+{
+        m_table = table;
+}
+
 void cStreamer::Run()
 {
 	if ( m_IgmpMain == NULL )
 	{
-		m_IgmpMain = new cIgmpMain(this, m_bindif);
+		m_IgmpMain = new cIgmpMain(this, m_bindif, m_table);
 		m_IgmpMain->StartListener();
 	}
 	return;

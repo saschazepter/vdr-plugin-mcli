@@ -36,7 +36,9 @@ channel_t *channels=NULL;
 int channel_num=0;
 int channel_max_num=0;
 int channel_use_eit = 0;
+int channel_use_sdt = 0;
 int portnum = 12345;
+int table = 0;
 
 /*-------------------------------------------------------------------------*/
 channel_t * read_channel_list(char *filename)
@@ -75,6 +77,11 @@ channel_t * read_channel_list(char *filename)
 			{
 				channels[channel_num].NumEitpids = 1;
 				channels[channel_num].eitpids[0] = 0x12;
+			}
+			if (channel_use_sdt)
+			{
+				channels[channel_num].NumSdtpids = 1;
+				channels[channel_num].sdtpids[0] = 0x11;
 			}
 			channel_num++;
 		}
@@ -116,7 +123,7 @@ extern cmdline_t cmd;
 
 void usage (void)
 {
-	printf("Usage: netcv2dvbip  [-b <multicast interface>] [-p <port>] [-i <netceiver interface>] [-c <channels.conf>] [-e activate EIT PID (EPG)\n");
+	printf("Usage: netcv2dvbip  [-b <multicast interface>] [-p <port>] [-i <netceiver interface>] [-c <channels.conf>] [-e activate EIT PID (EPG)] [-s activate SDT PID (may be required for EPG)] [-t <routing table number> (requires CONFIG_IP_MROUTE_MULTIPLE_TABLES)]\n");
 	exit(0);
 }
 
@@ -160,7 +167,7 @@ int main(int argc, char *argv[])
 
 	while(1)
 	{
-		int ret = getopt(argc,argv, "i:hc:b:p:e");
+		int ret = getopt(argc,argv, "i:hc:b:p:t:es");
 		if (ret==-1)
 			break;
 			
@@ -182,11 +189,17 @@ int main(int argc, char *argv[])
 			case 'p':
 				portnum = atoi(optarg);
 				break;
+			case 't':
+				table = atoi(optarg);
+				break;
 			case 'h':
 				usage();
 				return(0);
 			case 'e':
 				channel_use_eit = 1;
+				break;
+			case 's':
+				channel_use_sdt = 1;
 				break;
 		}
 	}
@@ -247,6 +260,7 @@ int main(int argc, char *argv[])
 		
 	streamer.SetBindIf(iflist[ifindex]);
 	streamer.SetStreamPort(portnum);
+	streamer.SetTable(table);
 	streamer.SetNumGroups(get_channel_num());
 	
 	streamer.Run();

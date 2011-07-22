@@ -142,7 +142,7 @@ void cIgmpListener::Destruct(void)
 #endif
 }
 
-bool cIgmpListener::Initialize(iface_t bindif)
+bool cIgmpListener::Initialize(iface_t bindif, int table)
 {
 	int rc = 0;
 	int val = 0;
@@ -173,6 +173,17 @@ bool cIgmpListener::Initialize(iface_t bindif)
 
 
 #ifndef WIN32
+#ifdef MRT_TABLE
+	if ( table )
+	{
+		rc = ::setsockopt( m_socket, IPPROTO_IP, MRT_TABLE, (void*)&table, sizeof(table) ); 
+		if ( rc < 0 )
+		{
+			log_socket_error("IGMP setsockopt(MRT_TABLE)");
+			printf("IGMPv2 policy routing won't work! Please enable multicast policy routing option in the kernel configuration!\n");
+		}
+	}
+#endif
     val = 1;
 	rc = ::setsockopt( m_socket, IPPROTO_IP, MRT_INIT, (void*)&val, sizeof(val) ); 
     if ( rc < 0 )
@@ -505,11 +516,12 @@ void cIgmpListener::IGMPSendQuery(in_addr_t Group, int Timeout)
 
 // -------------------------------------------------------------------------------------------------------------------------
 
-cIgmpMain::cIgmpMain(cStreamer* streamer, iface_t bindif)
+cIgmpMain::cIgmpMain(cStreamer* streamer, iface_t bindif, int table)
 	: cThread("IGMP timeout handler")
 {
     m_bindaddr = bindif.ipaddr;
 	m_bindif = bindif;
+	m_table = table;
 
     m_IgmpListener = new cIgmpListener(this);
     m_StartupQueryCount = IGMP_STARTUP_QUERY_COUNT;
@@ -554,7 +566,7 @@ void cIgmpMain::Destruct(void)
 
 bool cIgmpMain::StartListener(void)
 {
-	if ( m_IgmpListener && m_IgmpListener->Initialize(m_bindif) )
+	if ( m_IgmpListener && m_IgmpListener->Initialize(m_bindif, m_table) )
 	{
 		Start();
 		return true;

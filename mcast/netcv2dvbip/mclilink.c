@@ -216,7 +216,7 @@ void *stream_watch (void *p)
 		}
 		if (si->es_pidnum && si->si_state == 5) {
 			int i,k=0;
-			size_t sz = sizeof(dvb_pid_t) * (si->es_pidnum+2 + si->cdata->NumEitpids);
+			size_t sz = sizeof(dvb_pid_t) * (si->es_pidnum+2 + si->cdata->NumEitpids + si->cdata->NumSdtpids);
 			dvb_pid_t *pids=(dvb_pid_t*)malloc(sz);
 			if(pids==NULL) {
 				err("Channel: %s - Can't get memory for pids\n", si->cdata->name);
@@ -228,6 +228,12 @@ void *stream_watch (void *p)
 			{
 				pids[k++].pid = si->cdata->eitpids[i]; 
 				printf("Channel: %s - Add EIT-PID: %d\n", si->cdata->name, si->cdata->eitpids[i]);
+			}
+			//SDT PIDs
+			for (i = 0; i < si->cdata->NumSdtpids; i++)
+			{
+				pids[k++].pid = si->cdata->sdtpids[i]; 
+				printf("Channel: %s - Add SDT-PID: %d\n", si->cdata->name, si->cdata->sdtpids[i]);
 			}
 			for (i = 0; i < si->es_pidnum; i++) {
 				printf ("Channel: %s - Add ES-PID: %d\n", si->cdata->name, si->es_pids[i]);

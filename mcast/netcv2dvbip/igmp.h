@@ -49,7 +49,7 @@ class cIgmpListener : public cThread
 	public:
 		cIgmpListener(cIgmpMain* igmpmain);
 
-		bool Initialize(iface_t bindif);
+		bool Initialize(iface_t bindif, int table);
 		void Destruct(void);
 		bool Membership(in_addr_t mcaddr, bool Add);
 		void IGMPSendQuery(in_addr_t Group, int Timeout);
@@ -71,7 +71,7 @@ class cIgmpListener : public cThread
 class cIgmpMain : public cThread
 {
 	public:
-		cIgmpMain(cStreamer* streamer, iface_t bindif);
+		cIgmpMain(cStreamer* streamer, iface_t bindif, int table);
 		~cIgmpMain(void);
 		bool StartListener(void);
 		void Destruct(void);
@@ -86,6 +86,7 @@ class cIgmpMain : public cThread
 		cIgmpListener* m_IgmpListener;
 		in_addr_t m_bindaddr;
 		iface_t m_bindif;
+		int m_table;
 
 		cList<cMulticastGroup> m_Groups;
 		
