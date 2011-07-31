@@ -112,6 +112,7 @@ class cIgmpMain : public cThread
 		// Main thread 				
 		virtual void Action();
 		cCondWait m_CondWait;
+		int m_stopping;
 
 		// Helper				
 		cMulticastGroup* FindGroup(in_addr_t Group) const;

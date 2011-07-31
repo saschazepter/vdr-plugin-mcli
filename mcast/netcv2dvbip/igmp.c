@@ -13,6 +13,7 @@
 #ifdef APPLE
 #include <netinet/ip_mroute.h>
 #else
+#define _LINUX_IN_H
 #include <linux/mroute.h>
 #endif
 #endif
@@ -527,6 +528,7 @@ cIgmpMain::cIgmpMain(cStreamer* streamer, iface_t bindif, int table)
     m_StartupQueryCount = IGMP_STARTUP_QUERY_COUNT;
     m_Querier = true;
     m_streamer = streamer;
+    m_stopping = 0;
     TV_CLR(m_GeneralQueryTimer);
 }
 
@@ -542,6 +544,7 @@ void cIgmpMain::Destruct(void)
 	}
 	
 	// Wake up timeout thread in case it is currently sleeping
+	m_stopping=1;
     m_CondWait.Signal();
 
 	// Now try to stop thread. After 3 seconds it will be canceled.
@@ -709,6 +712,10 @@ void cIgmpMain::Action()
 		sleep += (next.tv_usec - now.tv_usec) / 1000;
 		if (next.tv_usec < now.tv_usec)
 			sleep += 1000;
+		if (m_stopping)
+			sleep = 100;
+		else if (!sleep)
+			continue;
 		printf("IGMP main thread: Sleeping %d ms\n", sleep);
 		m_CondWait.Wait(sleep);
 	}

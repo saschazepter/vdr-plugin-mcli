@@ -128,6 +128,8 @@ void cStream::Action()
 			break;
 		}
 
+		pthread_mutex_unlock(&si->lock_rd);
+
 		retries = 0;
 		len = 0;
 		offset = 0;
@@ -138,6 +140,7 @@ void cStream::Action()
 			offset += len;
 			if (len == size)
 				break;
+			if(!Running())goto out;
 			// Sleep 100ms
 			usleep (100 * 1000);
 			retries++;
@@ -180,13 +183,12 @@ void cStream::Action()
 						continue;
 #endif
 					log_socket_error("STREAM: sendto()");
-					pthread_mutex_unlock(&si->lock_rd);
 					break;
 				}
 			}
 		}
-		pthread_mutex_unlock(&si->lock_rd);
 	}
+out:;
 }
 
 void cStream::StopStream()

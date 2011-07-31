@@ -57,9 +57,12 @@ int mcli_handle_ts (unsigned char *buffer, size_t len, void *p)
 {
 	stream_info_t *si = (stream_info_t *) p;
 	
+	pthread_mutex_lock(&si->lock_rd);
 	if(si->stop) {
+		pthread_mutex_unlock(&si->lock_rd);
 		return len;
 	}
+	pthread_mutex_unlock(&si->lock_rd);
 	
 	pthread_mutex_lock(&si->lock_wr);
 
@@ -204,7 +207,13 @@ void *stream_watch (void *p)
 	unsigned char ts[188];
 	stream_info_t *si = (stream_info_t *) p;
 	printf("Channel: %s - stream watch thread started.\n", si->cdata->name);
-	while (!si->stop) {
+	while (1 ) {
+		pthread_mutex_lock(&si->lock_rd);
+		if(si->stop) {
+			pthread_mutex_unlock(&si->lock_rd);
+			break;
+		}
+		pthread_mutex_unlock(&si->lock_rd);
 		if (si->pmt_pid && si->si_state == 2) {
 			dvb_pid_t pids[3];
 			memset (&pids, 0, sizeof (pids));
@@ -370,8 +379,15 @@ size_t mcli_stream_read (void *handle, char *buf, size_t maxlen, off_t offset)
 	int wp;
 
 //	printf("mcli_read %p\n",handle);
-	if (!handle || si->stop)
+	if (!handle)
 		return 0;
+	pthread_mutex_lock(&si->lock_rd);
+	if (si->stop) {
+		pthread_mutex_unlock(&si->lock_rd);
+		return 0;
+	}
+	pthread_mutex_unlock(&si->lock_rd);
+	pthread_mutex_lock(&si->lock_wr);
 #if 0
 	if (offset < si->offset) {
 		// Windback
@@ -386,6 +402,7 @@ size_t mcli_stream_read (void *handle, char *buf, size_t maxlen, off_t offset)
 	wp = si->wp;
 
 	if (si->rp == wp) {
+		pthread_mutex_unlock(&si->lock_wr);
 		return 0;
 	} 
 
@@ -416,6 +433,7 @@ size_t mcli_stream_read (void *handle, char *buf, size_t maxlen, off_t offset)
 
 	si->rp %= (BUFFER_SIZE);
 	si->offset += rlen;
+	pthread_mutex_unlock(&si->lock_wr);
 //      printf("rlen %i, rp %i wp %i\n",rlen,si->rp, si->wp);
 	return rlen;
 }
@@ -426,22 +444,22 @@ int mcli_stream_stop (void *handle)
 	if (handle) {
 		stream_info_t *si = (stream_info_t *) handle;
 		recv_info_t *r = si->r;
-		pthread_mutex_lock(&si->lock_rd);
 		if (pthread_exist(si->t)) {
+			pthread_mutex_lock(&si->lock_rd);
 			si->stop = 1;
+			pthread_mutex_unlock(&si->lock_rd);
 			pthread_join (si->t, NULL);
 		}
-		pthread_mutex_unlock(&si->lock_rd);
 		
-		pthread_mutex_lock(&si->lock_wr);
 		if (r) {
+			pthread_mutex_lock(&si->lock_wr);
 			register_ten_handler (r, NULL, NULL);
 			register_ts_handler (r, NULL, NULL);
+			pthread_mutex_unlock(&si->lock_wr);
 			recv_stop(r);
 			sleep(2);
 			recv_del (r);
 		}
-		pthread_mutex_unlock(&si->lock_wr);
 		if (si->buffer)
 			free (si->buffer);
 		if (si->psi.buf) {
