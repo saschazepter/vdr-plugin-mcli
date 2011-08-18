@@ -453,6 +453,8 @@ static dvblo_dev_t *dvblo_add (void)
 {
 	dvblo_dev_t *d = (dvblo_dev_t *) malloc (sizeof (dvblo_dev_t));
 
+	if (!d)
+		return NULL;
 	memset (d, 0, sizeof (dvblo_dev_t));
 	dvbmc_list_add_head (&devs.list, &d->list);
 	return d;
@@ -630,7 +632,7 @@ void dvblo_handler (void)
 				strcpy (d->uuid, nci->tuner[i].uuid);
 				if (!cmd.reelcammode) {
 					if (cidev < CA_MAX_SLOTS && (cmd.ca_enable & (1 << dev_num))) {
-						d->cacaps=(dvblo_cacaps_t*) &nci->ci;
+						d->cacaps=(dvblo_cacaps_t*)((void *) &nci->ci);
 						d->ca_enable = 1;
 						dbg ("Enabling CA support for device %d\n", dev_num);
 						char addrstr[INET6_ADDRSTRLEN];
@@ -655,7 +657,7 @@ void dvblo_handler (void)
 						d->ca_enable = 1;
 						dbg ("Enabling CA support for device %d\n", dev_num);
 						if (!cidev) {
-							d->cacaps = (dvblo_cacaps_t*) &nci->ci;
+							d->cacaps = (dvblo_cacaps_t*)((void *) &nci->ci);
 							char addrstr[INET6_ADDRSTRLEN];
 							dvblo_get_nc_addr (addrstr, d->uuid);
 							dbg ("dvblo_get_nc_addr: %s %s\n", addrstr, d->uuid);

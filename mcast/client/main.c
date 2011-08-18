@@ -20,10 +20,14 @@ int main (int argc, char **argv)
 	printf ("DVB - TV Client Version " MCLI_VERSION_STR " (c) BayCom GmbH\n\n");
 //#if (defined WIN32 || defined APPLE)
 #ifdef WIN32
+#ifndef __MINGW32__
 	cmdline_t cmd;
 	cmd.iface[0]=0;
 	cmd.port=0;
 	cmd.mld_start=1;
+#else
+	get_options (argc, argv);
+#endif
 #else
 #ifdef BACKTRACE
 	signal(SIGSEGV, SignalHandlerCrash);

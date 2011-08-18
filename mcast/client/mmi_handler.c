@@ -130,14 +130,11 @@ int mmi_cam_reinit (char *uuid, char *intf, int port, int slot)
 int mmi_get_menu_text (int sockfd, char *buf, int buf_len, int timeout)
 {
 	int n = -1;
-	fd_set rfds;
-	struct timeval tv;
-	FD_ZERO (&rfds);
-	FD_SET (sockfd, &rfds);
-	tv.tv_sec = 0;
-	tv.tv_usec = timeout;
+	struct pollfd p;
 	memset (buf, 0, buf_len);
-	if (select (sockfd + 1, &rfds, NULL, NULL, &tv) > 0) {
+	p.fd = sockfd;
+	p.events = POLLIN;
+	if (poll (&p, 1, (timeout+999)>>10) > 0) {
 		n = recv (sockfd, buf, buf_len, 0);	//MSG_DONTWAIT);
 	}
 	if (n > 0) {
@@ -298,6 +295,8 @@ int mmi_get_data (xmlChar * xmlbuff, int buffersize, mmi_info_t * mmi_info)
 								mcg_get_id (&mcg, &sid);
 								mcg_set_id (&mcg, 0);
 								mmi_info->caids = (caid_mcg_t *) realloc (mmi_info->caids, sizeof (caid_mcg_t) * (mmi_info->caid_num + 1));
+								if (!mmi_info->caids)
+									err ("mmi_get_data: out of memory\n");
 								caid_mcg_t *cm = mmi_info->caids + mmi_info->caid_num;
 								cm->caid = sid;
 								cm->mcg = mcg;

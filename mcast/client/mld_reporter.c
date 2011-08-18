@@ -60,7 +60,11 @@ static void *mld_send_reports (void *arg)
 	memset(&c, 0, sizeof(mld_reporter_context_t));
 
 	c.mld_mca_add=(struct in6_addr *)malloc(maxpids*sizeof(struct in6_addr));
+	if (!c.mld_mca_add)
+		err ("mld_send_reports: out of memory\n");
 	c.mld_mca_drop=(struct in6_addr *)malloc(maxpids*sizeof(struct in6_addr));
+	if (!c.mld_mca_drop)
+		err ("mld_send_reports: out of memory\n");
 	
 	pthread_cleanup_push (clean_mld_send_reports_thread, &c);
 	
@@ -78,7 +82,11 @@ static void *mld_send_reports (void *arg)
 		if(pids>maxpids) {
 			maxpids=pids;
 			c.mld_mca_add=(struct in6_addr *)realloc(c.mld_mca_add, pids*sizeof(struct in6_addr));
+			if (!c.mld_mca_add)
+				err ("mld_send_reports: out of memory\n");
 			c.mld_mca_drop=(struct in6_addr *)realloc(c.mld_mca_drop, pids*sizeof(struct in6_addr));
+			if (!c.mld_mca_drop)
+				err ("mld_send_reports: out of memory\n");
 		}
 
 		//Send listener reports for all recently dropped MCGs

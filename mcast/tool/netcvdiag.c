@@ -5,6 +5,10 @@
 
 #include "headers.h"
 
+#ifdef __MINGW32__
+#include <getopt.h>
+#endif
+
 #ifdef API_SOCK
 
 /*------------------------------------------------------------------------*/

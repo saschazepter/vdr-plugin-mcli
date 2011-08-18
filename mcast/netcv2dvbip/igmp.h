@@ -3,8 +3,7 @@
 
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN
-#include <ws2tcpip.h>
-#include <mstcpip.h>
+#include <winsock2.h>
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>

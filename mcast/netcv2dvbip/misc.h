@@ -39,6 +39,10 @@ extern void log_socket_error(const char* msg);
 extern bool GetAbsTime(struct timespec *Abstime, int MillisecondsFromNow);
 
 #ifdef WIN32
+struct timezone {
+               int tz_minuteswest;     /* minutes west of Greenwich */
+               int tz_dsttime;         /* type of DST correction */
+};
 extern int gettimeofday(struct timeval * tp, struct timezone * tzp);
 bool IsUserAdmin( bool* pbAdmin );
 bool IsVistaOrHigher();
@@ -58,5 +62,6 @@ public:
   uint64_t Elapsed(void);
 };
 
+extern int quiet;
 
 #endif

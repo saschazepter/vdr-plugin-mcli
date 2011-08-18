@@ -3,9 +3,6 @@
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
-#include <mstcpip.h>
-#include <Ws2ipdef.h>
-
 #endif
 
 #include <pthread.h>
@@ -15,30 +12,21 @@
 #include "stream.h"
 #include "thread.h"
 
+#define SLEEPTIME (20*1000)
+
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 cStream::cStream(int Channum, in_addr_t Addr, int portnum)
 		: cThread("udp streamer")
 {
- 	size =  188*TS_PER_UDP;
 	handle = 0;
 	channum = Channum;
 	addr = Addr;
 	m_portnum = portnum;
-	
-	buf = new char[size];
-
-	if (buf == NULL)
-	{
-		printf("Channel: %d - Cannot allocate memory for buffer", channum);
-	}
-
 }
 
 cStream::~cStream(void)
 {
-	if(buf)
-		delete(buf);
 }
 
 bool cStream::StartStream(in_addr_t bindaddr)
@@ -109,84 +97,59 @@ bool cStream::StartStream(in_addr_t bindaddr)
 
 void cStream::Action()
 {
-	int retries = 0;
-	size_t len = 0;
-	off_t offset = 0;
+	unsigned int retries;
+	size_t len;
+	char *ptr;
+	struct pollfd p;
 
-	int     MaxFD;
-    fd_set  WriteFDS;
-	struct  timeval tv;
-
-	stream_info_t *si = (stream_info_t *) handle;
+	p.fd = udp_socket;
+	p.events = POLLOUT;
 
 	while (Running())
 	{	
-		pthread_mutex_lock(&si->lock_rd);
+		for (retries=1;;retries++) {
+			if (retries&0xff)
+				len = mcli_stream_access (handle, &ptr);
+			else
+				len = mcli_stream_part_access (handle, &ptr);
+			if (len)
+				break;
+			if(!Running())goto out;
+			usleep (SLEEPTIME);
+		}
 
-		if (si->stop)  {
-			pthread_mutex_unlock(&si->lock_rd);
+		switch (poll(&p,1,100)) {
+		case -1:
+			log_socket_error( "STREAM poll()" );
+		case 0:
+			usleep (SLEEPTIME);
+			continue;
+		default:
+			if (!(p.revents&POLLOUT)) {
+				usleep (SLEEPTIME);
+				continue;
+			}
+			if (sendto( udp_socket, ptr, len, 0, (struct sockaddr *)&peer, sizeof(peer) ) < 0) {
+#ifndef WIN32
+				if ( (errno == EINTR) || (errno == EWOULDBLOCK) ) {
+					usleep (SLEEPTIME);
+					continue;
+				}
+#else
+				int rc;
+				rc = WSAGetLastError();
+				if ( (rc == WSAEINTR) || (rc == WSAEWOULDBLOCK) ) {
+					usleep (SLEEPTIME);
+					continue;
+				}
+#endif
+				log_socket_error("STREAM: sendto()");
+				goto out;
+			}
 			break;
 		}
 
-		pthread_mutex_unlock(&si->lock_rd);
-
-		retries = 0;
-		len = 0;
-		offset = 0;
-
-		while (retries < 50) {
-//		printf("si->closed %d\n",si->closed);
-			len += mcli_stream_read (handle,  buf + len, size - len, offset);
-			offset += len;
-			if (len == size)
-				break;
-			if(!Running())goto out;
-			// Sleep 100ms
-			usleep (100 * 1000);
-			retries++;
-		}
-//		printf("read %s %i, offset %i\n",si->cdata->name,(int)len,(int)offset);
-
-		int rc = 0;
-
-		tv.tv_usec = 500000;
-		tv.tv_sec = 0;
-	  
-		MaxFD = udp_socket;
-		FD_ZERO( &WriteFDS );
-		FD_SET( udp_socket, &WriteFDS );
-
-      // wait for input
-		rc = ::select( MaxFD +1, NULL, &WriteFDS, NULL, &tv );
-
-        // log and ignore failures
-        if( rc < 0 ) 
-		{
-            log_socket_error( "STREAM select()" );
-            continue;
-        }
-        else if( rc > 0 ) 
-		{
-
-            // check if socket if writable
-			if( FD_ISSET( udp_socket, &WriteFDS ) ) 
-			{
-				rc = ::sendto( udp_socket, buf, len, 0, (struct sockaddr *)&peer, sizeof(peer) );
-				if (rc < 0)
-				{
-#ifndef WIN32
-					if ( (errno == EINTR) || (errno == EWOULDBLOCK) )
-						continue;
-#else
-				    rc = WSAGetLastError();
-					if ( (rc == WSAEINTR) || (rc == WSAEWOULDBLOCK) )
-						continue;
-#endif
-					log_socket_error("STREAM: sendto()");
-					break;
-				}
-			}
-		}
+		mcli_stream_skip (handle);
 	}
 out:;
 }

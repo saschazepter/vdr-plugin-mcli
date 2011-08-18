@@ -208,11 +208,19 @@ void update_interfaces (struct intnode *intn)
 			
 			if( /* pCurrAddresses->Flags & IP_ADAPTER_IPV6_ENABLED && */ (pCurrAddresses->IfType == IF_TYPE_ETHERNET_CSMACD || pCurrAddresses->IfType == IF_TYPE_IEEE80211) && pCurrAddresses->OperStatus == IfOperStatusUp ) {
 				g_conf->ints=(struct intnode*)realloc(g_conf->ints, sizeof(struct intnode)*(g_conf->maxinterfaces+1));
+				if (!g_conf->ints) {
+					err ("update_interfaces: out of memory\n");
+				}
 				intn=g_conf->ints+g_conf->maxinterfaces;
 				memset(intn, 0, sizeof(struct intnode));
 				
+#ifndef __MINGW32__
 				printf ("Interface: %s (%wS)\n", pCurrAddresses->AdapterName, pCurrAddresses->Description);
 				dbg ("\tFriendly name: %wS\n", pCurrAddresses->FriendlyName);
+#else
+				printf ("Interface: %s (%ls)\n", pCurrAddresses->AdapterName, pCurrAddresses->Description);
+				dbg ("\tFriendly name: %ls\n", pCurrAddresses->FriendlyName);
+#endif
 				dbg ("\tFlags: %x\n", pCurrAddresses->Flags);
 				dbg ("\tIfType: %ld\n", pCurrAddresses->IfType);
 				dbg ("\tOperStatus: %ld\n", pCurrAddresses->OperStatus);

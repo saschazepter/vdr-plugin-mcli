@@ -114,6 +114,43 @@ const tChannelParameterMap HierarchyValues[] = {
 	{-1}
 };
 
+#ifdef WIN32
+#define strtok_r mystrtok
+char *strtok_r(char *s, const char *d, char **m)
+{
+	char *p;
+	char *q;
+
+	if (s)
+		*m = s;
+
+	p = *m;
+	if (!p)
+		return NULL;
+
+	while (*p && strchr(d,*p))
+		p++;
+
+	if (*p == 0) {
+		*m = NULL;
+		return NULL;
+	}
+
+	q = p;
+	while (*q && !strchr(d,*q))
+		q++;
+
+	if (!*q)
+		*m = NULL;
+	else {
+		*q++ = 0;
+		*m = q;
+	}
+
+	return p;
+}
+#endif
+
 char *strreplace (char *s, char c1, char c2)
 {
 	if (s) {
@@ -239,7 +276,7 @@ bool StringToParameters (const char *s, channel_t * ch)
 			s = ParseParameter (s, &ch->hierarchy, HierarchyValues);
 			break;
 		default:
-			printf ("ERROR: unknown parameter key '%c' at pos %d\n", *s, s-start);
+			printf ("ERROR: unknown parameter key '%c' at pos %d\n", *s, (int)((long)(s-start)));
 			return 0;
 		}
 	}
@@ -356,7 +393,6 @@ int ParseLine (const char *s, channel_t * ch)
 
 				while ((q = strtok_r (p, ",", &strtok_next)) != NULL) {
 					if (ch->NumApids < MAXAPIDS) {
-						char *l = strchr (q, '=');
 						ch->apids[ch->NumApids++] = strtol (q, NULL, 10);
 					} else
 						printf ("ERROR: too many APIDs!\n");	// no need to set ok to 'false'
@@ -370,7 +406,6 @@ int ParseLine (const char *s, channel_t * ch)
 					char *strtok_next;
 					while ((q = strtok_r (p, ",", &strtok_next)) != NULL) {
 						if (NumDpids < MAXDPIDS) {
-							char *l = strchr (q, '=');
   							ch->dpids[ch->NumDpids++] = strtol (q, NULL, 10);
 						} else
 							printf ("ERROR: too many DPIDs!\n");	// no need to set ok to 'false'
@@ -403,23 +438,37 @@ int ParseLine (const char *s, channel_t * ch)
 				if (p) {
 					*p++ = 0;
 					ch->provider = strdup (p);
+					if (!ch->provider) {
+						printf ("ERROR: out of memory!\n");
+						ok = 0;
+					}
 				}
 				p = strchr (namebuf, ',');
 				if (p) {
 					*p++ = 0;
 					ch->shortName = strdup (p);
+					if (!ch->shortName) {
+						printf ("ERROR: out of memory!\n");
+						ok = 0;
+					}
 				}
 			}
 			ch->name = strdup (namebuf);
+			if (!ch->name) {
+				printf ("ERROR: out of memory!\n");
+				ok = 0;
+			}
 
-			free (parambuf);
-			free (sourcebuf);
-			free (vpidbuf);
-			free (apidbuf);
-			free (caidbuf);
-			free (namebuf);
 		} else
-			return 0;
+			ok = 0;
+#if (defined WIN32 || defined APPLE)
+		free (parambuf);
+		free (sourcebuf);
+		free (vpidbuf);
+		free (apidbuf);
+		free (caidbuf);
+		free (namebuf);
+#endif
 	}
 	return ok;
 }

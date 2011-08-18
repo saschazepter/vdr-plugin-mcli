@@ -97,4 +97,3 @@ void cStreamer::StopMulticast(cMulticastGroup* Group)
                 Group->stream = NULL;
         }
 }
-                                                

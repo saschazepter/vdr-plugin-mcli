@@ -70,7 +70,7 @@ int satellite_find_by_diseqc (satellite_reference_t * ref, recv_sec_t *sec, stru
 						       comp->sec.diseqc_cmd.msg[0], comp->sec.diseqc_cmd.msg[1], comp->sec.diseqc_cmd.msg[2],
 						       comp->sec.diseqc_cmd.msg[3], comp->sec.diseqc_cmd.msg[4], comp->sec.diseqc_cmd.msg[5]);
 						ret=1;
-					}else if (mode == 2 && comp->Polarisation == sec->voltage && comp->sec.tone_mode== sec->tone_mode && comp->sec.mini_cmd == sec->mini_cmd) {
+					}else if (mode == 2 && (fe_sec_voltage_t)comp->Polarisation == sec->voltage && comp->sec.tone_mode== sec->tone_mode && comp->sec.mini_cmd == sec->mini_cmd) {
 						dbg("Legacy Match, pol %i, tone %i, cmd %i\n",comp->Polarisation,comp->sec.tone_mode,comp->sec.mini_cmd);
 						ret=1;
 					}

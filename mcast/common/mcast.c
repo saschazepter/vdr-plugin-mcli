@@ -10,7 +10,6 @@
  */
 
 #include "headers.h"
-#include <sys/poll.h>
 //----------------------------------------------------------------------------------------------------------------------------------
 STATIC int udp_ipv6_is_multicast_address (const struct sockaddr *addr)
 {
@@ -246,7 +245,8 @@ UDPContext *client_udp_open (const struct in6_addr *mcg, int port, const char *i
 #ifndef WIN32
 	addr->sin6_addr=*mcg;
 #else
-	struct in6_addr any=IN6ADDR_ANY_INIT;
+	struct in6_addr any;
+	memset(&any,0,sizeof(any));
 	addr->sin6_addr=any;
 #endif
 	addr->sin6_family = AF_INET6;
@@ -347,14 +347,11 @@ int udp_read (UDPContext * s, uint8_t * buf, int size, int timeout, struct socka
 		from=&from_local;
 	}
 	
-	fd_set rfds;
-	struct timeval tv;
-	FD_ZERO(&rfds);
-	FD_SET(s->udp_fd, &rfds);
-	tv.tv_sec = 0;
-	tv.tv_usec = timeout;
+	struct pollfd p;	
+	p.fd = s->udp_fd;
+	p.events = POLLIN;
 
-	if(select(s->udp_fd+1, &rfds, NULL, NULL, &tv)>0) {
+	if(poll(&p,1,(timeout+999)>>10)>0) {
 		return recvfrom (s->udp_fd, (char *)buf, size, 0, (struct sockaddr *) from, &from_len);
 	}
 	return -1;
@@ -399,6 +396,8 @@ int udp_close (UDPContext * s)
 UDPContext *gConList[MAX_CON_LIST];
 pthread_mutex_t gConListLock = PTHREAD_MUTEX_INITIALIZER;
 static int gConListInit=0;
+static int gConListModified;
+static UDPContext *gConChain;
 
 STATIC void client_upd_cleanup (void *arg) {
 	if(!gConListInit) return;
@@ -422,43 +421,42 @@ void *client_upd_process(void *arg) {
 	unsigned char buff[MAX_BUFF_SIZE];
 	socklen_t from_len = sizeof (struct sockaddr_storage);
 	struct sockaddr_storage from_local;
-	struct timeval timeout;
 	struct pollfd fds[MAX_CON_LIST];
 
 	pthread_cleanup_push (client_upd_cleanup, 0);
-	int i;
+	int max_fd=0;
 	while(1) {
-		int max_fd=0;
+		UDPContext *e;
 		pthread_mutex_lock(&gConListLock);
 
-		for(i=0;i<MAX_CON_LIST;i++) {
-			if(gConList[i]) {
-				fds[max_fd].fd = gConList[i]->udp_fd;
+		if(gConListModified) {
+			gConListModified=0;
+			max_fd=0;
+			for(e=gConChain;e;e=e->next) {
+				fds[max_fd].fd = e->udp_fd;
 				fds[max_fd].events = POLLIN;
 				fds[max_fd].revents = 0;
-				gConList[i]->pfd = &fds[max_fd];
+				e->pfd = &fds[max_fd];
 				max_fd++;
-			} // if
-		} // for
+			} // for
+		} // if
 		pthread_mutex_unlock(&gConListLock);
-		timeout.tv_sec = 0;
-		timeout.tv_usec = 100000;
 		int rs = poll(fds, max_fd, 1000);
 		if(rs>0) {
 			pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
 			pthread_mutex_lock(&gConListLock);
-			for(i=0;i<MAX_CON_LIST;i++) {
-				if(gConList[i] && gConList[i]->pfd && (gConList[i]->pfd->revents & POLLIN)) {
-					if(gConList[i]->cb) {
-						int ret = recvfrom (gConList[i]->udp_fd, (char *)buff, MAX_BUFF_SIZE, 0, 0, 0/*(struct sockaddr *) &from_local, &from_len*/);
+			for(e=gConChain;e;e=e->next) {
+				if(e->pfd && (e->pfd->revents & POLLIN)) {
+					if(e->cb) {
+						int ret = recvfrom (e->udp_fd, (char *)buff, MAX_BUFF_SIZE, 0, 0, 0/*(struct sockaddr *) &from_local, &from_len*/);
 						if(ret>0)
-							gConList[i]->cb(buff, ret, gConList[i]->arg);
-					} else if(gConList[i]->buff && !gConList[i]->bufflen) {
-						pthread_mutex_lock(&gConList[i]->bufflock);
-						int ret = recvfrom (gConList[i]->udp_fd, (char *)gConList[i]->buff, gConList[i]->buffmax, 0, (struct sockaddr *) &from_local, &from_len);
+							e->cb(buff, ret, e->arg);
+					} else if(e->buff && !e->bufflen) {
+						pthread_mutex_lock(&e->bufflock);
+						int ret = recvfrom (e->udp_fd, (char *)e->buff, e->buffmax, 0, (struct sockaddr *) &from_local, &from_len);
 						if(ret>0)
-							gConList[i]->bufflen = ret;
-						pthread_mutex_unlock(&gConList[i]->bufflock);
+							e->bufflen = ret;
+						pthread_mutex_unlock(&e->bufflock);
 					} // if
 				} // if
 			} // for
@@ -478,6 +476,8 @@ static int client_upd_init() {
 		return 1;
 	} // if
 	memset(&gConList, 0, sizeof(gConList));
+	gConListModified = 0;
+	gConChain = NULL;
 	pthread_t client_upd_thread;
 	if(0==pthread_create (&client_upd_thread, NULL, client_upd_process, 0)) {
 		gConListInit = 1;
@@ -493,6 +493,9 @@ UDPContext *client_udp_open_buff (const struct in6_addr *mcg, int port, const ch
 		ret->buff     = (unsigned char *)malloc(buff_size);
 		ret->buffmax  = buff_size;
 		ret->bufflen  = 0;
+		if (!ret->buff) {
+			err ("client_udp_open_buff: out of memory\n");
+		}
 	} // if
 	return ret;
 } // client_udp_open_buff
@@ -597,6 +600,9 @@ UDPContext *client_udp_open_cb (const struct in6_addr *mcg, int port, const char
 	for(i=0;i<MAX_CON_LIST;i++) {
 		if(!gConList[i]) {
 			gConList[i]=s;
+			gConListModified=1;
+			s->next=gConChain;
+			gConChain=s;
 			break;
 		} // if
 	} // for
@@ -640,9 +646,20 @@ int udp_close_buff (UDPContext * s)
 {
 	int i;
 	pthread_mutex_lock(&gConListLock);
-	for(i=0;i<MAX_CON_LIST;i++)
-		if(gConList[i] == s)
+	for(i=0;i<MAX_CON_LIST;i++) {
+		if(gConList[i] == s) {
 			gConList[i]=0;
+			gConListModified=1;
+			UDPContext **e;
+			for(e=&gConChain;*e;e=&(*e)->next) {
+				if(*e == s) {
+					*e=(*e)->next;
+					break;
+				}
+			}
+			break;
+		}
+	}
 	pthread_mutex_unlock(&gConListLock);
 	if (s->is_multicast)
 		udp_ipv6_leave_multicast_group (s->udp_fd, s->idx, (struct sockaddr *) &s->dest_addr);

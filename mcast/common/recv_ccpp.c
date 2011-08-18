@@ -256,7 +256,7 @@ int get_tra_data (xmlChar * xmlbuff, int buffersize, tra_info_t * tra_info)
 							if (c.key) {
 								dbg ("SymbolRate: %s\n", c.key);
 								int val=atoi ((char *) c.key);
-								switch(tra->fe_type) {
+								switch((int)tra->fe_type) {
 									case FE_DVBS2:
 									case FE_QPSK:
 										tra->fep.u.qpsk.symbol_rate=val;
@@ -275,7 +275,7 @@ int get_tra_data (xmlChar * xmlbuff, int buffersize, tra_info_t * tra_info)
 							if (c.key) {
 								dbg ("FecInner: %s\n", c.key);
 								int val=atoi ((char *) c.key);
-								switch(tra->fe_type) {
+								switch((int)tra->fe_type) {
 									case FE_DVBS2:
 									case FE_QPSK:
 										tra->fep.u.qpsk.fec_inner=(fe_code_rate_t)val;
@@ -294,7 +294,7 @@ int get_tra_data (xmlChar * xmlbuff, int buffersize, tra_info_t * tra_info)
 							if (c.key) {
 								dbg ("Modulation: %s\n", c.key);
 								int val=atoi ((char *) c.key);
-								switch(tra->fe_type) {
+								switch((int)tra->fe_type) {
 									case FE_QAM:
 										tra->fep.u.qam.modulation=(fe_modulation_t)val;
 										break;

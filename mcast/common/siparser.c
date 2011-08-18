@@ -227,6 +227,10 @@ void get_time_mjd (unsigned long mjd, long *year , long *month, long *day)
         *month = m;
         *day = d;
 
+    } else {
+	*year = 0;
+	*month = 0;
+	*day = 0;
     }
 
 } 
@@ -243,7 +247,7 @@ void print_tdt(tdt_sect_t *tdt, uint16_t mjd, uint32_t utc)
     
     long y,m,d;
     get_time_mjd(mjd, &y, &m, &d);
-    info("TIME: [= %02d-%02d-%02d  %02lx:%02lx:%02lx (UTC) ]\n\n",y,m,d,(utc>>16) &0xFF, (utc>>8) &0xFF, (utc) &0xFF);
+    info("TIME: [= %02ld-%02ld-%02ld  %02x:%02x:%02x (UTC) ]\n\n",y,m,d,(utc>>16) &0xFF, (utc>>8) &0xFF, (utc) &0xFF);
     info("--------------------------------------------------------------\n");
 
 }
@@ -256,7 +260,7 @@ void print_ca_desc(si_desc_t *p)
   info("Reserverd       : %d (%#x)\n",p->reserved,p->reserved);
   info("CA pid          : %d (%#x)\n",p->ca_pid,p->ca_pid);
 
-  printhex_buf("Private data",p->private_data,p->descriptor_length-4);
+  printhex_buf((char *)"Private data",p->private_data,p->descriptor_length-4);
 
 }
 //-----------------------------------------------------------------------------------
@@ -488,7 +492,7 @@ int parse_pmt_ca_desc(unsigned char *buf, int size, int sid, si_ca_pmt_t *pm_cad
       pmt_hdr->reserved_1=(ptr[1] >> 4) & 3; 
       pmt_hdr->section_length=((ptr[1] << 8) | ptr[2]) & 0xfff;
 
-      if (pmt_hdr->section_length < 13 || pmt_hdr->section_length > 1021 || pmt_hdr->section_length > size) {
+      if (pmt_hdr->section_length < 13 || pmt_hdr->section_length > 1021 || (int)pmt_hdr->section_length > size) {
             info("#####\nERROR: Invalid section length!\n");
             return -1;
       }
@@ -505,12 +509,12 @@ int parse_pmt_ca_desc(unsigned char *buf, int size, int sid, si_ca_pmt_t *pm_cad
       }
 
       pmt_hdr->program_number=(ptr[3] << 8) | ptr[4];      
-      if (pmt_hdr->program_number != sid) {
+      if ((int)pmt_hdr->program_number != sid) {
             info("#####\nERROR: Invalid SID in PMT !!!\n");
             return -1;
       }
       pmt_hdr->program_info_length=((ptr[10] << 8) | ptr[11]) & 0x0fff;	        
-      if (pmt_hdr->program_info_length < 0 || pmt_hdr->program_info_length > 1021 - 9 || pmt_hdr->program_info_length > size - 9) {
+      if (pmt_hdr->program_info_length < 0 || pmt_hdr->program_info_length > 1021 - 9 || (int)pmt_hdr->program_info_length > size - 9) {
             info("#####\nERROR: Invalid PI length in PMT!\n");                  
             return -1;
       }	
@@ -570,6 +574,10 @@ int parse_pmt_ca_desc(unsigned char *buf, int size, int sid, si_ca_pmt_t *pm_cad
       //parsing ok we can take this program level descriptors
       if (pm_cads->size && pm_cads->cads) {
            pm_cads->cad = (unsigned char*)malloc(sizeof(unsigned char)*pm_cads->size);
+           if (!pm_cads->cad) {
+               info("ERROR: parse_ca_desc() : out of memory\n");
+               return -1;
+           }
            memcpy(pm_cads->cad, tmp, pm_cads->size);     
       }
 
@@ -588,7 +596,7 @@ int parse_pmt_ca_desc(unsigned char *buf, int size, int sid, si_ca_pmt_t *pm_cad
         esi.reserved_2=(ptr[3] >> 4) & 0xf;
         esi.es_info_length=((ptr[3] << 8) | ptr[4]) & 0x0fff;
 
-        if (esi.es_info_length > buf_len) {
+        if ((int)esi.es_info_length > buf_len) {
               info("PMT: Invalid ES info length !\n");
               err = -1;
               break;     
@@ -684,6 +692,12 @@ int parse_pmt_ca_desc(unsigned char *buf, int size, int sid, si_ca_pmt_t *pm_cad
       //parsing ok we can take this ES level descriptors
       if (((es_cads->cads && es_cads->size) || (pm_cads->cads && es_cads->size)) || *fta) { //take ES stream info if we have PM or ES desc. 
            es_cads->cad = (unsigned char*)malloc(sizeof(unsigned char)*es_cads->size);
+           if (!es_cads->cad) {
+               info("ERROR: parse_ca_desc() : out of memory\n");
+               if (pm_cads->cad) 
+                   free(pm_cads->cad);
+               return -1;
+           }
            memcpy(es_cads->cad, tmp, es_cads->size);
            
       }
@@ -700,9 +714,9 @@ int parse_pmt_ca_desc(unsigned char *buf, int size, int sid, si_ca_pmt_t *pm_cad
         print_pmt(&pmt_hdr);
 #endif
         //cleanup ...
-        if (pm_cads->size) 
+        if (pm_cads->cad) 
             free(pm_cads->cad);
-        if (es_cads->size)
+        if (es_cads->cad)
             free(es_cads->cad);
         *es_pid_num = 0;
         memset(pm_cads,0,sizeof(si_ca_pmt_t));
@@ -728,7 +742,7 @@ int parse_cat_sect(unsigned char *buf, int size, si_cad_t *emm)
           c.reserved_1 = (ptr[1] >> 4) & 3; 
           c.section_length = ((ptr[1] << 8) | ptr[2]) & 0xfff;
 
-          if (c.section_length < 9 || c.section_length > 1021 || c.section_length > size) {
+          if (c.section_length < 9 || c.section_length > 1021 || (int)c.section_length > size) {
                 info("CAT: Invalid section length!\n");
                 return -1;          
           }
@@ -795,7 +809,7 @@ int parse_pat_sect(unsigned char *buf, int size, pmt_pid_list_t *pmt)
         p.reserved_1=(ptr[1] & 0x30) >> 4;
         p.section_length=((ptr[1] << 8) | ptr[2]) & 0x0fff;
 
-        if (p.section_length < 9 || p.section_length > 1021 || p.section_length > size) {
+        if (p.section_length < 9 || p.section_length > 1021 || (int)p.section_length > size) {
               info("PAT: Invalid section length !\n");
               return -1;
         
@@ -825,6 +839,10 @@ int parse_pat_sect(unsigned char *buf, int size, pmt_pid_list_t *pmt)
         pmt_num=0;
         if (n > 0 && ((ptr + n) < (buf + size))) {
             pat_info=(pat_list_t *)malloc(sizeof(pat_list_t)*n/4);
+            if (!pat_info) {
+                info ("PAT: out of memory\n");
+                return -1;
+            }
             for(i=0;i<n;i+=4) {
               pat_list_t *pat = pat_info + pmt_num;
               pat->program_number=(ptr[0] << 8) | (ptr[1]);
@@ -840,6 +858,10 @@ int parse_pat_sect(unsigned char *buf, int size, pmt_pid_list_t *pmt)
             p.crc32=(ptr[0] << 24) | (ptr[1] << 16) | (ptr[2] << 8) | ptr[3]; 
             if (n != pmt_num)
                 pat_info=(pat_list_t *)realloc(pat_info,sizeof(pat_list_t)*pmt_num);
+            if (!pat_info) {
+              info("parse_pat_sect():realloc error\n");
+              return -1;
+            }
         }        
         if (pmt) {
           pmt->p=p;
@@ -913,7 +935,7 @@ int ts2psi_data(unsigned char *buf,psi_buf_t *p,int len, int pid_req)
         }
 
         
-        if (pid_req != h.pid) {
+        if (pid_req != (int)h.pid) {
 #ifdef DBG
               info("%s:pids mismatch  (pid req = %#x ts pid = %#x )!\n", __FUNCTION__,pid_req, h.pid);
 #endif
@@ -972,21 +994,21 @@ int ts2psi_data(unsigned char *buf,psi_buf_t *p,int len, int pid_req)
 
           if (!h.payload_unit_start_indicator && p->start) { //packet continuation
             //duplicate packet
-            if ((p->pid == h.pid) && (p->continuity == h.continuity_counter)){
+            if ((p->pid == (int)h.pid) && (p->continuity == (int)h.continuity_counter)){
 #ifdef DBG
               info("Packet duplicate ???\n");      
 #endif
               return -1;
             }
             //new packet
-            if (p->pid != h.pid) {
+            if (p->pid != (int)h.pid) {
 #ifdef DBG
               info("New pid buf start %d len %d bytes (pid in buf = %d pid in ts = %d) !\n", p->start,p->len, p->pid, h.pid);
 #endif
               return -1;
             }
             //discontinuity of packets
-            if (((++p->continuity)%16) != h.continuity_counter) {
+            if (((++p->continuity)%16) != (int)h.continuity_counter) {
 #ifdef DBG
               info("Discontinuity of ts stream !!!\n");
 #endif

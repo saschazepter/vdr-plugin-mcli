@@ -170,11 +170,11 @@ cThread::~cThread()
 
 void *cThread::StartThread(cThread *Thread)
 {
-  if (Thread->description) 
+  if (Thread->description && !quiet) 
      printf("%s thread started.\n", Thread->description);
     
   Thread->Action();
-  if (Thread->description)
+  if (Thread->description && !quiet)
      printf("%s thread ended.\n", Thread->description);
   Thread->running = false;
   Thread->active = false;

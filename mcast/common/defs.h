@@ -35,9 +35,12 @@
 		int inet_pton(int af, const char *src, void *dst);
 		const char *inet_ntop(int af, const void *src, char *dst, size_t size);
 		int inet_aton(const char *cp, struct in_addr *addr);
-		int getopt(int nargc, char **nargv, char *ostr);
-		extern int	opterr, optind, optopt, optreset;
-		extern char	*optarg;
+		#ifndef __MINGW32__
+			int getopt(int nargc, char **nargv, char *ostr);
+			extern int	opterr, optind, optopt, optreset;
+			extern char	*optarg;
+			#define inline __inline
+		#endif
 
 		typedef struct
 		{
@@ -65,7 +68,11 @@
 		#ifdef LIBRARY
 			#define DLL_SYMBOL CALLCONV __declspec( dllexport )
 		#else
-			#define DLL_SYMBOL CALLCONV __declspec( dllimport )
+			#ifdef STATICLIB
+				#define DLL_SYMBOL CALLCONV
+			#else
+				#define DLL_SYMBOL CALLCONV __declspec( dllimport )
+			#endif
 		#endif
 		
 		#define pthread_exist(x) (x).p
@@ -76,6 +83,8 @@
 		#define LIBXML_STATIC
 		#define PTW32_STATIC_LIB
 		#define MULTI_THREAD_RECEIVER
+
+		#include <poll.h>
 	#endif
 #else
         #if defined __cplusplus
@@ -305,6 +314,15 @@ extern pthread_mutex_t _loglock;
 			fprintf(stderr, "%s:%d: %s", __FILE__ , __LINE__ , buffer );
 			va_end (args);
 		}
+		static void inline sys(const char *format, ...) 
+		{ 
+			char buffer[1024];
+			va_list args;
+			va_start (args, format);
+			vsprintf(buffer, format , args);
+			printf("%s:%d: %s", __FILE__ , __LINE__ , buffer );
+			va_end (args);
+		}
 	#else
 		static void inline dbg (char *format, ...) 
 		{ 
@@ -335,6 +353,15 @@ extern pthread_mutex_t _loglock;
 			va_start (args, format);
 			vsprintf(buffer, format, args);
 			fputs(buffer, stderr);
+			va_end (args);
+		}
+		static void inline sys(const char *format, ...) 
+		{ 
+			char buffer[1024];
+			va_list args;
+			va_start (args, format);
+			vsprintf(buffer, format, args);
+			fputs(buffer, stdout);
 			va_end (args);
 		}
 

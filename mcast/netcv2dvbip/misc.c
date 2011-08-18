@@ -89,6 +89,13 @@ uint64_t cTimeMs::Elapsed(void)
 }
 
 #ifdef WIN32
+
+#ifdef __MINGW32__
+#define __try if(1)
+#define __leave goto out
+#define __finally if(1)
+#endif
+
 bool IsUserAdmin( bool* pbAdmin )
 {
 #if WINVER < 0x0500
@@ -98,7 +105,7 @@ bool IsUserAdmin( bool* pbAdmin )
 	PTOKEN_GROUPS ptgGroups = NULL;
 #endif
 	PSID psidAdministrators = NULL;
-	SID_IDENTIFIER_AUTHORITY siaNtAuthority = SECURITY_NT_AUTHORITY;
+	SID_IDENTIFIER_AUTHORITY siaNtAuthority = {SECURITY_NT_AUTHORITY};
 	BOOL bResult = FALSE;
 
 __try
@@ -150,6 +157,9 @@ __try
 
 __finally
 {
+#ifdef __MINGW32__
+out:
+#endif
 #if WINVER < 0x0500
 	if( hAccessToken )
 		CloseHandle( hAccessToken );

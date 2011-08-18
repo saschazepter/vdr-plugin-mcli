@@ -1,6 +1,12 @@
 #include "dvbipstream.h"
 
-#define BUFFER_SIZE (10000*188)
+#define BUFFER_SIZE (256*TS_PER_UDP*188)
+
+#ifdef WIN32
+#define CVT (char *)
+#else
+#define CVT
+#endif
 
 int gen_pat(unsigned char *buf, unsigned int program_number, unsigned int pmt_pid, unsigned int ts_cnt)
 {
@@ -51,22 +57,14 @@ int gen_pat(unsigned char *buf, unsigned int program_number, unsigned int pmt_pi
 	return i;
 }
 
-int lastwp = 0;
 /*-------------------------------------------------------------------------*/
 int mcli_handle_ts (unsigned char *buffer, size_t len, void *p)
 {
 	stream_info_t *si = (stream_info_t *) p;
 	
-	pthread_mutex_lock(&si->lock_rd);
-	if(si->stop) {
-		pthread_mutex_unlock(&si->lock_rd);
+	if(si->stop)
 		return len;
-	}
-	pthread_mutex_unlock(&si->lock_rd);
 	
-	pthread_mutex_lock(&si->lock_wr);
-
-	int wp = si->wp;
 	int olen = len;
 
 	int ret;
@@ -82,6 +80,7 @@ again:
 		goto again;
 
 	case 1:
+		ret = 0;
 		for(i=0; i<len; i+=188) {
 			ret = ts2psi_data (buffer+i, &si->psi, 188, 0);
 			if(ret){
@@ -93,7 +92,8 @@ again:
 		}
 
 		if (ret == 1) {
-			printf ("Channel: %s - Got PAT\n", 	si->cdata->name);
+			if (!quiet)
+				printf ("Channel: %s - Got PAT\n", 	si->cdata->name);
 			pmt_pid_list_t pat;
 			ret = parse_pat_sect (si->psi.buf, si->psi.len, &pat);
 			if (ret < 0) {
@@ -104,7 +104,8 @@ again:
 				for (n = 0; n < pat.pmt_pids; n++) {
 					if (pat.pl[n].program_number == (unsigned int)si->cdata->sid) {
 						si->pmt_pid = pat.pl[n].network_pmt_pid;
-						printf ("Channel: %s - SID %d has PMT Pid %d\n", si->cdata->name, si->cdata->sid, si->pmt_pid);
+						if (!quiet)
+							printf ("Channel: %s - SID %d has PMT Pid %d\n", si->cdata->name, si->cdata->sid, si->pmt_pid);
 						break;
 					}
 				}
@@ -116,6 +117,7 @@ again:
 		}
 		break;
 	case 4:
+		ret = 0;
 		for(i=0; i<len; i+=188) {
 			ret = ts2psi_data (buffer+i, &si->psi, 188, si->pmt_pid);
 			if(ret){
@@ -127,7 +129,8 @@ again:
 		}
 
 		if (ret == 1) {
-			printf ("Channel: %s - Got PMT\n", 	si->cdata->name);
+			if (!quiet)
+				printf ("Channel: %s - Got PMT\n", 	si->cdata->name);
 			pmt_t hdr;
 			si_ca_pmt_t pm, es;
 			int es_pid_num;
@@ -162,27 +165,94 @@ again:
 			}
 		}
 		*/
-		if ((wp + len) >= BUFFER_SIZE) {
-			int l;
-			l = BUFFER_SIZE - wp;
-			memcpy (si->buffer + wp, buffer, l);
-			len -= l;
-			wp = 0;
-			buffer += l;
+		pthread_mutex_lock(&si->lock_ts);
+
+		switch(len) {
+		case 1*188:
+		case 2*188:
+		case 3*188:
+		case 4*188:
+		case 5*188:
+		case 6*188:
+		case 7*188:
+			break;
+		default:
+			err(CVT "Channel: %s - bad data length %d, skipping\n",
+				si->cdata->name,(int)len);
+			goto out;
 		}
-		memcpy (si->buffer + wp, buffer, len);
-		wp += len;
-		si->wp = wp % (BUFFER_SIZE);
-#if 1
-		if (abs (si->wp - lastwp) > 500 * 1000) {
-//			printf ("wp %i, rp %i\n", si->wp, si->rp);
-			lastwp = si->wp;
+
+		if(!si->wr) {
+			pthread_mutex_lock(&si->lock_bf);
+			if(si->free) {
+				si->wr=si->free;
+				si->free=si->free->next;
+				pthread_mutex_unlock(&si->lock_bf);
+			} else {
+				pthread_mutex_unlock(&si->lock_bf);
+				si->wr=(stream_buffer_t *)
+					malloc(sizeof(stream_buffer_t));
+				if(!si->wr) {
+					err(CVT "Channel: %s - out of memory\n",
+						si->cdata->name);
+					goto out;
+				}
+			}
+			si->wr->next=NULL;
+			si->fill=0;
 		}
-#endif
+
+		i=TS_PER_UDP*188-si->fill;
+
+		if(len>i) {
+			memcpy(si->wr->data+si->fill,buffer,i);
+
+			pthread_mutex_lock(&si->lock_bf);
+			if(!si->head)
+				si->head=si->tail=si->wr;
+			else {
+				si->tail->next=si->wr;
+				si->tail=si->wr;
+			}
+			if(si->free) {
+				si->wr=si->free;
+				si->free=si->free->next;
+				pthread_mutex_unlock(&si->lock_bf);
+			} else {
+				pthread_mutex_unlock(&si->lock_bf);
+				si->wr=(stream_buffer_t *)
+					malloc(sizeof(stream_buffer_t));
+				if(!si->wr) {
+					err(CVT "Channel: %s - out of memory\n",
+						si->cdata->name);
+					goto out;
+				}
+			}
+			si->wr->next=NULL;
+			si->fill=0;
+			buffer+=i;
+			len-=i;
+		}
+
+		memcpy(si->wr->data+si->fill,buffer,len);
+		si->fill+=len;
+
+		if(si->fill==TS_PER_UDP*188) {
+			pthread_mutex_lock(&si->lock_bf);
+			if(!si->head)
+				si->head=si->tail=si->wr;
+			else {
+				si->tail->next=si->wr;
+				si->tail=si->wr;
+			}
+			pthread_mutex_unlock(&si->lock_bf);
+			si->wr=NULL;
+		}
+
+out:		pthread_mutex_unlock(&si->lock_ts);
 		break;
 	}
 
-	pthread_mutex_unlock(&si->lock_wr);
 	return olen;
 }
 
@@ -206,20 +276,18 @@ void *stream_watch (void *p)
 {
 	unsigned char ts[188];
 	stream_info_t *si = (stream_info_t *) p;
-	printf("Channel: %s - stream watch thread started.\n", si->cdata->name);
+	if (!quiet)
+		printf("Channel: %s - stream watch thread started.\n", si->cdata->name);
 	while (1 ) {
-		pthread_mutex_lock(&si->lock_rd);
-		if(si->stop) {
-			pthread_mutex_unlock(&si->lock_rd);
+		if(si->stop)
 			break;
-		}
-		pthread_mutex_unlock(&si->lock_rd);
 		if (si->pmt_pid && si->si_state == 2) {
 			dvb_pid_t pids[3];
 			memset (&pids, 0, sizeof (pids));
 			pids[0].pid = si->pmt_pid;
 			pids[1].pid = -1;
-			printf ("Channel: %s - Add PMT-PID: %d\n",	si->cdata->name, si->pmt_pid);
+			if (!quiet)
+				printf ("Channel: %s - Add PMT-PID: %d\n",	si->cdata->name, si->pmt_pid);
 			recv_pids (si->r, pids);
 			si->si_state++;
 		}
@@ -228,7 +296,8 @@ void *stream_watch (void *p)
 			size_t sz = sizeof(dvb_pid_t) * (si->es_pidnum+2 + si->cdata->NumEitpids + si->cdata->NumSdtpids);
 			dvb_pid_t *pids=(dvb_pid_t*)malloc(sz);
 			if(pids==NULL) {
-				err("Channel: %s - Can't get memory for pids\n", si->cdata->name);
+				err(CVT "Channel: %s - Can't get memory for pids\n", si->cdata->name);
+				goto out;
 			}
 			memset (pids, 0, sz);
 			pids[k++].pid = si->pmt_pid;
@@ -236,20 +305,24 @@ void *stream_watch (void *p)
 			for (i = 0; i < si->cdata->NumEitpids; i++)
 			{
 				pids[k++].pid = si->cdata->eitpids[i]; 
-				printf("Channel: %s - Add EIT-PID: %d\n", si->cdata->name, si->cdata->eitpids[i]);
+				if (!quiet)
+					printf("Channel: %s - Add EIT-PID: %d\n", si->cdata->name, si->cdata->eitpids[i]);
 			}
 			//SDT PIDs
 			for (i = 0; i < si->cdata->NumSdtpids; i++)
 			{
 				pids[k++].pid = si->cdata->sdtpids[i]; 
-				printf("Channel: %s - Add SDT-PID: %d\n", si->cdata->name, si->cdata->sdtpids[i]);
+				if (!quiet)
+					printf("Channel: %s - Add SDT-PID: %d\n", si->cdata->name, si->cdata->sdtpids[i]);
 			}
 			for (i = 0; i < si->es_pidnum; i++) {
-				printf ("Channel: %s - Add ES-PID: %d\n", si->cdata->name, si->es_pids[i]);
+				if (!quiet)
+					printf ("Channel: %s - Add ES-PID: %d\n", si->cdata->name, si->es_pids[i]);
 				pids[i + k].pid = si->es_pids[i];
 //				if(si->cdata->NumCaids) {
 				if(!si->fta) {
-					printf("Channel: %s - %s\n", si->cdata->name, si->fta ? "Free-To-Air":"Crypted");
+					if (!quiet)
+						printf("Channel: %s - %s\n", si->cdata->name, si->fta ? "Free-To-Air":"Crypted");
         				pids[i + k].id =  si->cdata->sid;
 				}
 				pids[i + k +1].pid = -1;
@@ -262,9 +335,10 @@ void *stream_watch (void *p)
 			gen_pat(ts, si->cdata->sid, si->pmt_pid, si->ts_cnt++);
 			mcli_handle_ts (ts, 188, si);
 		}
-		usleep (50000);
+out:		usleep (50000);
 	}
-	printf("Channel: %s - stream watch thread stopped.\n", si->cdata->name);
+	if (!quiet)
+		printf("Channel: %s - stream watch thread stopped.\n", si->cdata->name);
 	return NULL;
 }
 
@@ -277,31 +351,42 @@ void *mcli_stream_setup (const int channum)
 	struct dvb_frontend_parameters fep;
 	recv_sec_t sec;
 	dvb_pid_t pids[4];
-	int source; 
-	fe_type_t tuner_type;
+	int source = -1; 
+	fe_type_t tuner_type = FE_ATSC;
 
 	cnum = channum-1;
-	printf ("mcli_stream_setup %i\n", cnum);
+//	printf ("mcli_stream_setup %i\n", cnum);
 	if (cnum < 0 || cnum > get_channel_num ())
 		return 0;
 
 	si = (stream_info_t *) malloc (sizeof (stream_info_t));
+	if (!si) {
+		fprintf (stderr, "Cannot get memory for receiver\n");
+		return NULL;
+	}
 	memset(si, 0, sizeof(stream_info_t));
 
-	si->buffer = (char *) malloc (BUFFER_SIZE);
 	si->psi.buf = (unsigned char *) malloc (PSI_BUF_SIZE);
-	pthread_mutex_init (&si->lock_wr, NULL);
-	pthread_mutex_init (&si->lock_rd, NULL);
+	if (!si->psi.buf) {
+		fprintf (stderr, "Cannot get memory for receiver\n");
+		free (si);
+		return NULL;
+	}
 
 	r = recv_add ();
 	if (!r) {
 		fprintf (stderr, "Cannot get memory for receiver\n");
-		return 0;
+		free (si->psi.buf);
+		free (si);
+		return NULL;
 	}
-
 	si->r = r;
 
-	register_ten_handler (r, mcli_handle_ten, si);
+	pthread_mutex_init (&si->lock_bf, NULL);
+	pthread_mutex_init (&si->lock_ts, NULL);
+
+	if (!quiet)
+		register_ten_handler (r, mcli_handle_ten, si);
 	register_ts_handler (r, mcli_handle_ts, si);
 
 	si->cdata = get_channel_data (cnum);
@@ -356,7 +441,8 @@ void *mcli_stream_setup (const int channum)
 	pids[0].pid = 0;  // PAT
 	pids[1].pid = -1;
 
-	printf ("Tuning: source: %s, frequency: %i, PAT pid %i, symbol rate %i\n",
+	if (!quiet)
+		printf ("Tuning: source: %s, frequency: %i, PAT pid %i, symbol rate %i\n",
 			 source>=0 ? "DVB-S(2)" : source==-2 ? "DVB-T" : source==-3 ? "DVB-C" : "unknown"
 			 , si->cdata->frequency, pids[0].pid, fep.u.qpsk.symbol_rate);
 
@@ -367,75 +453,80 @@ void *mcli_stream_setup (const int channum)
 #else
 	pthread_create (&si->t, NULL, stream_watch, si);
 #endif
-	printf("mcli_setup %p\n",si);
+//	printf("mcli_setup %p\n",si);
 	return si;
 }
 
 /*-------------------------------------------------------------------------*/
-size_t mcli_stream_read (void *handle, char *buf, size_t maxlen, off_t offset)
+size_t mcli_stream_access (void *handle, char **buf)
 {
 	stream_info_t *si = (stream_info_t *) handle;
-	size_t len, rlen;
-	int wp;
 
-//	printf("mcli_read %p\n",handle);
 	if (!handle)
 		return 0;
-	pthread_mutex_lock(&si->lock_rd);
-	if (si->stop) {
-		pthread_mutex_unlock(&si->lock_rd);
+	if (si->stop)
+		return 0;
+
+	pthread_mutex_lock(&si->lock_bf);
+	if(!si->head) {
+		pthread_mutex_unlock(&si->lock_bf);
 		return 0;
 	}
-	pthread_mutex_unlock(&si->lock_rd);
-	pthread_mutex_lock(&si->lock_wr);
-#if 0
-	if (offset < si->offset) {
-		// Windback
-		si->rp = (si->rp - (si->offset - offset)) % BUFFER_SIZE;
-		si->offset = offset;
-	}
-/*	else if (offset>si->offset && ) { 
-		si->rp=(si->rp+(offset-si->offset))%BUFFER_SIZE;
-		si->offset=offset;
-		}*/
-#endif
-	wp = si->wp;
+	si->rd=si->head;
+	si->head=si->head->next;
+	pthread_mutex_unlock(&si->lock_bf);
 
-	if (si->rp == wp) {
-		pthread_mutex_unlock(&si->lock_wr);
+	*buf=si->rd->data;
+	return TS_PER_UDP*188;
+}
+
+/*-------------------------------------------------------------------------*/
+size_t mcli_stream_part_access (void *handle, char **buf)
+{
+	stream_info_t *si = (stream_info_t *) handle;
+
+	if (!handle)
 		return 0;
-	} 
+	if (si->stop)
+		return 0;
 
-	if (si->rp < wp) {
-		len = wp - si->rp;
-		if (maxlen < len)
-			rlen = maxlen;
-		else
-			rlen = len;
+	pthread_mutex_lock(&si->lock_ts);
+	if(!si->head) {
+		int len;
 
-		memcpy (buf, si->buffer + si->rp, rlen);
-		si->rp += rlen;
-	} else {
-		len = BUFFER_SIZE - (si->rp - wp);
-		if (maxlen < len)
-			rlen = maxlen;
-		else
-			rlen = len;
-
-		if (si->rp + rlen > BUFFER_SIZE) {
-			int xlen = BUFFER_SIZE - si->rp;
-			memcpy (buf, si->buffer + si->rp, xlen);
-			memcpy (buf + xlen, si->buffer, rlen - xlen);
-		} else
-			memcpy (buf, si->buffer + si->rp, rlen);
-		si->rp += rlen;
+		if(!si->wr)
+			len=0;
+		else {
+			si->rd=si->wr;
+			si->wr=NULL;
+			len=si->fill;
+			*buf=si->rd->data;
+		}
+		pthread_mutex_unlock(&si->lock_ts);
+		return len;
 	}
+	si->rd=si->head;
+	si->head=si->head->next;
+	pthread_mutex_unlock(&si->lock_ts);
 
-	si->rp %= (BUFFER_SIZE);
-	si->offset += rlen;
-	pthread_mutex_unlock(&si->lock_wr);
-//      printf("rlen %i, rp %i wp %i\n",rlen,si->rp, si->wp);
-	return rlen;
+	*buf=si->rd->data;
+	return TS_PER_UDP*188;
+}
+
+/*-------------------------------------------------------------------------*/
+void mcli_stream_skip (void *handle)
+{
+	stream_info_t *si = (stream_info_t *) handle;
+
+	if (!handle)
+		return;
+
+	pthread_mutex_lock(&si->lock_bf);
+	si->rd->next=si->free;
+	si->free=si->rd;
+	pthread_mutex_unlock(&si->lock_bf);
+
+	si->rd=NULL;
 }
 
 /*-------------------------------------------------------------------------*/
@@ -445,27 +536,42 @@ int mcli_stream_stop (void *handle)
 		stream_info_t *si = (stream_info_t *) handle;
 		recv_info_t *r = si->r;
 		if (pthread_exist(si->t)) {
-			pthread_mutex_lock(&si->lock_rd);
 			si->stop = 1;
-			pthread_mutex_unlock(&si->lock_rd);
 			pthread_join (si->t, NULL);
 		}
 		
 		if (r) {
-			pthread_mutex_lock(&si->lock_wr);
+			pthread_mutex_lock(&si->lock_ts);
 			register_ten_handler (r, NULL, NULL);
 			register_ts_handler (r, NULL, NULL);
-			pthread_mutex_unlock(&si->lock_wr);
+			pthread_mutex_unlock(&si->lock_ts);
 			recv_stop(r);
 			sleep(2);
 			recv_del (r);
 		}
-		if (si->buffer)
-			free (si->buffer);
 		if (si->psi.buf) {
 			free (si->psi.buf);
 		}
-		
+
+		if (si->rd)
+			free (si->rd);
+		if (si->wr)
+			free (si->wr);
+		while (si->head) {
+			stream_buffer_t *e;
+			e = si->head;
+			si->head = si->head->next;
+			free (e);
+		}
+		while (si->free) {
+			stream_buffer_t *e;
+			e = si->free;
+			si->free = si->free->next;
+			free (e);
+		}
+
+		pthread_mutex_destroy(&si->lock_ts);
+		pthread_mutex_destroy(&si->lock_bf);
 		free (si);
 	}
 	return 0;
@@ -499,7 +605,8 @@ void mcli_startup (void)
 		for (n = 0; n < nc_list->nci_num; n++) {
 			netceiver_info_t *nci = nc_list->nci + n;
 			printf ("\nFound NetCeiver: %s\n", nci->uuid);
-			for (i = 0; i < nci->tuner_num; i++) {
+			if (!quiet)
+			    for (i = 0; i < nci->tuner_num; i++) {
 				printf ("  Tuner: %s, Type %d\n", nci->tuner[i].fe_info.name, nci->tuner[i].fe_info.type);
 			}
 		}

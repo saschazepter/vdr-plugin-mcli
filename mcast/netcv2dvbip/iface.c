@@ -94,7 +94,8 @@ int discover_interfaces(iface_t iflist[])
   			
    	nifaces =  ifconf.ifc_len/sizeof(struct ifreq);
 
-   	printf("Interfaces (count = %d):\n", nifaces);
+	if (!quiet)
+   		printf("Interfaces (count = %d):\n", nifaces);
 
    	for(i = 0; i < nifaces; i++)
    	{
@@ -104,7 +105,8 @@ int discover_interfaces(iface_t iflist[])
    		if(get_iface_ipaddress(&ifreqs[i])<0)
    			continue;
 		addr = (u_char *) & (((struct sockaddr_in *)&(ifreqs[i]).ifr_addr)->sin_addr);
-		printf("\t%i - %-10s : addr %d.%d.%d.%d\n",(i+1),ifreqs[i].ifr_name,addr[0],addr[1],addr[2],addr[3]);
+		if (!quiet)
+			printf("\t%i - %-10s : addr %d.%d.%d.%d\n",(i+1),ifreqs[i].ifr_name,addr[0],addr[1],addr[2],addr[3]);
 		iflist[i].ipaddr = ( (struct sockaddr_in *)&(ifreqs[i]).ifr_addr)->sin_addr.s_addr;
    			
 	}
@@ -125,13 +127,12 @@ int discover_interfaces(iface_t iflist[])
 
 int discover_interfaces(iface_t iflist[])
 {
+    if (!quiet)
 	printf("Interfaces:\n");
     /* Declare and initialize variables */
 
-    DWORD dwSize = 0;
     DWORD dwRetVal = 0;
 
-    unsigned int i = 0;
 	unsigned int anum = 0;
 
     // Set the flags to pass to GetAdaptersAddresses
@@ -179,8 +180,10 @@ int discover_interfaces(iface_t iflist[])
         // If successful, output some information from the data we received
         pCurrAddresses = pAddresses;
         while (pCurrAddresses) {
-            printf("\tIfIndex (IPv4 interface): %u\n", pCurrAddresses->IfIndex);
-            printf("\tAdapter name: %s\n", pCurrAddresses->AdapterName);
+            if (!quiet) {
+                printf("\tIfIndex (IPv4 interface): %u\n", (unsigned int)pCurrAddresses->IfIndex);
+                printf("\tAdapter name: %s\n", pCurrAddresses->AdapterName);
+            }
 			strncpy(iflist[anum].name, pCurrAddresses->AdapterName, IFNAMSIZ);
 
             pUnicast = pCurrAddresses->FirstUnicastAddress;
@@ -188,17 +191,27 @@ int discover_interfaces(iface_t iflist[])
 			if (pCurrAddresses->OperStatus == IfOperStatusUp)
 			{
 				if (pUnicast != NULL) {
-					printf("\tUnicast Address: %s\n", inet_ntoa(((struct sockaddr_in*)(pUnicast->Address.lpSockaddr))->sin_addr) );
+                                        if (!quiet)
+					    printf("\tUnicast Address: %s\n", inet_ntoa(((struct sockaddr_in*)(pUnicast->Address.lpSockaddr))->sin_addr) );
 					iflist[anum].ipaddr = ((struct sockaddr_in*)(pUnicast->Address.lpSockaddr))->sin_addr.S_un.S_addr;
-				} else
+				} else {
+                                    if (!quiet)
 					printf("\tNo Unicast Addresses\n");
+                                }
 
-				printf("\tDescription: %wS\n", pCurrAddresses->Description);
-				printf("\tFriendly name: %wS\n", pCurrAddresses->FriendlyName);
+                                if (!quiet) {
+#ifndef __MINGW32__
+				    printf("\tDescription: %wS\n", pCurrAddresses->Description);
+				    printf("\tFriendly name: %wS\n", pCurrAddresses->FriendlyName);
+#else
+				    printf("\tDescription: %ls\n", pCurrAddresses->Description);
+				    printf("\tFriendly name: %ls\n", pCurrAddresses->FriendlyName);
+#endif
 
-				printf("\tMtu: %lu\n", pCurrAddresses->Mtu);
+				    printf("\tMtu: %lu\n", pCurrAddresses->Mtu);
 
-				printf("\n");
+				    printf("\n");
+                                }
 
 				anum++;
 			}
@@ -206,7 +219,7 @@ int discover_interfaces(iface_t iflist[])
         }
     } else {
         printf("Call to GetAdaptersAddresses failed with error: %d\n",
-               dwRetVal);
+               (int)dwRetVal);
         if (dwRetVal == ERROR_NO_DATA)
             printf("\tNo addresses were found for the requested parameters\n");
         else {
@@ -216,7 +229,7 @@ int discover_interfaces(iface_t iflist[])
                     NULL, dwRetVal, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),   
                     // Default language
                     (LPTSTR) & lpMsgBuf, 0, NULL)) {
-                printf("\tError: %s", lpMsgBuf);
+                printf("\tError: %s", (char *)lpMsgBuf);
                 LocalFree(lpMsgBuf);
                 if (pAddresses)
                     FREE(pAddresses);

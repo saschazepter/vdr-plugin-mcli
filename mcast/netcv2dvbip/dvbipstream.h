@@ -4,9 +4,11 @@
 #include "headers.h"
 #include "misc.h"
 
-#define MAXAPIDS 4
+#define MAXAPIDS 32
 #define MAXDPIDS 4
 #define MAXCAIDS 2
+
+#define TS_PER_UDP 7
 
 typedef struct
 {
@@ -47,12 +49,21 @@ typedef struct
 } channel_t;
 
 
+typedef struct _stream_buffer_t
+{
+	struct _stream_buffer_t *next;
+	char data[TS_PER_UDP*188];
+} stream_buffer_t;
+
 typedef struct
 {
 	recv_info_t *r;
-	char *buffer;
-	int rp, wp;
-	off_t offset;
+	stream_buffer_t *free;
+	stream_buffer_t *head;
+	stream_buffer_t *tail;
+	stream_buffer_t *wr;
+	stream_buffer_t *rd;
+	int fill;
 	int si_state;
 	psi_buf_t psi;
 	channel_t *cdata;
@@ -63,10 +74,9 @@ typedef struct
 	pthread_t t;
 	int stop;
 	int ts_cnt;
-	pthread_mutex_t lock_wr;
-	pthread_mutex_t lock_rd;
+	pthread_mutex_t lock_bf;
+	pthread_mutex_t lock_ts;
 } stream_info_t;
-
 
 channel_t *read_channel_list (char *filename);
 
@@ -77,7 +87,9 @@ channel_t *get_channel_data (int n);
 // mcilink.c
 void mcli_startup (void);
 void* mcli_stream_setup (const int channum);
-size_t mcli_stream_read (void* handle, char *buf, size_t maxlen, off_t offset);
+size_t mcli_stream_access (void* handle, char **buf);
+size_t mcli_stream_part_access (void* handle, char **buf);
+void mcli_stream_skip (void* handle);
 int mcli_stream_stop (void* handle);
 
 // parse.c

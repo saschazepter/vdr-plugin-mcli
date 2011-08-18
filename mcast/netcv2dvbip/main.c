@@ -15,6 +15,15 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
+#ifndef APPLE
+#define _LINUX_IN_H
+#include <linux/mroute.h>
+#endif
+#else
+#include <direct.h>
+#ifdef __MINGW32__
+#include <getopt.h>
+#endif
 #endif
 
 #include "streamer.h"
@@ -39,9 +48,10 @@ int channel_use_eit = 0;
 int channel_use_sdt = 0;
 int portnum = 12345;
 int table = 0;
+int quiet = 0;
 
 /*-------------------------------------------------------------------------*/
-channel_t * read_channel_list(char *filename)
+channel_t * read_channel_list(char *filename, char *dirname)
 {
 	FILE *cf;
 	FILE *pf;
@@ -52,9 +62,27 @@ channel_t * read_channel_list(char *filename)
 		printf("Can't read %s: %s\n",filename,strerror(errno));
 		return NULL;
 	}
+
+	if (dirname) {
+#ifdef WIN32
+		if (((dirname[0]>='A'&&dirname[0]<='Z') || (dirname[0]>='a'&&dirname[0]<='z')) && dirname[1]==':') {
+			if (_chdrive((dirname[0]&0xdf)-'A'+1)) {
+                		printf("Can't access %s: %s\n", dirname, strerror(errno));
+                		fclose(cf);
+                		return NULL;
+			}
+		}
+#endif
+		if (chdir(dirname)) {
+                	printf("Can't access %s: %s\n", dirname, strerror(errno));
+                	fclose(cf);
+                	return NULL;
+		}
+	}
+
 	pf =fopen("channels.m3u", "w");
 	if (!pf) {
-                printf("Can't read %s: %s\n", "channels.m3u", strerror(errno));
+                printf("Can't create %s: %s\n", "channels.m3u", strerror(errno));
                 fclose(cf);
                 return NULL;
         }
@@ -64,13 +92,20 @@ channel_t * read_channel_list(char *filename)
 		if (channel_num==channel_max_num) {
 			channel_max_num+=200;
 			channels=(channel_t*)realloc(channels,channel_max_num*sizeof(channel_t));
+			if (!channels) {
+				printf("out of memory\n");
+				fclose(pf);
+				fclose(cf);
+				return NULL;
+			}
 		}
 		fgets(buf,512,cf);
 		if ( !feof(cf) && ParseLine(buf,&channels[channel_num])) {
 			int ip1 = (channel_num+1)/256;
 			int ip2 = (channel_num) - (ip1*256) + 1;
-			printf("%i: udp://@239.255.%i.%i:%i - %s \n", 
-				channel_num+1, ip1, ip2, 12345, channels[channel_num].name);
+			if (!quiet)
+				printf("%i: udp://@239.255.%i.%i:%i - %s \n", 
+					channel_num+1, ip1, ip2, 12345, channels[channel_num].name);
                         fprintf(pf, "#EXTINF: %i,%s\n", channel_num+1, channels[channel_num].name);
                         fprintf(pf, "udp://@239.255.%i.%i:%i\n", ip1,ip2, portnum);
 			if (channel_use_eit)
@@ -123,14 +158,26 @@ extern cmdline_t cmd;
 
 void usage (void)
 {
-	printf("Usage: netcv2dvbip  [-b <multicast interface>] [-p <port>] [-i <netceiver interface>] [-c <channels.conf>] [-e activate EIT PID (EPG)] [-s activate SDT PID (may be required for EPG)] [-t <routing table number> (requires CONFIG_IP_MROUTE_MULTIPLE_TABLES)]\n");
-	exit(0);
+	printf("Usage: netcv2dvbip "
+	"[-b <multicast interface>] "
+	"[-p <port>] "
+	"[-i <netceiver interface>] "
+	"[-c <channels.conf>] "
+	"[-e activate EIT PID (EPG)] "
+	"[-s activate SDT PID (may be required for EPG)] "
+#ifdef MRT_TABLE
+	"[-t <routing table number> (requires CONFIG_IP_MROUTE_MULTIPLE_TABLES)] "
+#endif
+	"[-q be more quiet on the screen] "
+	"[-o <output directory>]\n");
+	exit(1);
 }
 
 /*-------------------------------------------------------------------------*/
 int main(int argc, char *argv[])
 {
 	char c;
+	char *dirname = NULL;
 	char channels[_POSIX_PATH_MAX];
 	strcpy(channels, "channels.conf");
 	char bindiface[IFNAMSIZ];
@@ -167,7 +214,11 @@ int main(int argc, char *argv[])
 
 	while(1)
 	{
-		int ret = getopt(argc,argv, "i:hc:b:p:t:es");
+		int ret = getopt(argc,argv, "i:hc:b:p:esqo:"
+#ifdef MRT_TABLE
+			"t:"
+#endif
+			);
 		if (ret==-1)
 			break;
 			
@@ -189,9 +240,11 @@ int main(int argc, char *argv[])
 			case 'p':
 				portnum = atoi(optarg);
 				break;
+#ifdef MRT_TABLE
 			case 't':
 				table = atoi(optarg);
 				break;
+#endif
 			case 'h':
 				usage();
 				return(0);
@@ -200,6 +253,12 @@ int main(int argc, char *argv[])
 				break;
 			case 's':
 				channel_use_sdt = 1;
+				break;
+			case 'q':
+				quiet = 1;
+				break;
+			case 'o':
+				dirname = optarg;
 				break;
 		}
 	}
@@ -232,7 +291,7 @@ int main(int argc, char *argv[])
 	
 	printf("Starting netcv2dvbip. Streams will be sent to port: %d\n", portnum);
 
-	if (!read_channel_list(channels))
+	if (!read_channel_list(channels, dirname))
 		exit(-1);
 
 	mcli_startup();

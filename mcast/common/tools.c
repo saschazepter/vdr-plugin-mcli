@@ -236,7 +236,7 @@ void fe_parms_to_mcg (struct in6_addr *mcg, streaming_group_t StreamingGroup, fe
 	fmul = 12.0 * (((double) fep->frequency) + 1041);
 	Frequency = (unsigned int) (fmul / 25000.0);
 
-	switch (type) {
+	switch ((int)type) {
 	case FE_QPSK:
 	case FE_DVBS2:
 		Frequency = (fep->frequency + 24) / 50;
@@ -349,7 +349,7 @@ int mcg_to_fe_parms (struct in6_addr *mcg, fe_type_t * type, recv_sec_t * sec, s
 	if (type) {
 		*type = fetype;
 	}
-	switch (fetype) {
+	switch ((int)fetype) {
 	case FE_QPSK:
 	case FE_DVBS2:
 		{

@@ -1,5 +1,10 @@
 #include "headers.h"
 
+#ifdef __MINGW32__
+#include <getopt.h>
+extern void bzero(void *s, size_t n);
+#endif
+
 #define HDR_CHK_PACKET_LENGTH 1424
 #define HDR_CHK_LENGTH 16
 
@@ -79,6 +84,10 @@ int main (int argc, char **argv)
 		fprintf (stderr, "%s ", mcg[i]);
 	}
 	fprintf (stderr, "]\n");
+
+#ifdef __MINGW32__
+	recv_init (ifname, port);
+#endif
 
 	switch (mode) {
 

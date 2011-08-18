@@ -44,7 +44,7 @@ void dummy_client (void)
 	dvb_pid_t pids[3];
 
 	netceiver_info_list_t *nc_list=nc_get_list();
-
+#if 0
 	printf("Looking for netceivers out there....\n");
 	while(run) {
 		nc_lock_list();
@@ -61,7 +61,7 @@ void dummy_client (void)
 		}
 		sleep(1);
 	}
-
+#endif
 	f=fopen("out.ts","wb");
 
 	r = recv_add();
@@ -86,7 +86,11 @@ void dummy_client (void)
 	memset(&pids, 0, sizeof(pids));
 	pids[0].pid=511;
 	pids[1].pid=512;
-	pids[2].pid=-1;
+	pids[2].pid=511;
+	pids[2].id=2;
+	pids[3].pid=511;
+	pids[3].id=1;
+	pids[4].pid=-1;
 	
 	printf("\nTuning a station and writing transport data to file 'out.ts':\n");
 	recv_tune (r, (fe_type_t)FE_QPSK, 1800+192, &sec, &fep, pids);

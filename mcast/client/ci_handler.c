@@ -121,7 +121,11 @@ static void *ci_recv (void *argp)
 	pthread_cleanup_push (clean_ci_recv_thread, c);
 
 	c->rxdata = (u_int8_t *) malloc (CA_TPDU_MAX + 2);
+	if (!c->rxdata)
+		err ("ci_recv: out of memory\n");
 	c->txdata = (u_int8_t *) malloc (CA_TPDU_MAX + 2);
+	if (!c->txdata)
+		err ("ci_recv: out of memory\n");
 
 	if (c->rxdata && c->txdata) {
 		c->recv_run = 1;
@@ -201,7 +205,8 @@ int ci_unregister_handler (ci_dev_t * c, int slot)
 static ci_dev_t *ci_add (void)
 {
 	ci_dev_t *c = (ci_dev_t *) malloc (sizeof (ci_dev_t));
-
+	if (!c)
+		return NULL;
 	memset (c, 0, sizeof (ci_dev_t));
 	dvbmc_list_add_head (&devs.list, &c->list);
 	return c;

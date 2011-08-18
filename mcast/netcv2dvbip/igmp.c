@@ -2,8 +2,12 @@
 
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN
-#include <ws2tcpip.h>
+#include <winsock2.h>
+#ifndef __MINGW32__
 #include <mstcpip.h>
+#else
+#define SIO_RCVALL_IGMPMCAST  _WSAIOW(IOC_VENDOR,3)
+#endif
 #else
 #include <sys/socket.h>
 #include <unistd.h>
@@ -146,7 +150,9 @@ void cIgmpListener::Destruct(void)
 bool cIgmpListener::Initialize(iface_t bindif, int table)
 {
 	int rc = 0;
+#ifndef WIN32
 	int val = 0;
+#endif
 
 	m_bindaddr = bindif.ipaddr;
 
@@ -302,61 +308,51 @@ bool cIgmpListener::Initialize(iface_t bindif, int table)
 void cIgmpListener::Action()
 {
 	int recvlen;
-    char recv_buf[8192];
-	int MaxFD;
-    fd_set  ReadFDS;
-	struct  timeval tv;
-	int Rt;
+	struct pollfd p;
+	char recv_buf[8192];
 	        
+
+	p.fd = m_socket;
+	p.events = POLLIN;
 
 	while (Running())
 	{
-	tv.tv_usec = 0;
-        tv.tv_sec = 1;
-        
-	MaxFD = m_socket;
-        FD_ZERO( &ReadFDS );
-        FD_SET( m_socket, &ReadFDS );
-
-      // wait for input
-		Rt = ::select( MaxFD +1, &ReadFDS, NULL, NULL, &tv );
-
-        // log and ignore failures
-        if( Rt < 0 ) 
-		{
-            log_socket_error( "IGMP select()" );
-            continue;
-        }
-        else if( Rt > 0 ) 
-		{
-
-            // Read IGMP request, and handle it...
-			if( FD_ISSET( m_socket, &ReadFDS ) ) 
-			{
-				recvlen = ::recv(m_socket, (char*)&recv_buf, sizeof(recv_buf), 0);
-				if (recvlen < 0)
-				{
+		switch (poll(&p,1,1000)) {
+		case -1:
 #ifndef WIN32
-                                        if ( (errno == EINTR) || (errno == EWOULDBLOCK) )
-                                                continue;
+			if ( (errno != EINTR) && (errno != EWOULDBLOCK) )
 #else
-                                        Rt = WSAGetLastError();
-                                        if ( (Rt == WSAEINTR) || (Rt == WSAEWOULDBLOCK) )
-                                                continue;
+			int Rt;
+			Rt = WSAGetLastError();
+			if ( (Rt != WSAEINTR) && (Rt != WSAEWOULDBLOCK) )
 #endif
-					log_socket_error("IGMP recv()");
-					break;
-				}
-				/*
-				printf("recvlen: %d\n", recvlen);
-				for(int i=0; i<recvlen; i++)
-				printf("%02x ", (unsigned char) recv_buf[i]);
-				printf("\n");
-				*/
-				Parse(recv_buf, recvlen);
+				log_socket_error( "IGMP poll()" );
+		case 0:
+			continue;
+
+		default:
+			if (!(p.revents&POLLIN))
+				continue;
+
+			recvlen = recv(m_socket, (char*)&recv_buf, sizeof(recv_buf), 0);
+			if (recvlen < 0)
+			{
+#ifndef WIN32
+                                if ( (errno == EINTR) || (errno == EWOULDBLOCK) )
+#else
+				int Rt;
+                                Rt = WSAGetLastError();
+                                if ( (Rt == WSAEINTR) || (Rt == WSAEWOULDBLOCK) )
+#endif
+                                        continue;
+				log_socket_error("IGMP recv()");
+				goto out;
 			}
+			Parse(recv_buf, recvlen);
+			break;
 		}
 	}
+out:;
 }
 
 void cIgmpListener::Parse(char* buffer, int len)
@@ -373,23 +369,25 @@ void cIgmpListener::Parse(char* buffer, int len)
     // Check that IP version is IPV4 and that payload is IGMP
     if ( (HI_BYTE(*buf) == 4) && ( *(buf+9) == IPPROTO_IGMP) )
     {
+	if (!quiet) {
 		printf("IGMP: SrcAddr: %d.%d.%d.%d -> ", 
    		  (unsigned char) *(buf+12), (unsigned char) *(buf+13), (unsigned char) *(buf+14), (unsigned char) *(buf+15) );
 		printf("DstAddr: %d.%d.%d.%d\n", 
    		  (unsigned char) *(buf+16), (unsigned char) *(buf+17), (unsigned char) *(buf+18), (unsigned char) *(buf+19) );
-		memcpy(&senderaddr, buf+12, 4);
+	}
+	memcpy(&senderaddr, buf+12, 4);
 
-        	// skip rest of ip header and move to next to next protocol header
-		len -= LO_BYTE(*buf) * 4;
-	    buf += LO_BYTE(*buf) * 4;
+       	// skip rest of ip header and move to next to next protocol header
+	len -= LO_BYTE(*buf) * 4;
+	buf += LO_BYTE(*buf) * 4;
 
         uint16_t chksum = ((*(buf+3)<<8)&0xFF00 ) | (*(buf+2) & 0x00FF);
         *(buf+2) = 0;
         *(buf+3) = 0;
         if (chksum != inetChecksum((uint16_t *)buf, len))
         {
-				printf("IGMP: INVALID CHECKSUM 0x%04x 0x%04x - discarding packet.\n", 
-								chksum, inetChecksum((uint16_t *)buf, len));
+		printf("IGMP: INVALID CHECKSUM 0x%04x 0x%04x - discarding packet.\n", 
+		    chksum, inetChecksum((uint16_t *)buf, len));
                 return;
         }
 		
@@ -397,38 +395,43 @@ void cIgmpListener::Parse(char* buffer, int len)
 		{   
 			if ( *buf == 0x11 )
 			{
-				printf("IGMP: Version: %s, Type: Membership Query\n", (*(buf+1) == 0 ) ? "1":"2");
-				printf("        Group: %d.%d.%d.%d\n", (unsigned char) *(buf+4), (unsigned char) *(buf+5), 
-													   (unsigned char) *(buf+6), (unsigned char) *(buf+7)
-													   );
+				if (!quiet) {
+					printf("IGMP: Version: %s, Type: Membership Query\n", (*(buf+1) == 0 ) ? "1":"2");
+					printf("        Group: %d.%d.%d.%d\n", (unsigned char) *(buf+4), (unsigned char) *(buf+5),
+					   (unsigned char) *(buf+6), (unsigned char) *(buf+7));
+				}
 				memcpy(&groupaddr, buf+4, 4);
 				m_IgmpMain->ProcessIgmpQueryMessage( groupaddr, senderaddr );
 			} 
 			else if ( *buf == 0x12 )
 			{
-				printf("IGMP: Version: 1, Type: Membership Report\n");
+				if (!quiet)
+					printf("IGMP: Version: 1, Type: Membership Report\n");
 			} 
 			else if (*buf == 0x16)
 			{
-				printf("IGMP: Version: 2, Type: Membership Report\n");
+				if (!quiet)
+					printf("IGMP: Version: 2, Type: Membership Report\n");
 			}
      		else if (*buf == 0x17)
 			{
-				printf("IGMP: Version: 2, Type: Leave Group\n");
+				if (!quiet)
+					printf("IGMP: Version: 2, Type: Leave Group\n");
 			}
 
-			printf("        Group: %d.%d.%d.%d\n", (unsigned char) *(buf+4), (unsigned char) *(buf+5), 
-													   (unsigned char) *(buf+6), (unsigned char) *(buf+7)
-													   );
+			if( !quiet)
+				printf("        Group: %d.%d.%d.%d\n", (unsigned char) *(buf+4), (unsigned char) *(buf+5), 
+				   (unsigned char) *(buf+6), (unsigned char) *(buf+7));
 			memcpy(&groupaddr, buf+4, 4);
 			m_IgmpMain->ProcessIgmpReportMessage( (int) *buf, groupaddr, senderaddr);
 		}
 		else if ( (*buf == 0x11) && (len > 8) )
 		{
-			printf("IGMP: Version: 3, Type: Membership Query, Maximum Response Time: %d\n",*(buf+1));
-			printf("        Group: %d.%d.%d.%d\n", (unsigned char) *(buf+4), (unsigned char) *(buf+5), 
-													   (unsigned char) *(buf+6), (unsigned char) *(buf+7)
-													   );
+			if (!quiet) {
+				printf("IGMP: Version: 3, Type: Membership Query, Maximum Response Time: %d\n",*(buf+1));
+				printf("        Group: %d.%d.%d.%d\n", (unsigned char) *(buf+4), (unsigned char) *(buf+5), 
+				   (unsigned char) *(buf+6), (unsigned char) *(buf+7));
+			}
 			memcpy(&groupaddr, buf+4, 4);
 			m_IgmpMain->ProcessIgmpQueryMessage( groupaddr, senderaddr );
 
@@ -436,29 +439,26 @@ void cIgmpListener::Parse(char* buffer, int len)
 		else if ( (*buf == 0x22) && (len > 8) )
 		{
 			unsigned short numrecords = ntohs((unsigned short)*(buf+7)<<8|*(buf+6));
-			printf("IGMP: Version: 3, Type: Membership Report,  Number of Records: %d\n",numrecords);
+			if (!quiet)
+				printf("IGMP: Version: 3, Type: Membership Report,  Number of Records: %d\n",numrecords);
 
 			// Skip Header and move to records
 			buf += 8;
 			for(int i = 0; i<numrecords; i++)
 			{
 				unsigned short numsources = (unsigned short)*(buf+3)<<8|*(buf+2);
-				printf("   ---> Record No: %d, Type: %d, Number of Sources: %d\n", 
-														i+1, 
-														*buf,
-														numsources
-														);
-				printf("        Group: %d.%d.%d.%d\n", (unsigned char) *(buf+4), (unsigned char) *(buf+5), 
-													   (unsigned char) *(buf+6), (unsigned char) *(buf+7)
-													   );
+				if (!quiet) {
+					printf("   ---> Record No: %d, Type: %d, Number of Sources: %d\n", i+1, *buf, numsources);
+					printf("        Group: %d.%d.%d.%d\n", (unsigned char) *(buf+4), (unsigned char) *(buf+5), 
+					   (unsigned char) *(buf+6), (unsigned char) *(buf+7));
+				}
 				memcpy(&groupaddr, buf+4, 4);
 				m_IgmpMain->ProcessIgmpReportMessage( (int) *buf, groupaddr, senderaddr);
 
-				for(int j = 0; j<numsources; j++)
+				if (!quiet) for(int j = 0; j<numsources; j++)
 				{
 					printf("           Sources: %d.%d.%d.%d\n", (unsigned char) *(buf+j*4), (unsigned char) *(buf+j*4+1), 
-													   (unsigned char) *(buf+j*4+2), (unsigned char) *(buf+j*4+3)
-													   );
+					   (unsigned char) *(buf+j*4+2), (unsigned char) *(buf+j*4+3));
 					// move to next record: header bytes + aux data len 
 				}
 				buf += 8 + *(buf+1) + (numsources *4);
@@ -669,7 +669,8 @@ void cIgmpMain::Action()
 			LOCK_THREAD;
 
 			if (TV_CMP(m_GeneralQueryTimer, <, now)) {
-				printf("IGMP: Starting General Query.\n");
+				if (!quiet)
+				    printf("IGMP: Starting General Query.\n");
 				IGMPSendGeneralQuery();
 				IGMPStartGeneralQueryTimer();
 			}
@@ -716,7 +717,8 @@ void cIgmpMain::Action()
 			sleep = 100;
 		else if (!sleep)
 			continue;
-		printf("IGMP main thread: Sleeping %d ms\n", sleep);
+		if (!quiet)
+			printf("IGMP main thread: Sleeping %d ms\n", sleep);
 		m_CondWait.Wait(sleep);
 	}
 }

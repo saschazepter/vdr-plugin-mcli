@@ -14,8 +14,9 @@
 
 typedef void (*client_udp_cb)(unsigned char *buf, int n, void *arg);
 
-typedef struct
+typedef struct _UDPContext
 {
+	struct _UDPContext *next;
 	SOCKET udp_fd;
 	int ttl;
 	int idx;

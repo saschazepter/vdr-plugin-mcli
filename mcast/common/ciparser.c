@@ -256,6 +256,7 @@ STATIC int ci_decode_length (unsigned int *len, u_int8_t * v)
 	return ret;
 }
 
+#if 0
 STATIC int ci_decode_al_ca_info (ci_al_t * al)
 {
 	int i = 0;
@@ -281,10 +282,14 @@ STATIC int ci_decode_al_ca_info (ci_al_t * al)
 	}
 	return data - al->data;
 }
+#endif
 
 STATIC int ca_decode_ca_descr (ca_desc_t ** cadescr, int count, u_int8_t * data, int len, int *magic)
 {
 	*cadescr = (ca_desc_t *) realloc (*cadescr, sizeof (ca_desc_t *) * (count + 1));
+	if (!*cadescr) {
+		err ("ca_decode_ca_descr: out of memory\n");
+	}
 	ca_desc_t *c = *cadescr + count;
 
 //      u_int8_t descriptor_tag = *data;
@@ -371,6 +376,9 @@ STATIC int ci_decode_al_ca_pmt (ci_al_t * al)
 
 	while (len>0) {
 		p.pidinfo = (pidinfo_t *) realloc (p.pidinfo, sizeof (pidinfo_t) * (pidn + 1));
+		if (!p.pidinfo) {
+			err ("ci_decode_al_ca_pmt: out of memory");
+		}
 		memset (&p.pidinfo[pidn], 0, sizeof (pidinfo_t));
 		p.pidinfo[pidn].stream_type = *data;
 		data++;
@@ -450,6 +458,9 @@ STATIC int ci_decode_al_ca_pmt_reply (ci_al_t * al)
 
 	while (len>0) {
 		p.pidcaenable = (pid_ca_enable_t *) realloc (p.pidcaenable, sizeof (pid_ca_enable_t) * (pidn + 1));
+		if (!p.pidcaenable) {
+			err ("ci_decode_al_ca_pmt_reply: out of memory\n");
+		}
 		memset (&p.pidcaenable[pidn], 0, sizeof (pid_ca_enable_t));
 		p.pidcaenable[pidn].pid = ntohs16 (data);
 		data += 2;
