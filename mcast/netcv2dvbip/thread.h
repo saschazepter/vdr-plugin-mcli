@@ -16,15 +16,16 @@ public:
        ///< Creates a cCondWait object and uses it to sleep for TimeoutMs
        ///< milliseconds, immediately giving up the calling thread's time
        ///< slice and thus avoiding a "busy wait".
-       ///< In order to avoid a possible busy wait, TimeoutMs will be automatically
-       ///< limited to values >2.
+       ///< In order to avoid a possible busy wait, TimeoutMs will be
+       ///< automatically limited to values >2.
   bool Wait(int TimeoutMs = 0);
        ///< Waits at most TimeoutMs milliseconds for a call to Signal(), or
        ///< forever if TimeoutMs is 0.
        ///< \return Returns true if Signal() has been called, false it the given
        ///< timeout has expired.
   void Signal(void);
-       ///< Signals a caller of Wait() that the condition it is waiting for is met.
+       ///< Signals a caller of Wait() that the condition it is waiting for is 
+       ///< met.
 };
 
 class cMutex;
@@ -95,9 +96,9 @@ public:
 
 // cMutexLock can be used to easily set a lock on mutex and make absolutely
 // sure that it will be unlocked when the block will be left. Several locks can
-// be stacked, so a function that makes many calls to another function which uses
-// cMutexLock may itself use a cMutexLock to make one longer lock instead of many
-// short ones.
+// be stacked, so a function that makes many calls to another function which
+// uses cMutexLock may itself use a cMutexLock to make one longer lock instead
+// of many short ones.
 
 class cMutexLock {
 private:
@@ -111,9 +112,9 @@ public:
 
 // cThreadLock can be used to easily set a lock in a thread and make absolutely
 // sure that it will be unlocked when the block will be left. Several locks can
-// be stacked, so a function that makes many calls to another function which uses
-// cThreadLock may itself use a cThreadLock to make one longer lock instead of many
-// short ones.
+// be stacked, so a function that makes many calls to another function which
+// uses cThreadLock may itself use a cThreadLock to make one longer lock instead
+// of many short ones.
 
 class cThreadLock {
 private:

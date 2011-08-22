@@ -56,7 +56,7 @@ cMcliDevice::cMcliDevice (void)
 	m_tuned = false;
 	StartSectionHandler ();
 	m_PB = new cMyPacketBuffer (10000 * TS_SIZE, 10000);
-	m_PB->SetTimeouts (0, CLOCKS_PER_SEC * 20 / 1000);
+	m_PB->SetTimeouts (0, 20);
 	m_filters = new cMcliFilters ();
 //	printf ("cMcliDevice: got device number %d\n", CardIndex () + 1);
 	m_pidsnum = 0;

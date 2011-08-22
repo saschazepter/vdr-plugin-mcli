@@ -104,10 +104,14 @@ int discover_interfaces(iface_t iflist[])
    		u_char *addr;
    		if(get_iface_ipaddress(&ifreqs[i])<0)
    			continue;
-		addr = (u_char *) & (((struct sockaddr_in *)&(ifreqs[i]).ifr_addr)->sin_addr);
+		addr = (u_char *) & (((struct sockaddr_in *)&
+			(ifreqs[i]).ifr_addr)->sin_addr);
 		if (!quiet)
-			printf("\t%i - %-10s : addr %d.%d.%d.%d\n",(i+1),ifreqs[i].ifr_name,addr[0],addr[1],addr[2],addr[3]);
-		iflist[i].ipaddr = ( (struct sockaddr_in *)&(ifreqs[i]).ifr_addr)->sin_addr.s_addr;
+			printf("\t%i - %-10s : addr %d.%d.%d.%d\n",(i+1),
+				ifreqs[i].ifr_name,addr[0],addr[1],addr[2],
+				addr[3]);
+		iflist[i].ipaddr = ( (struct sockaddr_in *)&
+			(ifreqs[i]).ifr_addr)->sin_addr.s_addr;
    			
 	}
 	return nifaces;
@@ -181,40 +185,47 @@ int discover_interfaces(iface_t iflist[])
         pCurrAddresses = pAddresses;
         while (pCurrAddresses) {
             if (!quiet) {
-                printf("\tIfIndex (IPv4 interface): %u\n", (unsigned int)pCurrAddresses->IfIndex);
+                printf("\tIfIndex (IPv4 interface): %u\n", 
+			(unsigned int)pCurrAddresses->IfIndex);
                 printf("\tAdapter name: %s\n", pCurrAddresses->AdapterName);
             }
-			strncpy(iflist[anum].name, pCurrAddresses->AdapterName, IFNAMSIZ);
+			strncpy(iflist[anum].name, pCurrAddresses->AdapterName, 
+				IFNAMSIZ);
 
-            pUnicast = pCurrAddresses->FirstUnicastAddress;
+	    pUnicast = pCurrAddresses->FirstUnicastAddress;
 
-			if (pCurrAddresses->OperStatus == IfOperStatusUp)
-			{
-				if (pUnicast != NULL) {
-                                        if (!quiet)
-					    printf("\tUnicast Address: %s\n", inet_ntoa(((struct sockaddr_in*)(pUnicast->Address.lpSockaddr))->sin_addr) );
-					iflist[anum].ipaddr = ((struct sockaddr_in*)(pUnicast->Address.lpSockaddr))->sin_addr.S_un.S_addr;
-				} else {
-                                    if (!quiet)
-					printf("\tNo Unicast Addresses\n");
-                                }
+	    if (pCurrAddresses->OperStatus == IfOperStatusUp)
+	    {
+		if (pUnicast != NULL) {
+		    if (!quiet)
+			printf("\tUnicast Address: %s\n", 
+			    inet_ntoa(((struct sockaddr_in*)
+				(pUnicast->Address.lpSockaddr))->sin_addr) );
+		    iflist[anum].ipaddr = ((struct sockaddr_in*)
+			(pUnicast->Address.lpSockaddr))->sin_addr.S_un.S_addr;
+		} else {
+                    if (!quiet)
+			printf("\tNo Unicast Addresses\n");
+                }
 
-                                if (!quiet) {
+                if (!quiet) {
 #ifndef __MINGW32__
-				    printf("\tDescription: %wS\n", pCurrAddresses->Description);
-				    printf("\tFriendly name: %wS\n", pCurrAddresses->FriendlyName);
+		    printf("\tDescription: %wS\n", pCurrAddresses->Description);
+		    printf("\tFriendly name: %wS\n", 
+				pCurrAddresses->FriendlyName);
 #else
-				    printf("\tDescription: %ls\n", pCurrAddresses->Description);
-				    printf("\tFriendly name: %ls\n", pCurrAddresses->FriendlyName);
+		    printf("\tDescription: %ls\n", pCurrAddresses->Description);
+		    printf("\tFriendly name: %ls\n", 
+				pCurrAddresses->FriendlyName);
 #endif
 
-				    printf("\tMtu: %lu\n", pCurrAddresses->Mtu);
+		    printf("\tMtu: %lu\n", pCurrAddresses->Mtu);
 
-				    printf("\n");
-                                }
+		    printf("\n");
+                }
 
-				anum++;
-			}
+		anum++;
+	    }
             pCurrAddresses = pCurrAddresses->Next;
         }
     } else {

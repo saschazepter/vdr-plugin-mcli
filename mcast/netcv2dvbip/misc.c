@@ -25,67 +25,69 @@ static const unsigned __int64 epoch = 116444736000000000;
 
 int gettimeofday(struct timeval * tp, struct timezone * tzp)
 {
-    FILETIME	file_time;
-    SYSTEMTIME	system_time;
-    ULARGE_INTEGER ularge;
+	FILETIME	file_time;
+	SYSTEMTIME	system_time;
+	ULARGE_INTEGER ularge;
 
-    GetSystemTime(&system_time);
-    SystemTimeToFileTime(&system_time, &file_time);
-    ularge.LowPart = file_time.dwLowDateTime;
-    ularge.HighPart = file_time.dwHighDateTime;
+	GetSystemTime(&system_time);
+	SystemTimeToFileTime(&system_time, &file_time);
+	ularge.LowPart = file_time.dwLowDateTime;
+	ularge.HighPart = file_time.dwHighDateTime;
 
-    tp->tv_sec = (long) ((ularge.QuadPart - epoch) / 10000000L);
-    tp->tv_usec = (long) (system_time.wMilliseconds * 1000);
+	tp->tv_sec = (long) ((ularge.QuadPart - epoch) / 10000000L);
+	tp->tv_usec = (long) (system_time.wMilliseconds * 1000);
 
-    return 0;
+	return 0;
 }
 #endif
 
 bool GetAbsTime(struct timespec *Abstime, int MillisecondsFromNow)
 {
-  struct timeval now;
-  if (gettimeofday(&now, NULL) == 0) {           // get current time
-     now.tv_sec  += MillisecondsFromNow / 1000;  // add full seconds
-     now.tv_usec += (MillisecondsFromNow % 1000) * 1000;  // add microseconds
-     if (now.tv_usec >= 1000000) {               // take care of an overflow
-        now.tv_sec++;
-        now.tv_usec -= 1000000;
-        }
-     Abstime->tv_sec = now.tv_sec;          // seconds
-     Abstime->tv_nsec = now.tv_usec * 1000; // nano seconds
-     return true;
-     }
-  return false;
+	struct timeval now;
+
+	if (!gettimeofday(&now, NULL)) {
+		now.tv_sec  += MillisecondsFromNow / 1000;
+		now.tv_usec += (MillisecondsFromNow % 1000) * 1000;
+		if (now.tv_usec >= 1000000) {
+			now.tv_sec++;
+			now.tv_usec -= 1000000;
+		}
+		Abstime->tv_sec = now.tv_sec;
+		Abstime->tv_nsec = now.tv_usec * 1000;
+		return true;
+	}
+	return false;
 }
 
 // --- cTimeMs ---------------------------------------------------------------
 
 cTimeMs::cTimeMs(int Ms)
 {
-  Set(Ms);
+	Set(Ms);
 }
 
 uint64_t cTimeMs::Now(void)
 {
-  struct timeval t;
-  if (gettimeofday(&t, NULL) == 0)
-     return (uint64_t(t.tv_sec)) * 1000 + t.tv_usec / 1000;
-  return 0;
+	struct timeval t;
+
+	if (gettimeofday(&t, NULL) == 0)
+		return (uint64_t(t.tv_sec)) * 1000 + t.tv_usec / 1000;
+	return 0;
 }
 
 void cTimeMs::Set(int Ms)
 {
-  begin = Now() + Ms;
+	begin = Now() + Ms;
 }
 
 bool cTimeMs::TimedOut(void)
 {
-  return Now() >= begin;
+	return Now() >= begin;
 }
 
 uint64_t cTimeMs::Elapsed(void)
 {
-  return Now() - begin;
+	return Now() - begin;
 }
 
 #ifdef WIN32
@@ -113,9 +115,9 @@ __try
 
 	// initialization of the security id
 	if( !AllocateAndInitializeSid(
-			&siaNtAuthority, 2, SECURITY_BUILTIN_DOMAIN_RID,
-			DOMAIN_ALIAS_RID_ADMINS, 0,0,0,0,0,0, &psidAdministrators ) )
-		__leave;
+		&siaNtAuthority, 2, SECURITY_BUILTIN_DOMAIN_RID,
+		DOMAIN_ALIAS_RID_ADMINS, 0,0,0,0,0,0, &psidAdministrators ) )
+			__leave;
 
 #if WINVER < 0x0500
 	// code for the OS < W2k
@@ -131,13 +133,16 @@ __try
 		if( !pInfoBuffer )
 			__leave;
 		SetLastError( 0 );
-		if( !GetTokenInformation( hAccessToken,	TokenGroups, pInfoBuffer, dwInfoBufferSize, &dwInfoBufferSize ) &&
+		if( !GetTokenInformation( hAccessToken,	TokenGroups, 
+			pInfoBuffer, dwInfoBufferSize, &dwInfoBufferSize ) &&
 			( ERROR_INSUFFICIENT_BUFFER != GetLastError() ) )
-			__leave;
+				__leave;
 		else
 			ptgGroups = (PTOKEN_GROUPS)pInfoBuffer;
 	}
-	while( GetLastError() ); // if we encounter an error, then the initializing buffer too small, lets make it bigger
+	while( GetLastError() ); // if we encounter an error, then the 
+				 // initializing buffer too small, 
+				 // lets make it bigger
 
 	// lets check the security id one by one, while we find one we need
 	for( UINT i = 0; i < ptgGroups->GroupCount; i++ )
@@ -175,15 +180,14 @@ return bResult;
 
 bool IsVistaOrHigher()
 {
-    OSVERSIONINFO osvi;
+	OSVERSIONINFO osvi;
 
-    ZeroMemory(&osvi, sizeof(OSVERSIONINFO));
-    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+	ZeroMemory(&osvi, sizeof(OSVERSIONINFO));
+	osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
 
-    GetVersionEx(&osvi);
+	GetVersionEx(&osvi);
 
 	return (osvi.dwMajorVersion >= 6);
-
 }
 
 #endif

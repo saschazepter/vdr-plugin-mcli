@@ -43,21 +43,27 @@
 #define IGMP_ROBUSTNESS 2
 #define IGMP_QUERY_INTERVAL 125
 #define IGMP_QUERY_RESPONSE_INTERVAL 10
-#define IGMP_GROUP_MEMBERSHIP_INTERVAL (2 * IGMP_QUERY_INTERVAL + IGMP_QUERY_RESPONSE_INTERVAL)
-#define IGMP_OTHER_QUERIER_PRESENT_INTERVAL (2 * IGMP_QUERY_INTERVAL + IGMP_QUERY_RESPONSE_INTERVAL / 2)
+#define IGMP_GROUP_MEMBERSHIP_INTERVAL \
+	(2 * IGMP_QUERY_INTERVAL + IGMP_QUERY_RESPONSE_INTERVAL)
+#define IGMP_OTHER_QUERIER_PRESENT_INTERVAL \
+	(2 * IGMP_QUERY_INTERVAL + IGMP_QUERY_RESPONSE_INTERVAL / 2)
 #define IGMP_STARTUP_QUERY_INTERVAL (IGMP_QUERY_INTERVAL / 4)
 #define IGMP_STARTUP_QUERY_COUNT IGMP_ROBUSTNESS
-// This value is 1/10 sec. RFC default is 10. Reduced to minimum to free unused channels ASAP
+// This value is 1/10 sec. RFC default is 10. Reduced to minimum to
+// free unused channels ASAP
 #define IGMP_LAST_MEMBER_QUERY_INTERVAL_TS 1
 #define IGMP_LAST_MEMBER_QUERY_COUNT IGMP_ROBUSTNESS
 
 
 // operations on struct timeval
-#define TV_CMP(a, cmp, b) (a.tv_sec == b.tv_sec ? a.tv_usec cmp b.tv_usec : a.tv_sec cmp b.tv_sec)
+#define TV_CMP(a, cmp, b) \
+	(a.tv_sec == b.tv_sec ? a.tv_usec cmp b.tv_usec : a.tv_sec cmp b.tv_sec)
 #define TV_SET(tv) (tv.tv_sec || tv.tv_usec)
 #define TV_CLR(tv) memset(&tv, 0, sizeof(tv))
 #define TV_CPY(dst, src) memcpy(&dst, &src, sizeof(dst))
-#define TV_ADD(dst, ts) dst.tv_sec += ts / 10; dst.tv_usec += (ts % 10) * 100000; if (dst.tv_usec >= 1000000) { dst.tv_usec -= 1000000; dst.tv_sec++; }
+#define TV_ADD(dst, ts) dst.tv_sec += ts / 10; \
+	dst.tv_usec += (ts % 10) * 100000; \
+	if (dst.tv_usec >= 1000000) { dst.tv_usec -= 1000000; dst.tv_sec++; }
 
 /* Taken from http://tools.ietf.org/html/rfc1071 */
 uint16_t inetChecksum(uint16_t *addr, int count)
@@ -102,17 +108,20 @@ bool cIgmpListener::Membership(in_addr_t mcaddr, bool Add)
     mreq.imr_multiaddr.s_addr = mcaddr;
     mreq.imr_interface.s_addr = m_bindaddr;
     
-	rc = ::setsockopt(m_socket, IPPROTO_IP, Add ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP,(const char*) &mreq, sizeof(mreq));
+	rc = ::setsockopt(m_socket, IPPROTO_IP, 
+		Add ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP,
+		(const char*) &mreq, sizeof(mreq));
     if (rc < 0)
     {
-		printf("IGMP: unable to %s %s", Add ? "join" : "leave", inet_ntoa(mreq.imr_multiaddr));
+	printf("IGMP: unable to %s %s", Add ? "join" : "leave", \
+		inet_ntoa(mreq.imr_multiaddr));
 #ifndef WIN32
         if (errno == ENOBUFS)
-			printf("consider increasing sys.net.ipv4.igmp_max_memberships");
-	    else
+		printf("consider increasing sys.net.ipv4.igmp_max_memberships");
+	else
 #endif
-		log_socket_error("IGMP setsockopt(IP_ADD/DROP_MEMBERSHIP)");
-		return false;
+	log_socket_error("IGMP setsockopt(IP_ADD/DROP_MEMBERSHIP)");
+	return false;
     }
 
 	return true;
@@ -126,11 +135,12 @@ void cIgmpListener::Destruct(void)
 	Cancel(3);
 	
 	Membership(IGMP_ALL_HOSTS, false);
-    Membership(IGMP_ALL_ROUTER, false);
+	Membership(IGMP_ALL_ROUTER, false);
 	Membership(IGMP_ALL_V3REPORTS, false);
 
-	rc = setsockopt(m_socket, IPPROTO_IP, IP_MULTICAST_IF,(char *)&defaultaddr, sizeof(defaultaddr));
-    if ( rc < 0 )
+	rc = setsockopt(m_socket, IPPROTO_IP, IP_MULTICAST_IF,
+		(char *)&defaultaddr, sizeof(defaultaddr));
+	if ( rc < 0 )
 	{
 		log_socket_error("IGMP setsockopt(IP_MULTICAST_IF)");
 	}
@@ -139,7 +149,7 @@ void cIgmpListener::Destruct(void)
 	closesocket(m_socket);
 #else
 	rc = ::setsockopt( m_socket, IPPROTO_IP, MRT_DONE, NULL, 0); 
-    if ( rc < 0 )
+	if ( rc < 0 )
 	{
 		log_socket_error("IGMP setsockopt(MRT_DONE)");
 	}
@@ -156,26 +166,26 @@ bool cIgmpListener::Initialize(iface_t bindif, int table)
 
 	m_bindaddr = bindif.ipaddr;
 
-    m_socket = ::socket(AF_INET, SOCK_RAW, IPPROTO_IGMP);
+	m_socket = ::socket(AF_INET, SOCK_RAW, IPPROTO_IGMP);
 
-    if (m_socket < 0)
-    {
+	if (m_socket < 0)
+	{
 		log_socket_error("IGMP socket()");
-        return false;
+		return false;
 	}
 
 #ifdef WIN32
-   //-------------------------
-   // Set the socket I/O mode: In this case FIONBIO
-   // enables or disables the blocking mode for the
-   // socket based on the numerical value of iMode.
-   // If iMode = 0, blocking is enabled;
-   // If iMode != 0, non-blocking mode is enabled.
-    u_long iMode = 1;
-    ioctlsocket(m_socket, FIONBIO, &iMode);
+	//-------------------------
+	// Set the socket I/O mode: In this case FIONBIO
+	// enables or disables the blocking mode for the
+	// socket based on the numerical value of iMode.
+	// If iMode = 0, blocking is enabled;
+	// If iMode != 0, non-blocking mode is enabled.
+	u_long iMode = 1;
+	ioctlsocket(m_socket, FIONBIO, &iMode);
 #else
-    int x=fcntl(m_socket,F_GETFL,0);              // Get socket flags
-    fcntl(m_socket,F_SETFL,x | O_NONBLOCK);   // Add non-blocking flag
+	int x=fcntl(m_socket,F_GETFL,0);          // Get socket flags
+	fcntl(m_socket,F_SETFL,x | O_NONBLOCK);   // Add non-blocking flag
 #endif
 
 
@@ -187,29 +197,34 @@ bool cIgmpListener::Initialize(iface_t bindif, int table)
 		if ( rc < 0 )
 		{
 			log_socket_error("IGMP setsockopt(MRT_TABLE)");
-			printf("IGMPv2 policy routing won't work! Please enable multicast policy routing option in the kernel configuration!\n");
+			printf("IGMPv2 policy routing won't work! Please "
+				"enable multicast policy routing option in"
+				" the kernel configuration!\n");
 		}
 	}
 #endif
-    val = 1;
-	rc = ::setsockopt( m_socket, IPPROTO_IP, MRT_INIT, (void*)&val, sizeof(val) ); 
-    if ( rc < 0 )
+	val = 1;
+	rc = ::setsockopt( m_socket, IPPROTO_IP, MRT_INIT, 
+		(void*)&val, sizeof(val) ); 
+	if ( rc < 0 )
 	{
 		log_socket_error("IGMP setsockopt(MRT_INIT)");
-		printf("IGMPv2 won't work! Please enable multicast router option in the kernel configuration!\n");
+		printf("IGMPv2 won't work! Please enable multicast router "
+			"option in the kernel configuration!\n");
 	}
 
 	struct vifctl VifCtl;
-    VifCtl.vifc_vifi  = 0;
-    VifCtl.vifc_flags = 0;        /* no tunnel, no source routing, register ? */
-    VifCtl.vifc_threshold  = 1;    // Packet TTL must be at least 1 to pass them
-    VifCtl.vifc_rate_limit = 0;    // Ratelimit
+	VifCtl.vifc_vifi  = 0;
+	VifCtl.vifc_flags = 0;     // no tunnel, no source routing, register ?
+	VifCtl.vifc_threshold  = 1;// Packet TTL must be at least 1 to pass them
+	VifCtl.vifc_rate_limit = 0;// Ratelimit
 
-    VifCtl.vifc_lcl_addr.s_addr = m_bindaddr;
-    VifCtl.vifc_rmt_addr.s_addr = INADDR_ANY;
+	VifCtl.vifc_lcl_addr.s_addr = m_bindaddr;
+	VifCtl.vifc_rmt_addr.s_addr = INADDR_ANY;
 
-	rc = ::setsockopt( m_socket, IPPROTO_IP, MRT_ADD_VIF, (char *)&VifCtl, sizeof( VifCtl ) ); 
-    if ( rc < 0 )
+	rc = ::setsockopt( m_socket, IPPROTO_IP, MRT_ADD_VIF, 
+		(char *)&VifCtl, sizeof( VifCtl ) ); 
+	if ( rc < 0 )
 	{
 		log_socket_error("IGMP setsockopt(MRT_ADD_VIF)");
 	}
@@ -217,17 +232,19 @@ bool cIgmpListener::Initialize(iface_t bindif, int table)
 
 #endif
 /*
-	rc = setsockopt(m_socket, IPPROTO_IP, IP_MULTICAST_IF,(char *)&m_bindaddr, sizeof(m_bindaddr));
-    if ( rc < 0 )
+	rc = setsockopt(m_socket, IPPROTO_IP, IP_MULTICAST_IF,
+		(char *)&m_bindaddr, sizeof(m_bindaddr));
+	if ( rc < 0 )
 	{
 		log_socket_error("IGMP setsockopt(IP_MULTICAST_IF)");
 		return false;
 	}
 */
 	/*
-    val = 1;
-	rc = ::setsockopt( m_socket, SOL_SOCKET, SO_REUSEADDR, (const char*)&val, sizeof(val) ); 
-    if ( rc < 0 )
+	val = 1;
+	rc = ::setsockopt( m_socket, SOL_SOCKET, SO_REUSEADDR, 
+		(const char*)&val, sizeof(val) ); 
+	if ( rc < 0 )
 	{
 		log_socket_error("IGMP setsockopt(SO_REUSEADDR)");
 		return false;
@@ -235,9 +252,10 @@ bool cIgmpListener::Initialize(iface_t bindif, int table)
 	*/
 
 	/*
-    val = 1;
-	rc = ::setsockopt( m_socket, SOL_IP, IP_ROUTER_ALERT, &val, sizeof(val) );
-    if ( rc < 0 )	
+	val = 1;
+	rc = ::setsockopt( m_socket, SOL_IP, IP_ROUTER_ALERT, &val, 
+		sizeof(val) );
+	if ( rc < 0 )	
 	{
 		log_socket_error("IGMP setsockopt(IP_ROUTER_ALERT)");
 		return false;
@@ -245,37 +263,40 @@ bool cIgmpListener::Initialize(iface_t bindif, int table)
 	*/    
 
 #ifdef WIN32
-    //----------------------
-    // Bind the socket. 
-    // WIN32 requires this on a specific interface! 
+	//----------------------
+	// Bind the socket. 
+	// WIN32 requires this on a specific interface! 
 	// INADDR_ANY is not allowed according to MSDN Lib for raw IGMP sockets.
 	sockaddr_in m_LocalAddr;
 
-    m_LocalAddr.sin_family = AF_INET;
-    m_LocalAddr.sin_port   = 0;
+	m_LocalAddr.sin_family = AF_INET;
+	m_LocalAddr.sin_port   = 0;
 	m_LocalAddr.sin_addr.s_addr = m_bindaddr;
 
-	rc = ::bind( m_socket, (struct sockaddr*)&m_LocalAddr, sizeof(m_LocalAddr) );
-    if ( rc < 0 )
+	rc = ::bind( m_socket, (struct sockaddr*)&m_LocalAddr, 
+		sizeof(m_LocalAddr) );
+	if ( rc < 0 )
 	{
-	
 		log_socket_error("IGMP bind()");
 		return false;
 	}
 
-    int len = sizeof(struct sockaddr_in);
-	rc = ::getsockname( m_socket, (struct sockaddr*)&m_LocalAddr, (socklen_t*) &len );
-    if ( rc < 0 )
+	int len = sizeof(struct sockaddr_in);
+	rc = ::getsockname( m_socket, (struct sockaddr*)&m_LocalAddr, 
+		(socklen_t*) &len );
+	if ( rc < 0 )
 	{
 		log_socket_error("IGMP getsockname()");
 		return false;
 	}
 #else
 #ifndef APPLE
-	// Normal bind() for this socket does not really work. the socket does not receive anything then.
+	// Normal bind() for this socket does not really work. the socket
+	// does not receive anything then.
 	// However, SO_BINDTODEVICE _does_ work. Maybe because of SOCK_RAW?!
-	rc = setsockopt(m_socket, SOL_SOCKET, SO_BINDTODEVICE,(char *)&bindif.name, sizeof(bindif.name));
-    if ( rc < 0 )
+	rc = setsockopt(m_socket, SOL_SOCKET, SO_BINDTODEVICE,
+		(char *)&bindif.name, sizeof(bindif.name));
+	if ( rc < 0 )
 	{
 		log_socket_error("IGMP setsockopt(SO_BINDTODEVICE)");
 		return false;
@@ -286,7 +307,8 @@ bool cIgmpListener::Initialize(iface_t bindif, int table)
 #ifdef WIN32
 	DWORD dwCtlCode = SIO_RCVALL_IGMPMCAST;
 	DWORD dwBytesSent = 0;
-	rc = WSAIoctl(m_socket, dwCtlCode, &dwCtlCode, sizeof(dwCtlCode), NULL, 0, &dwBytesSent, NULL, NULL);
+	rc = WSAIoctl(m_socket, dwCtlCode, &dwCtlCode, sizeof(dwCtlCode), NULL, 
+		0, &dwBytesSent, NULL, NULL);
 	if ( rc == SOCKET_ERROR )
 	{
 		log_socket_error("IGMP WSAIoctl()");
@@ -295,7 +317,8 @@ bool cIgmpListener::Initialize(iface_t bindif, int table)
 #endif
 
 
-	if ( Membership(IGMP_ALL_HOSTS, true) && Membership(IGMP_ALL_V3REPORTS, true) 
+	if ( Membership(IGMP_ALL_HOSTS, true)
+		&& Membership(IGMP_ALL_V3REPORTS, true) 
 		&& Membership(IGMP_ALL_ROUTER, true))
 	{
           Start();
@@ -334,7 +357,8 @@ void cIgmpListener::Action()
 			if (!(p.revents&POLLIN))
 				continue;
 
-			recvlen = recv(m_socket, (char*)&recv_buf, sizeof(recv_buf), 0);
+			recvlen = recv(m_socket, (char*)&recv_buf, 
+				sizeof(recv_buf), 0);
 			if (recvlen < 0)
 			{
 #ifndef WIN32
@@ -358,108 +382,150 @@ out:;
 void cIgmpListener::Parse(char* buffer, int len)
 {
 	char* buf = buffer;
-    in_addr_t groupaddr;
+	in_addr_t groupaddr;
 	in_addr_t senderaddr;
 	
-    // Make sure we can at least extract the IP version
-    if (len < (int) sizeof(char))
-    {
-        return;
-    }
-    // Check that IP version is IPV4 and that payload is IGMP
-    if ( (HI_BYTE(*buf) == 4) && ( *(buf+9) == IPPROTO_IGMP) )
-    {
-	if (!quiet) {
-		printf("IGMP: SrcAddr: %d.%d.%d.%d -> ", 
-   		  (unsigned char) *(buf+12), (unsigned char) *(buf+13), (unsigned char) *(buf+14), (unsigned char) *(buf+15) );
-		printf("DstAddr: %d.%d.%d.%d\n", 
-   		  (unsigned char) *(buf+16), (unsigned char) *(buf+17), (unsigned char) *(buf+18), (unsigned char) *(buf+19) );
-	}
-	memcpy(&senderaddr, buf+12, 4);
+	// Make sure we can at least extract the IP version
+	if (len < (int) sizeof(char))
+	{
+	        return;
+    	}
+	// Check that IP version is IPV4 and that payload is IGMP
+	if ( (HI_BYTE(*buf) == 4) && ( *(buf+9) == IPPROTO_IGMP) )
+	{
+		if (!quiet) {
+			printf("IGMP: SrcAddr: %d.%d.%d.%d -> ", 
+	   			(unsigned char) *(buf+12), 
+				(unsigned char) *(buf+13), 
+				(unsigned char) *(buf+14), 
+				(unsigned char) *(buf+15) );
+			printf("DstAddr: %d.%d.%d.%d\n", 
+	   			(unsigned char) *(buf+16), 
+				(unsigned char) *(buf+17), 
+				(unsigned char) *(buf+18), 
+				(unsigned char) *(buf+19) );
+		}
+		memcpy(&senderaddr, buf+12, 4);
 
-       	// skip rest of ip header and move to next to next protocol header
-	len -= LO_BYTE(*buf) * 4;
-	buf += LO_BYTE(*buf) * 4;
+	       	// skip rest of ip header and move to next to 
+	       	// next protocol header
+		len -= LO_BYTE(*buf) * 4;
+		buf += LO_BYTE(*buf) * 4;
 
-        uint16_t chksum = ((*(buf+3)<<8)&0xFF00 ) | (*(buf+2) & 0x00FF);
-        *(buf+2) = 0;
-        *(buf+3) = 0;
-        if (chksum != inetChecksum((uint16_t *)buf, len))
-        {
-		printf("IGMP: INVALID CHECKSUM 0x%04x 0x%04x - discarding packet.\n", 
-		    chksum, inetChecksum((uint16_t *)buf, len));
-                return;
-        }
+	        uint16_t chksum = ((*(buf+3)<<8)&0xFF00 ) | (*(buf+2) & 0x00FF);
+	        *(buf+2) = 0;
+	        *(buf+3) = 0;
+	        if (chksum != inetChecksum((uint16_t *)buf, len))
+	        {
+			printf("IGMP: INVALID CHECKSUM 0x%04x 0x%04x - "
+				"discarding packet.\n", chksum, 
+				inetChecksum((uint16_t *)buf, len));
+	                return;
+	        }
 		
 		if ( (len == 8) )
 		{   
 			if ( *buf == 0x11 )
 			{
 				if (!quiet) {
-					printf("IGMP: Version: %s, Type: Membership Query\n", (*(buf+1) == 0 ) ? "1":"2");
-					printf("        Group: %d.%d.%d.%d\n", (unsigned char) *(buf+4), (unsigned char) *(buf+5),
-					   (unsigned char) *(buf+6), (unsigned char) *(buf+7));
+					printf("IGMP: Version: %s, Type: "
+						"Membership Query\n", 
+						(*(buf+1) == 0 ) ? "1":"2");
+					printf("        Group: %d.%d.%d.%d\n", 
+						(unsigned char) *(buf+4), 
+						(unsigned char) *(buf+5),
+						(unsigned char) *(buf+6), 
+						(unsigned char) *(buf+7));
 				}
 				memcpy(&groupaddr, buf+4, 4);
-				m_IgmpMain->ProcessIgmpQueryMessage( groupaddr, senderaddr );
+				m_IgmpMain->ProcessIgmpQueryMessage( groupaddr, 
+					senderaddr );
 			} 
 			else if ( *buf == 0x12 )
 			{
 				if (!quiet)
-					printf("IGMP: Version: 1, Type: Membership Report\n");
+					printf("IGMP: Version: 1, Type: "
+						"Membership Report\n");
 			} 
 			else if (*buf == 0x16)
 			{
 				if (!quiet)
-					printf("IGMP: Version: 2, Type: Membership Report\n");
+					printf("IGMP: Version: 2, Type: "
+						"Membership Report\n");
 			}
      		else if (*buf == 0x17)
 			{
 				if (!quiet)
-					printf("IGMP: Version: 2, Type: Leave Group\n");
+					printf("IGMP: Version: 2, Type: "
+						"Leave Group\n");
 			}
 
 			if( !quiet)
-				printf("        Group: %d.%d.%d.%d\n", (unsigned char) *(buf+4), (unsigned char) *(buf+5), 
-				   (unsigned char) *(buf+6), (unsigned char) *(buf+7));
+				printf("        Group: %d.%d.%d.%d\n", 
+					(unsigned char) *(buf+4), 
+					(unsigned char) *(buf+5), 
+					(unsigned char) *(buf+6), 
+					(unsigned char) *(buf+7));
 			memcpy(&groupaddr, buf+4, 4);
-			m_IgmpMain->ProcessIgmpReportMessage( (int) *buf, groupaddr, senderaddr);
+			m_IgmpMain->ProcessIgmpReportMessage( (int) *buf, 
+				groupaddr, senderaddr);
 		}
 		else if ( (*buf == 0x11) && (len > 8) )
 		{
 			if (!quiet) {
-				printf("IGMP: Version: 3, Type: Membership Query, Maximum Response Time: %d\n",*(buf+1));
-				printf("        Group: %d.%d.%d.%d\n", (unsigned char) *(buf+4), (unsigned char) *(buf+5), 
-				   (unsigned char) *(buf+6), (unsigned char) *(buf+7));
+				printf("IGMP: Version: 3, Type: "
+					"Membership Query, Maximum "
+					"Response Time: %d\n",*(buf+1));
+				printf("        Group: %d.%d.%d.%d\n", 
+					(unsigned char) *(buf+4), 
+					(unsigned char) *(buf+5), 
+					(unsigned char) *(buf+6), 
+					(unsigned char) *(buf+7));
 			}
 			memcpy(&groupaddr, buf+4, 4);
-			m_IgmpMain->ProcessIgmpQueryMessage( groupaddr, senderaddr );
+			m_IgmpMain->ProcessIgmpQueryMessage( groupaddr, 
+				senderaddr );
 
 		}
 		else if ( (*buf == 0x22) && (len > 8) )
 		{
-			unsigned short numrecords = ntohs((unsigned short)*(buf+7)<<8|*(buf+6));
+			unsigned short numrecords = ntohs((unsigned short)*
+				(buf+7)<<8|*(buf+6));
 			if (!quiet)
-				printf("IGMP: Version: 3, Type: Membership Report,  Number of Records: %d\n",numrecords);
+				printf("IGMP: Version: 3, Type: Membership "
+					"Report,  Number of Records: %d\n",
+					numrecords);
 
 			// Skip Header and move to records
 			buf += 8;
 			for(int i = 0; i<numrecords; i++)
 			{
-				unsigned short numsources = (unsigned short)*(buf+3)<<8|*(buf+2);
+				unsigned short numsources = (unsigned short)*
+					(buf+3)<<8|*(buf+2);
 				if (!quiet) {
-					printf("   ---> Record No: %d, Type: %d, Number of Sources: %d\n", i+1, *buf, numsources);
-					printf("        Group: %d.%d.%d.%d\n", (unsigned char) *(buf+4), (unsigned char) *(buf+5), 
-					   (unsigned char) *(buf+6), (unsigned char) *(buf+7));
+					printf("   ---> Record No: %d, Type: "
+						"%d, Number of Sources: %d\n", 
+						i+1, *buf, numsources);
+					printf("        Group: %d.%d.%d.%d\n", 
+						(unsigned char) *(buf+4), 
+						(unsigned char) *(buf+5), 
+						(unsigned char) *(buf+6), 
+						(unsigned char) *(buf+7));
 				}
 				memcpy(&groupaddr, buf+4, 4);
-				m_IgmpMain->ProcessIgmpReportMessage( (int) *buf, groupaddr, senderaddr);
+				m_IgmpMain->ProcessIgmpReportMessage( 
+					(int) *buf, groupaddr, senderaddr);
 
 				if (!quiet) for(int j = 0; j<numsources; j++)
 				{
-					printf("           Sources: %d.%d.%d.%d\n", (unsigned char) *(buf+j*4), (unsigned char) *(buf+j*4+1), 
-					   (unsigned char) *(buf+j*4+2), (unsigned char) *(buf+j*4+3));
-					// move to next record: header bytes + aux data len 
+					printf("           Sources: "
+						"%d.%d.%d.%d\n", 
+						(unsigned char) *(buf+j*4), 
+						(unsigned char) *(buf+j*4+1), 
+						(unsigned char) *(buf+j*4+2), 
+						(unsigned char) *(buf+j*4+3));
+					// move to next record: header bytes +
+					// aux data len 
 				}
 				buf += 8 + *(buf+1) + (numsources *4);
 			}
@@ -494,18 +560,20 @@ void cIgmpListener::IGMPSendQuery(in_addr_t Group, int Timeout)
         }
         query[4] = IGMP_QUERY_INTERVAL<<8 | 0x00 ; // S=0, QRV=0
         query[5] = 0x0000; // 0 sources
-		uint16_t chksum = inetChecksum( (uint16_t *) &query, sizeof(query));
+	uint16_t chksum = inetChecksum( (uint16_t *) &query, sizeof(query));
         query[1] = chksum;
 
-        for (int i = 0; i < 5 && ::sendto(m_socket, (const char*) &query, sizeof(query), 0, (sockaddr*)&dst, sizeof(dst)) < 0 ; i++) 
-		{
+        for (int i = 0; i < 5 && ::sendto(m_socket, (const char*) &query, 
+		sizeof(query), 0, (sockaddr*)&dst, sizeof(dst)) < 0 ; i++) 
+	{
 #ifndef WIN32
-				if (errno != EAGAIN && errno != EWOULDBLOCK) 
+		if (errno != EAGAIN && errno != EWOULDBLOCK) 
 #else
-				if (WSAGetLastError() != WSAEWOULDBLOCK) 
+		if (WSAGetLastError() != WSAEWOULDBLOCK) 
 #endif
-				{
-					    printf("IGMP: unable to send query for group %s:", inet_ntoa(dst.sin_addr));
+		{
+			printf("IGMP: unable to send query for group %s:", 
+				inet_ntoa(dst.sin_addr));
                         log_socket_error("IGMP sendto()");
                         break;
                 }
@@ -520,16 +588,16 @@ void cIgmpListener::IGMPSendQuery(in_addr_t Group, int Timeout)
 cIgmpMain::cIgmpMain(cStreamer* streamer, iface_t bindif, int table)
 	: cThread("IGMP timeout handler")
 {
-    m_bindaddr = bindif.ipaddr;
+	m_bindaddr = bindif.ipaddr;
 	m_bindif = bindif;
 	m_table = table;
 
-    m_IgmpListener = new cIgmpListener(this);
-    m_StartupQueryCount = IGMP_STARTUP_QUERY_COUNT;
-    m_Querier = true;
-    m_streamer = streamer;
-    m_stopping = 0;
-    TV_CLR(m_GeneralQueryTimer);
+	m_IgmpListener = new cIgmpListener(this);
+	m_StartupQueryCount = IGMP_STARTUP_QUERY_COUNT;
+	m_Querier = true;
+	m_streamer = streamer;
+	m_stopping = 0;
+	TV_CLR(m_GeneralQueryTimer);
 }
 
 cIgmpMain::~cIgmpMain(void)
@@ -545,14 +613,15 @@ void cIgmpMain::Destruct(void)
 	
 	// Wake up timeout thread in case it is currently sleeping
 	m_stopping=1;
-    m_CondWait.Signal();
+	m_CondWait.Signal();
 
 	// Now try to stop thread. After 3 seconds it will be canceled.
 	Cancel(3);
 	
 	cMulticastGroup *del = NULL;
 	
-	for (cMulticastGroup *group = m_Groups.First(); group; group = m_Groups.Next(group))
+	for (cMulticastGroup *group = m_Groups.First(); group; 
+		group = m_Groups.Next(group))
 	{
 		if ( group->stream ) 
 		{
@@ -573,26 +642,29 @@ bool cIgmpMain::StartListener(void)
 	{
 		Start();
 		return true;
-    }
-    else
-    {
+	}
+	else
+	{
 		printf("cIgmpMain: Cannot create IGMP listener.\n");
 		return false;
-    }
+	}
 }
 
-void cIgmpMain::ProcessIgmpQueryMessage(in_addr_t groupaddr, in_addr_t senderaddr)
+void cIgmpMain::ProcessIgmpQueryMessage(in_addr_t groupaddr, 
+	in_addr_t senderaddr)
 { 
 	if (ntohl(senderaddr) < ntohl(m_bindaddr))
 	{
 		in_addr sender;
 		sender.s_addr = senderaddr;
-		printf("IGMP: Another Querier with lower IP address (%s) is active.\n", inet_ntoa(sender));
+		printf("IGMP: Another Querier with lower IP address (%s) "
+			"is active.\n", inet_ntoa(sender));
 		IGMPStartOtherQuerierPresentTimer();
 	}
 }
 
-void cIgmpMain::ProcessIgmpReportMessage(int type, in_addr_t groupaddr, in_addr_t senderaddr)
+void cIgmpMain::ProcessIgmpReportMessage(int type, in_addr_t groupaddr, 
+	in_addr_t senderaddr)
 {
 	cMulticastGroup* group;
 
@@ -610,45 +682,49 @@ void cIgmpMain::ProcessIgmpReportMessage(int type, in_addr_t groupaddr, in_addr_
 	case IGMPV2_MEMBERSHIP_REPORT:
 	case IGMPV3_MR_MODE_IS_EXCLUDE:
 	case IGMPV3_MR_CHANGE_TO_EXCLUDE:
-				group = FindGroup(groupaddr);
-				if (!group) 
-				{
-					group = new cMulticastGroup(groupaddr);
-					m_Groups.Add(group);
-				}
-				if (!group->stream)
-				{
-					m_streamer->StartMulticast(group);
-				}
-				IGMPStartTimer(group, senderaddr);
-				if (type == IGMPV1_MEMBERSHIP_REPORT)
-					IGMPStartV1HostTimer(group);
-				break;
+		group = FindGroup(groupaddr);
+		if (!group) 
+		{
+			group = new cMulticastGroup(groupaddr);
+			m_Groups.Add(group);
+		}
+		if (!group->stream)
+		{
+			m_streamer->StartMulticast(group);
+		}
+		IGMPStartTimer(group, senderaddr);
+		if (type == IGMPV1_MEMBERSHIP_REPORT)
+			IGMPStartV1HostTimer(group);
+		break;
 
 	case IGMPV2_LEAVE_GROUP:
 	case IGMPV3_MR_CHANGE_TO_INCLUDE:
-				group = FindGroup(groupaddr);
-				if (group && !TV_SET(group->v1timer)) 
-				{
-					if (group->reporter == senderaddr) 
-					{
-						IGMPStartTimerAfterLeave(group, m_Querier ? IGMP_LAST_MEMBER_QUERY_INTERVAL_TS : 1);//Igmp->igmp_code);
-						if (m_Querier)
-							IGMPSendGroupQuery(group);
-						IGMPStartRetransmitTimer(group);
-					}
-					m_CondWait.Signal();
-				}
+		group = FindGroup(groupaddr);
+		if (group && !TV_SET(group->v1timer)) 
+		{
+			if (group->reporter == senderaddr) 
+			{
+				IGMPStartTimerAfterLeave(group, m_Querier ? 
+					IGMP_LAST_MEMBER_QUERY_INTERVAL_TS : 1);
+					//Igmp->igmp_code);
+				if (m_Querier)
+					IGMPSendGroupQuery(group);
+				IGMPStartRetransmitTimer(group);
+			}
+			m_CondWait.Signal();
+		}
 		break;
 
 	case IGMPV3_MR_ALLOW_NEW_SOURCES:
-		printf("IGMPv3 Group Record Type \"ALLOW_NEW_SOURCES\" ignored.\n");
+		printf("IGMPv3 Group Record Type \"ALLOW_NEW_SOURCES\" "
+			"ignored.\n");
 		break;
 	case IGMPV3_MR_BLOCK_OLD_SOURCES:
-		printf("IGMPv3 Group Record Type \"BLOCK_OLD_SOURCES\" ignored.\n");
+		printf("IGMPv3 Group Record Type \"BLOCK_OLD_SOURCES\" "
+			"ignored.\n");
 		break;
 	default:
-	  printf("Unknown IGMPv3 Group Record Type.\n");
+		printf("Unknown IGMPv3 Group Record Type.\n");
 	}
 }
 
@@ -677,7 +753,8 @@ void cIgmpMain::Action()
 			if (TV_CMP(next, >, m_GeneralQueryTimer))
 				TV_CPY(next, m_GeneralQueryTimer);
 
-			for (cMulticastGroup *group = m_Groups.First(); group; group = m_Groups.Next(group)) 
+			for (cMulticastGroup *group = m_Groups.First(); group; 
+				group = m_Groups.Next(group)) 
 			{
 				if (TV_CMP(group->timeout, <, now)) 
 				{
@@ -687,21 +764,28 @@ void cIgmpMain::Action()
 						m_Groups.Del(del);
 					del = group;
 				}
-				else if (m_Querier && TV_SET(group->retransmit) && TV_CMP(group->retransmit, <, now)) {
+				else if (m_Querier && TV_SET(group->retransmit) 
+					&& TV_CMP(group->retransmit, <, now)) {
 						IGMPSendGroupQuery(group);
 						IGMPStartRetransmitTimer(group);
-						if (TV_CMP(next, >, group->retransmit))
-							TV_CPY(next, group->retransmit);
+						if (TV_CMP(next, >, 
+						    group->retransmit))
+							TV_CPY(next, 
+							    group->retransmit);
 				}
-				else if (TV_SET(group->v1timer) && TV_CMP(group->v1timer, <, now)) {
+				else if (TV_SET(group->v1timer) && 
+					TV_CMP(group->v1timer, <, now)) {
 						TV_CLR(group->v1timer);
 				}
 				else {
 					if (TV_CMP(next, >, group->timeout))
 						TV_CPY(next, group->timeout);
-					if (TV_SET(group->retransmit) && TV_CMP(next, >, group->retransmit))
+					if (TV_SET(group->retransmit) && 
+					    TV_CMP(next, >, 
+					    group->retransmit))
 						TV_CPY(next, group->retransmit);
-					if (TV_SET(group->v1timer) && TV_CMP(next, >, group->v1timer))
+					if (TV_SET(group->v1timer) && 
+					    TV_CMP(next, >, group->v1timer))
 						TV_CPY(next, group->v1timer);
 				}
 			}
@@ -755,7 +839,8 @@ void cIgmpMain::IGMPStartOtherQuerierPresentTimer()
 
 void cIgmpMain::IGMPSendGeneralQuery()
 {
-        m_IgmpListener->IGMPSendQuery(IGMP_ALL_HOSTS, IGMP_QUERY_RESPONSE_INTERVAL);
+        m_IgmpListener->IGMPSendQuery(IGMP_ALL_HOSTS, 
+		IGMP_QUERY_RESPONSE_INTERVAL);
 }
 
 void cIgmpMain::IGMPStartRetransmitTimer(cMulticastGroup* Group)
@@ -785,9 +870,11 @@ void cIgmpMain::IGMPStartV1HostTimer(cMulticastGroup* Group)
 	Group->v1timer.tv_sec += IGMP_GROUP_MEMBERSHIP_INTERVAL;
 }
 
-void cIgmpMain::IGMPStartTimerAfterLeave(cMulticastGroup* Group, unsigned int MaxResponseTimeTs)
+void cIgmpMain::IGMPStartTimerAfterLeave(cMulticastGroup* Group, 
+	unsigned int MaxResponseTimeTs)
 {
-	//Group->Update(time(NULL) + MaxResponseTime * IGMP_LAST_MEMBER_QUERY_COUNT / 10);
+	//Group->Update(time(NULL) + MaxResponseTime
+	//* IGMP_LAST_MEMBER_QUERY_COUNT / 10);
 	MaxResponseTimeTs *= IGMP_LAST_MEMBER_QUERY_COUNT;
 	gettimeofday(&Group->timeout, NULL);
 	TV_ADD(Group->timeout, MaxResponseTimeTs);
@@ -797,6 +884,7 @@ void cIgmpMain::IGMPStartTimerAfterLeave(cMulticastGroup* Group, unsigned int Ma
 
 void cIgmpMain::IGMPSendGroupQuery(cMulticastGroup* Group)
 {
-	m_IgmpListener->IGMPSendQuery(Group->group, IGMP_LAST_MEMBER_QUERY_INTERVAL_TS);
+	m_IgmpListener->IGMPSendQuery(Group->group, 
+		IGMP_LAST_MEMBER_QUERY_INTERVAL_TS);
 }
 

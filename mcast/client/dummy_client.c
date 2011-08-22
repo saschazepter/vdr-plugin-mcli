@@ -34,17 +34,19 @@ static int dummy_handle_ten (tra_t *ten, void *p)
 
 void dummy_client (void)
 {
+#if 0
 	int i;
 	int n;
 	int run=1;
+#endif
 	FILE *f;
 	recv_info_t *r;
 	recv_sec_t sec;
 	struct dvb_frontend_parameters fep;
-	dvb_pid_t pids[3];
+	dvb_pid_t pids[5];
 
-	netceiver_info_list_t *nc_list=nc_get_list();
 #if 0
+	netceiver_info_list_t *nc_list=nc_get_list();
 	printf("Looking for netceivers out there....\n");
 	while(run) {
 		nc_lock_list();

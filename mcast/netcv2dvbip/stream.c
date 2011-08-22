@@ -45,16 +45,17 @@ bool cStream::StartStream(in_addr_t bindaddr)
 	}
 
 #if 0
-    //----------------------
-    // Bind the socket. 
+	//----------------------
+	// Bind the socket. 
 	sockaddr_in m_LocalAddr;
 
-    m_LocalAddr.sin_family = AF_INET;
-    m_LocalAddr.sin_port   = htons(m_portnum-1);
+	m_LocalAddr.sin_family = AF_INET;
+	m_LocalAddr.sin_port   = htons(m_portnum-1);
 	m_LocalAddr.sin_addr.s_addr = bindaddr;
 
-	rc = ::bind( udp_socket, (struct sockaddr*)&m_LocalAddr, sizeof(m_LocalAddr) );
-    if ( rc < 0 )
+	rc = ::bind( udp_socket, (struct sockaddr*)&m_LocalAddr, 
+		sizeof(m_LocalAddr) );
+	if ( rc < 0 )
 	{
 		log_socket_error("STREAM bind()");
 		return false;
@@ -62,15 +63,17 @@ bool cStream::StartStream(in_addr_t bindaddr)
 #endif
 #if 0
 	char loop = 1;
-	rc = setsockopt(udp_socket, IPPROTO_IP, IP_MULTICAST_LOOP, (char*)&loop, sizeof(loop));
-    if ( rc < 0 )
+	rc = setsockopt(udp_socket, IPPROTO_IP, IP_MULTICAST_LOOP, 
+		(char*)&loop, sizeof(loop));
+	if ( rc < 0 )
 	{
 		log_socket_error("STREAM setsockopt(IP_MULTICAST_LOOP)");
 		return false;
 	}
 #endif
-	rc = setsockopt(udp_socket, IPPROTO_IP, IP_MULTICAST_IF,(char *)&bindaddr, sizeof(bindaddr));
-    if ( rc < 0 )
+	rc = setsockopt(udp_socket, IPPROTO_IP, IP_MULTICAST_IF,
+		(char *)&bindaddr, sizeof(bindaddr));
+	if ( rc < 0 )
 	{
 		log_socket_error("STREAM setsockopt(IP_MULTICAST_IF)");
 		return false;
@@ -129,16 +132,17 @@ void cStream::Action()
 				usleep (SLEEPTIME);
 				continue;
 			}
-			if (sendto( udp_socket, ptr, len, 0, (struct sockaddr *)&peer, sizeof(peer) ) < 0) {
+			if (sendto( udp_socket, ptr, len, 0, 
+				(struct sockaddr *)&peer, sizeof(peer) ) < 0) {
 #ifndef WIN32
-				if ( (errno == EINTR) || (errno == EWOULDBLOCK) ) {
+				if ((errno == EINTR)||(errno == EWOULDBLOCK)) {
 					usleep (SLEEPTIME);
 					continue;
 				}
 #else
 				int rc;
 				rc = WSAGetLastError();
-				if ( (rc == WSAEINTR) || (rc == WSAEWOULDBLOCK) ) {
+				if ((rc == WSAEINTR)||(rc == WSAEWOULDBLOCK)) {
 					usleep (SLEEPTIME);
 					continue;
 				}

@@ -130,7 +130,7 @@ depend: .dependencies
 	#makedepend -Y -- $(CFLAGS)  -- *c >/dev/null 2>&1
 
 clean:
-	rm -f $(NETCVDIAG) $(NETCVUPDATE) $(NETCVLOGVIEW) *.elf *.gdb *.o *~
+	rm -f $(DEPFILE) $(NETCVDIAG) $(NETCVUPDATE) $(NETCVLOGVIEW) *.elf *.gdb *.o *~
 
 %.o: %.c
 	$(CC) -c $(CFLAGS) $(INCLUDES) $(DEFINES) -o $@ $<

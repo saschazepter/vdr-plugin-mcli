@@ -75,7 +75,8 @@ class cIgmpMain : public cThread
 		bool StartListener(void);
 		void Destruct(void);
 		void ProcessIgmpQueryMessage(in_addr_t Group, in_addr_t Sender);
-		void ProcessIgmpReportMessage(int type, in_addr_t Group, in_addr_t Sender);
+		void ProcessIgmpReportMessage(int type, in_addr_t Group, 
+			in_addr_t Sender);
 		
 	private:
 		// Parent streamer
@@ -101,7 +102,8 @@ class cIgmpMain : public cThread
 		// Group Query / Timer
 	        void IGMPStartTimer(cMulticastGroup* Group, in_addr_t Member);
         	void IGMPStartV1HostTimer(cMulticastGroup* Group);
-	        void IGMPStartTimerAfterLeave(cMulticastGroup* Group, unsigned int MaxResponseTime);
+	        void IGMPStartTimerAfterLeave(cMulticastGroup* Group, 
+			unsigned int MaxResponseTime);
 	        void IGMPStartRetransmitTimer(cMulticastGroup* Group);
 	        void IGMPClearRetransmitTimer(cMulticastGroup* Group);
 	        void IGMPSendGroupQuery(cMulticastGroup* Group);

@@ -65,16 +65,19 @@ channel_t * read_channel_list(char *filename, char *dirname)
 
 	if (dirname) {
 #ifdef WIN32
-		if (((dirname[0]>='A'&&dirname[0]<='Z') || (dirname[0]>='a'&&dirname[0]<='z')) && dirname[1]==':') {
+		if (((dirname[0]>='A'&&dirname[0]<='Z') || 
+		    (dirname[0]>='a'&&dirname[0]<='z')) && dirname[1]==':') {
 			if (_chdrive((dirname[0]&0xdf)-'A'+1)) {
-                		printf("Can't access %s: %s\n", dirname, strerror(errno));
+                		printf("Can't access %s: %s\n", dirname, 
+					strerror(errno));
                 		fclose(cf);
                 		return NULL;
 			}
 		}
 #endif
 		if (chdir(dirname)) {
-                	printf("Can't access %s: %s\n", dirname, strerror(errno));
+                	printf("Can't access %s: %s\n", dirname, 
+				strerror(errno));
                 	fclose(cf);
                 	return NULL;
 		}
@@ -82,16 +85,18 @@ channel_t * read_channel_list(char *filename, char *dirname)
 
 	pf =fopen("channels.m3u", "w");
 	if (!pf) {
-                printf("Can't create %s: %s\n", "channels.m3u", strerror(errno));
+                printf("Can't create %s: %s\n", "channels.m3u", 
+			strerror(errno));
                 fclose(cf);
                 return NULL;
         }
         fprintf(pf, "#EXTM3U\n");
         
-	while(!feof(cf)) {
+	while(fgets(buf,sizeof(buf),cf)) {
 		if (channel_num==channel_max_num) {
 			channel_max_num+=200;
-			channels=(channel_t*)realloc(channels,channel_max_num*sizeof(channel_t));
+			channels=(channel_t*)realloc(channels,
+				channel_max_num*sizeof(channel_t));
 			if (!channels) {
 				printf("out of memory\n");
 				fclose(pf);
@@ -99,15 +104,17 @@ channel_t * read_channel_list(char *filename, char *dirname)
 				return NULL;
 			}
 		}
-		fgets(buf,512,cf);
-		if ( !feof(cf) && ParseLine(buf,&channels[channel_num])) {
+		if (ParseLine(buf,&channels[channel_num])) {
 			int ip1 = (channel_num+1)/256;
 			int ip2 = (channel_num) - (ip1*256) + 1;
 			if (!quiet)
 				printf("%i: udp://@239.255.%i.%i:%i - %s \n", 
-					channel_num+1, ip1, ip2, 12345, channels[channel_num].name);
-                        fprintf(pf, "#EXTINF: %i,%s\n", channel_num+1, channels[channel_num].name);
-                        fprintf(pf, "udp://@239.255.%i.%i:%i\n", ip1,ip2, portnum);
+					channel_num+1, ip1, ip2, portnum,
+					channels[channel_num].name);
+                        fprintf(pf, "#EXTINF: %i,%s\n", channel_num+1,
+				channels[channel_num].name);
+                        fprintf(pf, "udp://@239.255.%i.%i:%i\n", ip1,ip2,
+				portnum);
 			if (channel_use_eit)
 			{
 				channels[channel_num].NumEitpids = 1;
@@ -121,7 +128,8 @@ channel_t * read_channel_list(char *filename, char *dirname)
 			channel_num++;
 		}
 	}
-	printf("Read %i channels, M3U playlist file \"channels.m3u\" generated.\n",channel_num);
+	printf("Read %i channels, M3U playlist file \"channels.m3u\" "
+		"generated.\n",channel_num);
 	fclose(pf);
 	fclose(cf);
 	return channels;
@@ -141,8 +149,9 @@ int get_channel_name(int n, char *str, int maxlen)
 #endif
 	while(*str) {
 		char c=*str;
-		if (c=='/' || c=='\\' || c==':' || c=='?' || c=='*' || !isprint(c))
-			*str='_';
+		if (c=='/' || c=='\\' || c==':' || c=='?' || c=='*' || 
+			!isprint(c))
+				*str='_';
 		str++;
 	}
 	return 0;
@@ -166,7 +175,8 @@ void usage (void)
 	"[-e activate EIT PID (EPG)] "
 	"[-s activate SDT PID (may be required for EPG)] "
 #ifdef MRT_TABLE
-	"[-t <routing table number> (requires CONFIG_IP_MROUTE_MULTIPLE_TABLES)] "
+	"[-t <routing table number> (requires "
+		"CONFIG_IP_MROUTE_MULTIPLE_TABLES)] "
 #endif
 	"[-q be more quiet on the screen] "
 	"[-o <output directory>]\n");
@@ -195,18 +205,18 @@ int main(int argc, char *argv[])
 	}
 
 	sa.sa_handler = signalHandler;
-    sa.sa_flags = 0;    /* Interrupt system calls */
-    sigemptyset(&sa.sa_mask);
-    sigaction(SIGTERM, &sa, NULL);
-    sigaction(SIGINT, &sa, NULL);
+	sa.sa_flags = 0;    /* Interrupt system calls */
+	sigemptyset(&sa.sa_mask);
+	sigaction(SIGTERM, &sa, NULL);
+	sigaction(SIGINT, &sa, NULL);
 
 #else
 	bool IsAdmin = false;
 	IsUserAdmin(&IsAdmin);
 	if( IsAdmin == false)
 	{
-	   printf("You must have administrative priviledges!\n");
-	   return(1); 
+		printf("You must have administrative privileges!\n");
+		return(1); 
 	}
 #endif
 
@@ -274,7 +284,7 @@ int main(int argc, char *argv[])
 		int found = false;
 		while ( ifindex < num_ifaces )
 		{
-			if (strncmp(iflist[ifindex].name, bindiface, IFNAMSIZ) == 0)
+			if (!strncmp(iflist[ifindex].name, bindiface, IFNAMSIZ))
 			{
 				found = true;
 				break;
@@ -283,13 +293,15 @@ int main(int argc, char *argv[])
 		}
 		if (!found)
 		{
-			printf("Cannot find interface %s. Exiting...\n", bindiface);
+			printf("Cannot find interface %s. Exiting...\n", 
+				bindiface);
 			exit(-1);
 		} 
 		
 	}
 	
-	printf("Starting netcv2dvbip. Streams will be sent to port: %d\n", portnum);
+	printf("Starting netcv2dvbip. Streams will be sent to port: %d\n", 
+		portnum);
 
 	if (!read_channel_list(channels, dirname))
 		exit(-1);
@@ -299,7 +311,8 @@ int main(int argc, char *argv[])
 #ifdef WIN32
        if ( !IsVistaOrHigher() )
        {
-               printf("Windows version does not support MLDv2, enabling internal MLDv2 reporter.\n");
+               printf("Windows version does not support MLDv2, enabling "
+			"internal MLDv2 reporter.\n");
                mld_client_init(cmd.iface);
        }
 #endif
@@ -315,7 +328,8 @@ int main(int argc, char *argv[])
 
 	struct sockaddr_in listenaddr;
 	listenaddr.sin_addr.s_addr = iflist[ifindex].ipaddr;
-	printf("Listening on interface %s (%s)\n\n\n", iflist[ifindex].name, inet_ntoa(listenaddr.sin_addr));
+	printf("Listening on interface %s (%s)\n\n\n", iflist[ifindex].name, 
+		inet_ntoa(listenaddr.sin_addr));
 		
 	streamer.SetBindIf(iflist[ifindex]);
 	streamer.SetStreamPort(portnum);
@@ -331,32 +345,31 @@ int main(int argc, char *argv[])
 #else
 	while (1)
 	{
-        // Process signaling...
-        if (sighandled) {
-            if (sighandled & GOT_SIGINT) {
-                sighandled &= ~GOT_SIGINT;
-                printf("\nGot SIGINT signal. Exiting.\n");
-                break;
-            }
-            if (sighandled & GOT_SIGTERM) {
-                sighandled &= ~GOT_SIGTERM;
-                printf("Got SIGTERM signal. Exiting.\n");
-                break;
-            }
-
-        }
+	        // Process signaling...
+	        if (sighandled) {
+			if (sighandled & GOT_SIGINT) {
+				sighandled &= ~GOT_SIGINT;
+				printf("\nGot SIGINT signal. Exiting.\n");
+				break;
+			}
+			if (sighandled & GOT_SIGTERM) {
+				sighandled &= ~GOT_SIGTERM;
+				printf("Got SIGTERM signal. Exiting.\n");
+				break;
+			}
+	        }
 		usleep(10000);
 	}
 #endif
 
 	streamer.Stop();
 #ifdef WIN32
-       if ( !IsVistaOrHigher() )
-       {
-           mld_client_exit();
-       }
+	if ( !IsVistaOrHigher() )
+	{
+		mld_client_exit();
+	}
 #endif
-        printf("netcv2dvbip stopped.\n");
+	printf("netcv2dvbip stopped.\n");
 
 #ifdef WIN32
 	WSACleanup();
@@ -370,18 +383,18 @@ int main(int argc, char *argv[])
  * so that the main loop can take care of it.
  */
 static void signalHandler(int sig) {
-    switch (sig) {
-    case SIGINT:
+	switch (sig) {
+	case SIGINT:
 		sighandled |= GOT_SIGINT;
 		break;
-    case SIGTERM:
-        sighandled |= GOT_SIGTERM;
-        break;
-        /* XXX: Not in use.
-        case SIGHUP:
-            sighandled |= GOT_SIGHUP;
-            break;
-        */
-    }
+	case SIGTERM:
+		sighandled |= GOT_SIGTERM;
+		break;
+		/* XXX: Not in use.
+	case SIGHUP:
+		sighandled |= GOT_SIGHUP;
+		break;
+	*/
+	}
 }
 #endif

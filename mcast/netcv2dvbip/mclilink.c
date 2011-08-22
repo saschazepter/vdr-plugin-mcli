@@ -8,7 +8,8 @@
 #define CVT
 #endif
 
-int gen_pat(unsigned char *buf, unsigned int program_number, unsigned int pmt_pid, unsigned int ts_cnt)
+int gen_pat(unsigned char *buf, unsigned int program_number, 
+	unsigned int pmt_pid, unsigned int ts_cnt)
 {
 	int pointer_field=0;
 	int section_length=13;
@@ -34,7 +35,8 @@ int gen_pat(unsigned char *buf, unsigned int program_number, unsigned int pmt_pi
 	buf[i++] = transport_stream_id>>8;
 	buf[i++] = transport_stream_id&0xff;
 
-	buf[i++] = 0xc0 | ((version_number&0x1f) << 1) | (current_next_indicator&1);
+	buf[i++] = 0xc0 | ((version_number&0x1f) << 1) | 
+		(current_next_indicator&1);
 	buf[i++] = section_number;
 	buf[i++] = last_section_number;
 
@@ -93,7 +95,8 @@ again:
 
 		if (ret == 1) {
 			if (!quiet)
-				printf ("Channel: %s - Got PAT\n", 	si->cdata->name);
+				printf ("Channel: %s - Got PAT\n", 
+					si->cdata->name);
 			pmt_pid_list_t pat;
 			ret = parse_pat_sect (si->psi.buf, si->psi.len, &pat);
 			if (ret < 0) {
@@ -102,10 +105,16 @@ again:
 //				print_pat (&pat.p, pat.pl, pat.pmt_pids);
 				unsigned int n;
 				for (n = 0; n < pat.pmt_pids; n++) {
-					if (pat.pl[n].program_number == (unsigned int)si->cdata->sid) {
-						si->pmt_pid = pat.pl[n].network_pmt_pid;
+					if (pat.pl[n].program_number == 
+					    (unsigned int)si->cdata->sid) {
+						si->pmt_pid = 
+						    pat.pl[n].network_pmt_pid;
 						if (!quiet)
-							printf ("Channel: %s - SID %d has PMT Pid %d\n", si->cdata->name, si->cdata->sid, si->pmt_pid);
+						    printf ("Channel: %s - SID "
+							"%d has PMT Pid %d\n", 
+							si->cdata->name, 
+							si->cdata->sid, 
+							si->pmt_pid);
 						break;
 					}
 				}
@@ -119,7 +128,7 @@ again:
 	case 4:
 		ret = 0;
 		for(i=0; i<len; i+=188) {
-			ret = ts2psi_data (buffer+i, &si->psi, 188, si->pmt_pid);
+			ret = ts2psi_data(buffer+i, &si->psi, 188, si->pmt_pid);
 			if(ret){
 				break;
 			}
@@ -130,17 +139,21 @@ again:
 
 		if (ret == 1) {
 			if (!quiet)
-				printf ("Channel: %s - Got PMT\n", 	si->cdata->name);
+				printf ("Channel: %s - Got PMT\n", 
+					si->cdata->name);
 			pmt_t hdr;
 			si_ca_pmt_t pm, es;
 			int es_pid_num;
 //			printhex_buf ("Section", si->psi.buf, si->psi.len);
 			si->fta=1;
-			ret = parse_pmt_ca_desc (si->psi.buf, si->psi.len, si->cdata->sid, &pm, &es, &hdr, &si->fta, NULL, &es_pid_num);
+			ret = parse_pmt_ca_desc (si->psi.buf, si->psi.len, 
+				si->cdata->sid, &pm, &es, &hdr, &si->fta, 
+				NULL, &es_pid_num);
 			if (ret < 0) {
 				si->si_state = 2;
 			} else if (ret == 0) {
-				si->es_pidnum = get_pmt_es_pids (es.cad, es.size, si->es_pids, 1);
+				si->es_pidnum = get_pmt_es_pids (es.cad, 
+					es.size, si->es_pids, 1);
 				if (si->es_pidnum <= 0) {
 					si->si_state = 2;
 				} else {
@@ -161,7 +174,8 @@ again:
 		for(i=0; i<len; i+=188) {
 			ret = ts2psi_data (buffer+i, &si->psi, 188, 0x12);
 			if(ret==1){
-				printf("Channel: %s - Got EIT\n", 	si->cdata->name);
+				printf("Channel: %s - Got EIT\n", 
+					si->cdata->name);
 			}
 		}
 		*/
@@ -262,8 +276,9 @@ int mcli_handle_ten (tra_t * ten, void *p)
 	if(ten) {
 
 		stream_info_t *si = (stream_info_t *) p;
-		printf("Channel: %s - Status: %02X, Strength: %04X, SNR: %04X, BER: %04X\n", 
-					si->cdata->name, ten->s.st,ten->s.strength, ten->s.snr, ten->s.ber);
+		printf("Channel: %s - Status: %02X, Strength: %04X, SNR: %04X,"
+			" BER: %04X\n", si->cdata->name, ten->s.st,
+			ten->s.strength, ten->s.snr, ten->s.ber);
 	}
 	return 0;
 }
@@ -277,7 +292,8 @@ void *stream_watch (void *p)
 	unsigned char ts[188];
 	stream_info_t *si = (stream_info_t *) p;
 	if (!quiet)
-		printf("Channel: %s - stream watch thread started.\n", si->cdata->name);
+		printf("Channel: %s - stream watch thread started.\n", 
+			si->cdata->name);
 	while (1 ) {
 		if(si->stop)
 			break;
@@ -287,16 +303,19 @@ void *stream_watch (void *p)
 			pids[0].pid = si->pmt_pid;
 			pids[1].pid = -1;
 			if (!quiet)
-				printf ("Channel: %s - Add PMT-PID: %d\n",	si->cdata->name, si->pmt_pid);
+				printf ("Channel: %s - Add PMT-PID: %d\n",
+					si->cdata->name, si->pmt_pid);
 			recv_pids (si->r, pids);
 			si->si_state++;
 		}
 		if (si->es_pidnum && si->si_state == 5) {
 			int i,k=0;
-			size_t sz = sizeof(dvb_pid_t) * (si->es_pidnum+2 + si->cdata->NumEitpids + si->cdata->NumSdtpids);
+			size_t sz = sizeof(dvb_pid_t) * (si->es_pidnum+2 + 
+				si->cdata->NumEitpids + si->cdata->NumSdtpids);
 			dvb_pid_t *pids=(dvb_pid_t*)malloc(sz);
 			if(pids==NULL) {
-				err(CVT "Channel: %s - Can't get memory for pids\n", si->cdata->name);
+				err(CVT "Channel: %s - Can't get memory for "
+					"pids\n", si->cdata->name);
 				goto out;
 			}
 			memset (pids, 0, sz);
@@ -306,23 +325,32 @@ void *stream_watch (void *p)
 			{
 				pids[k++].pid = si->cdata->eitpids[i]; 
 				if (!quiet)
-					printf("Channel: %s - Add EIT-PID: %d\n", si->cdata->name, si->cdata->eitpids[i]);
+					printf("Channel: %s - Add EIT-PID: "
+						"%d\n", si->cdata->name, 
+						si->cdata->eitpids[i]);
 			}
 			//SDT PIDs
 			for (i = 0; i < si->cdata->NumSdtpids; i++)
 			{
 				pids[k++].pid = si->cdata->sdtpids[i]; 
 				if (!quiet)
-					printf("Channel: %s - Add SDT-PID: %d\n", si->cdata->name, si->cdata->sdtpids[i]);
+					printf("Channel: %s - Add SDT-PID: "
+						"%d\n", si->cdata->name, 
+						si->cdata->sdtpids[i]);
 			}
 			for (i = 0; i < si->es_pidnum; i++) {
 				if (!quiet)
-					printf ("Channel: %s - Add ES-PID: %d\n", si->cdata->name, si->es_pids[i]);
+					printf ("Channel: %s - Add ES-PID: "
+						"%d\n", si->cdata->name, 
+						si->es_pids[i]);
 				pids[i + k].pid = si->es_pids[i];
 //				if(si->cdata->NumCaids) {
 				if(!si->fta) {
 					if (!quiet)
-						printf("Channel: %s - %s\n", si->cdata->name, si->fta ? "Free-To-Air":"Crypted");
+						printf("Channel: %s - %s\n", 
+							si->cdata->name, 
+							si->fta ? "Free-To-Air":
+							"Crypted");
         				pids[i + k].id =  si->cdata->sid;
 				}
 				pids[i + k +1].pid = -1;
@@ -338,7 +366,8 @@ void *stream_watch (void *p)
 out:		usleep (50000);
 	}
 	if (!quiet)
-		printf("Channel: %s - stream watch thread stopped.\n", si->cdata->name);
+		printf("Channel: %s - stream watch thread stopped.\n", 
+			si->cdata->name);
 	return NULL;
 }
 
@@ -399,7 +428,8 @@ void *mcli_stream_setup (const int channum)
         // DVB-S
 	if (si->cdata->source >= 0) {
 		fep.u.qpsk.symbol_rate = si->cdata->srate * 1000;
-		fep.u.qpsk.fec_inner = (fe_code_rate_t)(si->cdata->coderateH | (si->cdata->modulation<<16));
+		fep.u.qpsk.fec_inner = (fe_code_rate_t)(si->cdata->coderateH | 
+			(si->cdata->modulation<<16));
 		fep.frequency *= 1000;
 		fep.inversion = (fe_spectral_inversion_t)si->cdata->inversion;
 
@@ -411,14 +441,18 @@ void *mcli_stream_setup (const int channum)
 	}
 	// DVB-T
 	else if (si->cdata->source == -2) {
-		fep.u.ofdm.constellation = (fe_modulation_t)si->cdata->modulation;
+		fep.u.ofdm.constellation = 
+			(fe_modulation_t)si->cdata->modulation;
 		fep.u.ofdm.code_rate_HP = (fe_code_rate_t)si->cdata->coderateH;
 		fep.u.ofdm.code_rate_LP = (fe_code_rate_t)si->cdata->coderateL;
 		fep.inversion = (fe_spectral_inversion_t)si->cdata->inversion;
 		fep.u.ofdm.bandwidth = (fe_bandwidth_t)si->cdata->bandwidth;
-		fep.u.ofdm.guard_interval = (fe_guard_interval_t)si->cdata->guard;
-		fep.u.ofdm.transmission_mode = (fe_transmit_mode_t)si->cdata->transmission;
-		fep.u.ofdm.hierarchy_information = (fe_hierarchy_t)si->cdata->hierarchy;
+		fep.u.ofdm.guard_interval = 
+			(fe_guard_interval_t)si->cdata->guard;
+		fep.u.ofdm.transmission_mode = 
+			(fe_transmit_mode_t)si->cdata->transmission;
+		fep.u.ofdm.hierarchy_information = 
+			(fe_hierarchy_t)si->cdata->hierarchy;
 		
 		tuner_type = FE_OFDM;
 		source = si->cdata->source;
@@ -442,9 +476,11 @@ void *mcli_stream_setup (const int channum)
 	pids[1].pid = -1;
 
 	if (!quiet)
-		printf ("Tuning: source: %s, frequency: %i, PAT pid %i, symbol rate %i\n",
-			 source>=0 ? "DVB-S(2)" : source==-2 ? "DVB-T" : source==-3 ? "DVB-C" : "unknown"
-			 , si->cdata->frequency, pids[0].pid, fep.u.qpsk.symbol_rate);
+		printf ("Tuning: source: %s, frequency: %i, PAT pid %i, "
+			"symbol rate %i\n", source>=0 ? "DVB-S(2)" : 
+			source==-2 ? "DVB-T" : source==-3 ? "DVB-C" : "unknown",
+			si->cdata->frequency, pids[0].pid, 
+			fep.u.qpsk.symbol_rate);
 
 	recv_tune (r, tuner_type, source, &sec, &fep, pids);
 
@@ -607,7 +643,9 @@ void mcli_startup (void)
 			printf ("\nFound NetCeiver: %s\n", nci->uuid);
 			if (!quiet)
 			    for (i = 0; i < nci->tuner_num; i++) {
-				printf ("  Tuner: %s, Type %d\n", nci->tuner[i].fe_info.name, nci->tuner[i].fe_info.type);
+				printf ("  Tuner: %s, Type %d\n",
+					nci->tuner[i].fe_info.name, 
+					nci->tuner[i].fe_info.type);
 			}
 		}
 		nc_unlock_list ();

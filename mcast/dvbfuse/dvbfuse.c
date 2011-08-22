@@ -1,174 +1,280 @@
-#ifndef FUSE_USE_VERSION
-#define FUSE_USE_VERSION 29
-#define _FILE_OFFSET_BITS 64
-#endif
-
-#if 0
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-#include <fcntl.h>
-#endif
 #include "dvbfuse.h"
-#include <fuse/fuse.h>
 
-static pthread_mutex_t lock=PTHREAD_MUTEX_INITIALIZER;
+#define PREFETCH 131072
+
+#if ULONG_MAX > 0xffffffffUL
+#define conv_t uint64_t
+#define FSIZE 0x7fffffffffffffffLL
+#else
+#define conv_t uint32_t
+#define FSIZE 0x7fffffffL
+#endif
+
+struct dvbfile
+{
+	int group;
+	int channel;
+	int error;
+	off_t offset;
+	void *handle;
+};
+
 /*-------------------------------------------------------------------------*/
 
 static int dvbfuse_getattr (const char *path, struct stat *stbuf)
 {
-	int res = 0;
-	int cnum, n;
-	char buf[512];
+	int num, g, cnum, n;
+	char *p;
 
 	memset (stbuf, 0, sizeof (struct stat));
-	if (strcmp (path, "/") == 0) {
-		stbuf->st_mode = S_IFDIR | 0755;
+
+	if (!strcmp (path, "/")) {
+		stbuf->st_mode = S_IFDIR | 0555;
 		stbuf->st_nlink = 2;
-	} else {
-		cnum = get_channel_num ();
-		for (n = 0; n < cnum; n++) {
-			get_channel_name (n, buf, 512);
-			if (!strcmp (buf, path + 1)) {
-				stbuf->st_mode = S_IFREG | 0444;
-				stbuf->st_nlink = 1;
-				stbuf->st_size = 1024 * 1024 * 1024;
-				return 0;
-			}
-		}
-		return -ENOENT;
+		return 0;
 	}
 
-	return res;
+	path++;
+	num=get_group_num ();
+
+	for (g=0;g<num;g++) {
+		p=get_group_name (g);
+		if(!p) {
+			cnum=get_channel_num(g);
+
+			for (n=0;n<cnum;n++) {
+				p=get_channel_name (g,n);
+				if (!strcmp(path,p)) {
+					stbuf->st_mode = S_IFREG | 0444;
+					stbuf->st_nlink = 1;
+					stbuf->st_size = FSIZE;
+					return 0;
+				}
+			}
+			continue;
+		}
+		n=strlen(p);
+		if (!strncmp(path,p,n)) {
+			if(!path[n]) {
+				stbuf->st_mode = S_IFDIR | 0555;
+				stbuf->st_nlink = 2;
+				return 0;
+			}
+			if (path[n]!='/')
+				continue;
+
+			path+=n+1;
+			num=get_channel_num (g);
+
+			for (n=0;n<num;n++) {
+				p=get_channel_name (g,n);
+				if (!strcmp(path,p)) {
+					stbuf->st_mode = S_IFREG | 0444;
+					stbuf->st_nlink = 1;
+					stbuf->st_size = FSIZE;
+					return 0;
+				}
+			}
+
+			return -ENOENT;
+		}
+	}
+
+	return -ENOENT;
 }
 
 /*-------------------------------------------------------------------------*/
 
-static int dvbfuse_readdir (const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
+static int dvbfuse_readdir (const char *path, void *buf, fuse_fill_dir_t filler,
+	off_t offset, struct fuse_file_info *fi)
 {
-//      (void) offset;
-//      (void) fi;
-	int channel_num, n;
-//      int uid=getuid();
+	int gnum, g, cnum, n;
+	char *p;
 
-	if (strcmp (path, "/") != 0)
-		return -ENOENT;
-
-	filler (buf, ".", NULL, 0);
-	filler (buf, "..", NULL, 0);
-
-	channel_num = get_channel_num ();
-
-	for (n = 0; n < channel_num; n++) {
-		char name[256] = { 0 };
-		get_channel_name (n, name, 256);
-		filler (buf, name, NULL, 0);
+	if (!strcmp(path,"/")) {
+		filler (buf, ".", NULL, 0);
+		filler (buf, "..", NULL, 0);
+		gnum=get_group_num();
+		for (g=0;g<gnum;g++) {
+			p=get_group_name (g);
+			if (p)
+				filler (buf,p,NULL,0);
+			else {
+				cnum=get_channel_num(g);
+				for (n=0;n<cnum;n++)
+					filler (buf,get_channel_name(g,n),
+						NULL,0);
+			}
+		}
+		return 0;
 	}
 
-	return 0;
+	path++;
+	gnum=get_group_num();
+	for (g=0;g<gnum;g++) {
+		p=get_group_name (g);
+		if(!p)
+			continue;
+		if(!strcmp(path,p)) {
+			filler (buf, ".", NULL, 0);
+			filler (buf, "..", NULL, 0);
+			cnum=get_channel_num (g);
+			for (n=0;n<cnum;n++)
+				filler (buf,get_channel_name(g,n),NULL,0);
+
+			return 0;
+		}
+	}
+
+	return -ENOENT;
 }
 
 /*-------------------------------------------------------------------------*/
 
 static int dvbfuse_open (const char *path, struct fuse_file_info *fi)
 {
-	void **fh;
+	int num, g, cnum, n;
+	struct dvbfile *f;
+	char *p;
 
-	if ((fi->flags & 3) != O_RDONLY)
+	path++;
+	num=get_group_num ();
+
+	for (g=0;g<num;g++) {
+		p=get_group_name (g);
+		if(!p) {
+			cnum=get_channel_num(g);
+
+			for (n=0;n<cnum;n++) {
+				p=get_channel_name (g,n);
+				if (!strcmp(path,p))
+					goto match;
+			}
+			continue;
+		}
+		n=strlen(p);
+		if (!strncmp(path,p,n)) {
+			if(!path[n])
+				return -EISDIR;
+			if (path[n]!='/')
+				continue;
+
+			path+=n+1;
+			num=get_channel_num (g);
+
+			for (n=0;n<num;n++) {
+				p=get_channel_name (g,n);
+				if (!strcmp(path,p))
+					goto match;
+			}
+
+			return -ENOENT;
+		}
+	}
+
+	return -ENOENT;
+
+match:	if (fi->flags&(O_APPEND|O_WRONLY|O_RDWR|O_CREAT|O_EXCL|O_TRUNC))
 		return -EACCES;
-	
-	pthread_mutex_lock(&lock);
-	// fh is not allowed to be overwritten later
-	// So reserve own memory
 
-	fh = (void**) malloc (sizeof(void*));
-	*fh = 0;
-	fi->fh=(uint64_t)fh;
+	if(!(f=malloc(sizeof(struct dvbfile))))
+		return -ENOMEM;
 
-	printf ("open %s %lu %p\n", path, (unsigned int long)fi->fh, *(void **)fi->fh);
-	pthread_mutex_unlock(&lock);
+	memset(f,0,sizeof(struct dvbfile));
 
-//	fi->nonseekable=1;
+	f->group=g;
+	f->channel=n;
+
+	fi->fh=(conv_t)f;
+#ifndef __MINGW32__
+	fi->nonseekable=1;
+#endif
+	fi->keep_cache=0;
+	fi->direct_io=0;
+
 	return 0;
 }
 
 /*-------------------------------------------------------------------------*/
 static int dvbfuse_release (const char *path, struct fuse_file_info *fi)
 {
-	printf ("close %s %lu\n", path, (unsigned int long)fi->fh);
-	pthread_mutex_lock(&lock);
-	if (fi->fh) {
-		void *handle;
-		handle=*(void**)fi->fh;
-		if (handle) {
-			mcli_stream_stop (handle);
-			free ((void *) fi->fh);
-			fi->fh=0;
-		}
+	struct dvbfile *f;
+
+	if((f=(struct dvbfile *)(conv_t)fi->fh)) {
+		if (f->handle)
+			mcli_stream_stop (f->handle);
+		free(f);
 	}
-	pthread_mutex_unlock(&lock);
+
 	return 0;
 }
 /*-------------------------------------------------------------------------*/
 
 static int dvbfuse_read (const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
-	size_t len = 0;
-	int retries = 0;
-	void *handle;
+	size_t len;
+	struct dvbfile *f;
 
-	if (!fi || !fi->fh) {
-		return -EACCES;
+	if (!(f=(struct dvbfile *)(conv_t)fi->fh))
+		return -ENOENT;
+
+	if (f->error)
+		return f->error;
+
+	if (!f->handle) {
+		f->handle = mcli_stream_setup (f->group,f->channel);
+		if (!f->handle) {
+			f->error=-ENOMEM;
+			return -ENOMEM;
+		}
 	}
-//printf("read %lu %p\n", (unsigned int long)fi->fh, *(void **)fi->fh);
-	pthread_mutex_lock(&lock);
 
-	if (*(void**)fi->fh==NULL) {
-		*(void**)fi->fh = mcli_stream_setup (path);
-//		printf ("mcli_stream_setup %p\n", *(void**)fi->fh);
+	if (offset>f->offset)
+		goto fail;
+
+	len = mcli_stream_read (f->handle,buf,size,f->offset-offset);
+
+	if (len==-1) {
+fail:		mcli_stream_stop (f->handle);
+		f->handle=NULL;
+		f->error=-EIO;
+		return -EIO;
 	}
 
-	handle=*(void**)fi->fh;
+	f->offset+=len;
 
-	stream_info_t *si = (stream_info_t *) handle;
-
-	pthread_mutex_lock(&si->lock_rd);
-	pthread_mutex_unlock(&lock);
-
-	if (si->stop)  {
-		pthread_mutex_unlock(&si->lock_rd);
-		return -EACCES;
-	}
-#if 1
-	while (retries < 50) {
-//		printf("si->closed %d\n",si->closed);
-		len += mcli_stream_read (handle, buf + len, size - len, offset);
-		offset += len;
-		if (len == size)
-			break;
-		usleep (100 * 1000);
-		retries++;
-	}
-#else
-	len += mcli_stream_read (handle, buf + len, size - len);
-#endif
-//      printf("read %s %i, offset %i\n",path,(int)len,(int)offset);    
-	pthread_mutex_unlock(&si->lock_rd);
 	return len;
 }
 
 /*-------------------------------------------------------------------------*/
 
-static struct fuse_operations dvbfuse_oper;
+static void *dvbfuse_init(struct fuse_conn_info *conn) {
+	conn->async_read=0;
+#ifndef __MINGW32__
+	conn->want=0;
+#endif
+	conn->max_readahead=PREFETCH;
+	return NULL;
+}
 
 /*-------------------------------------------------------------------------*/
-int start_fuse (int argc, char *argv[])
+
+static struct fuse_operations dvbfuse_oper = {
+	.getattr = dvbfuse_getattr,
+	.readdir = dvbfuse_readdir,
+	.open    = dvbfuse_open,
+	.release = dvbfuse_release,
+	.read    = dvbfuse_read,
+	.init    = dvbfuse_init,
+#ifndef __MINGW32__
+	.flag_nullpath_ok=1,
+#endif
+};
+
+/*-------------------------------------------------------------------------*/
+int start_fuse (int argc, char *argv[], int debug)
 {
-	printf ("Starting fuse\n");
-	dvbfuse_oper.getattr = dvbfuse_getattr;
-	dvbfuse_oper.readdir = dvbfuse_readdir;
-	dvbfuse_oper.open = dvbfuse_open;
-	dvbfuse_oper.release = dvbfuse_release;
-	dvbfuse_oper.read = dvbfuse_read;
+	if(debug)
+		printf ("Starting fuse\n");
 	return fuse_main (argc, argv, &dvbfuse_oper, NULL);
 }

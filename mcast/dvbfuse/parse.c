@@ -1,7 +1,11 @@
-
 #include "dvbfuse.h"
 
-
+#ifdef __MINGW32__
+#include <iconv.h>
+#define ICV (const char **)
+#else
+#define ICV
+#endif
 
 typedef struct
 {
@@ -10,6 +14,7 @@ typedef struct
 } tChannelParameterMap;
 
 const tChannelParameterMap RolloffValues[] = {
+	{0, 0},
 	{35, 0},
 	{25, 0},
 	{20, 0},
@@ -77,7 +82,9 @@ const tChannelParameterMap ModulationValues[] = {
 };
 
 const tChannelParameterMap ModulationValuesS[] = {
+	{2, QPSK},
 	{4, QPSK},
+	{5, PSK8},
 	{42, QPSK_S2},		// S2
 	{8, PSK8},
 	{16, QAM_16},
@@ -113,6 +120,43 @@ const tChannelParameterMap HierarchyValues[] = {
 	{999, HIERARCHY_AUTO},
 	{-1}
 };
+
+#ifdef WIN32
+#define strtok_r mystrtok
+char *strtok_r(char *s, const char *d, char **m)
+{
+	char *p;
+	char *q;
+
+	if (s)
+		*m = s;
+
+	p = *m;
+	if (!p)
+		return NULL;
+
+	while (*p && strchr(d,*p))
+		p++;
+
+	if (*p == 0) {
+		*m = NULL;
+		return NULL;
+	}
+
+	q = p;
+	while (*q && !strchr(d,*q))
+		q++;
+
+	if (!*q)
+		*m = NULL;
+	else {
+		*q++ = 0;
+		*m = q;
+	}
+
+	return p;
+}
+#endif
 
 char *strreplace (char *s, char c1, char c2)
 {
@@ -158,7 +202,8 @@ int MapToDriver (int Value, const tChannelParameterMap * Map)
 	return -1;
 }
 
-static const char *ParseParameter (const char *s, int *Value, const tChannelParameterMap * Map)
+static const char *ParseParameter (const char *s, int *Value, 
+	const tChannelParameterMap * Map)
 {
 	if (*++s) {
 		char *p = NULL;
@@ -178,6 +223,10 @@ static const char *ParseParameter (const char *s, int *Value, const tChannelPara
 bool StringToParameters (const char *s, channel_t * ch)
 {
 	int dummy;
+	bool newformat = false;
+	int deliverysystem = -1;
+	const char * start = s;
+		
 	while (s && *s) {
 		switch (toupper (*s)) {
 		case 'B':
@@ -189,6 +238,8 @@ bool StringToParameters (const char *s, channel_t * ch)
 		case 'D':
 			s = ParseParameter (s, &ch->coderateL, CoderateValues);
 			break;
+		case 'O':
+			newformat = true;
 		case 'E':
 			s = ParseParameter (s, &dummy, RolloffValues);
 			break;
@@ -207,14 +258,25 @@ bool StringToParameters (const char *s, channel_t * ch)
 			s++;
 			break;
 		case 'M':
-			s = ParseParameter (s, &ch->modulation, ModulationValuesS);
+			s = ParseParameter (s, &ch->modulation, 
+				ModulationValuesS);
 			break;
 		case 'R':
 			ch->polarization = SEC_VOLTAGE_13;
 			s++;
 			break;
+		case 'S':
+			newformat = true;
+			s++;
+			if (*s == '1')
+				deliverysystem = 1;
+			else if (*s == '0')
+				deliverysystem = 0;
+			s++;
+			break;
 		case 'T':
-			s = ParseParameter (s, &ch->transmission, TransmissionValues);
+			s = ParseParameter (s, &ch->transmission, 
+				TransmissionValues);
 			break;
 		case 'V':
 			ch->polarization = SEC_VOLTAGE_13;
@@ -224,8 +286,17 @@ bool StringToParameters (const char *s, channel_t * ch)
 			s = ParseParameter (s, &ch->hierarchy, HierarchyValues);
 			break;
 		default:
-			printf ("ERROR: unknown parameter key '%c'\n", *s);
+			printf ("ERROR: unknown parameter key '%c' at pos %d\n",
+				*s, (int)((long)(s-start)));
 			return 0;
+		}
+	}
+	if (newformat)
+	{
+		//printf("Detected VDR-1.7.x parameter string format.\n");
+		if (deliverysystem == 1 && ch->modulation == QPSK)
+		{
+			ch->modulation = QPSK_S2;
 		}
 	}
 	return 1;
@@ -250,7 +321,82 @@ int SourceFromString (char *s)
 	return (int) val;
 }
 
-int ParseLine (const char *s, channel_t * ch)
+char *cvt(char *charset,int idx,char *ext,char *str,int len)
+{
+	int elen;
+	size_t ilen;
+	size_t olen;
+	iconv_t cv;
+	char *p;
+	char *in;
+	char *out;
+	char bfr[1024];
+	char head[6];
+
+	if(idx>0&&idx<9999)
+		sprintf(head,"%04d ",idx);
+	else
+		*head=0;
+
+	if(ext)
+		elen=strlen(ext)+1;
+	else
+		elen=0;
+
+	if (!charset) {
+noconv:		in=p=malloc(len+1+(*head?5:0)+elen);
+		if (!p)
+			return NULL;
+		if (*head) {
+			strcpy(in,head);
+			in+=5;
+		}
+		memcpy (in,str,len);
+		goto common;
+	}
+
+	cv=iconv_open (charset,"UTF8");
+	if (cv==(iconv_t)-1)
+		goto noconv;
+	ilen=len;
+	in=str;
+	olen=sizeof(bfr);
+	out=bfr;
+	if (iconv(cv,ICV &in,&ilen,&out,&olen)==-1) {
+		iconv_close(cv);
+		goto noconv;
+	}
+	iconv_close(cv);
+
+	len=sizeof(bfr)-olen;
+	in=p=malloc(len+1+(*head?5:0)+elen);
+	if (!p)
+		return NULL;
+	if (*head) {
+		strcpy(in,head);
+		in+=5;
+	}
+	memcpy(in,bfr,len);
+common:	in[len]=0;
+	if (elen) {
+		strcat(in,".");
+		strcat(in,ext);
+	}
+	for (out=in;*out;out++) {
+		switch(*out) {
+		case '/':
+		case '\\':
+		case ':':
+		case '?':
+		case '*':
+			*out='_';
+			break;
+		}
+	}
+	return p;
+}
+
+int ParseLine (const char *s, channel_t * ch, char *charset, int idx, char *ext)
 {
 	bool ok = 1;
 	memset (ch, 0, sizeof (channel_t));
@@ -281,7 +427,11 @@ int ParseLine (const char *s, channel_t * ch)
 		char *caidbuf = NULL;
 		int fields;
 #if ! (defined WIN32 || defined APPLE)
-		fields = sscanf (s, "%a[^:]:%d :%a[^:]:%a[^:] :%d :%a[^:]:%a[^:]:%d :%a[^:]:%d :%d :%d :%d ", &namebuf, &ch->frequency, &parambuf, &sourcebuf, &ch->srate, &vpidbuf, &apidbuf, &ch->tpid, &caidbuf, &ch->sid, &ch->nid, &ch->tid, &ch->rid);
+		fields = sscanf (s, "%a[^:]:%d :%a[^:]:%a[^:] :%d :%a[^:]:"
+			"%a[^:]:%d :%a[^:]:%d :%d :%d :%d ", &namebuf, 
+			&ch->frequency, &parambuf, &sourcebuf, &ch->srate, 
+			&vpidbuf, &apidbuf, &ch->tpid, &caidbuf, &ch->sid, 
+			&ch->nid, &ch->tid, &ch->rid);
 #else
 		namebuf = (char *) malloc (1024);
 		parambuf = (char *) malloc (1024);
@@ -289,7 +439,11 @@ int ParseLine (const char *s, channel_t * ch)
 		vpidbuf = (char *) malloc (1024);
 		apidbuf = (char *) malloc (1024);
 		caidbuf = (char *) malloc (1024);
-		fields = sscanf (s, "%[^:]:%d :%[^:]:%[^:] :%d :%[^:]:%[^:]:%d :%[^:]:%d :%d :%d :%d ", namebuf, &ch->frequency, parambuf, sourcebuf, &ch->srate, vpidbuf, apidbuf, &ch->tpid, caidbuf, &ch->sid, &ch->nid, &ch->tid, &ch->rid);
+		fields = sscanf (s, "%[^:]:%d :%[^:]:%[^:] :%d :%[^:]:%[^:]:"
+			"%d :%[^:]:%d :%d :%d :%d ", namebuf, &ch->frequency, 
+			parambuf, sourcebuf, &ch->srate, vpidbuf, apidbuf, 
+			&ch->tpid, caidbuf, &ch->sid, &ch->nid, &ch->tid, 
+			&ch->rid);
 
 #endif
 		if (fields >= 9) {
@@ -307,10 +461,12 @@ int ParseLine (const char *s, channel_t * ch)
 			ch->dpids[0] = 0;
 			ok = false;
 			if (parambuf && sourcebuf && vpidbuf && apidbuf) {
-				char *p, *dpidbuf, *q, *strtok_next;
+				char *p, *dpidbuf, *q, *strtok_next=NULL;
 //				int NumApids;
-				ok = StringToParameters (parambuf, ch) && (ch->source = SourceFromString (sourcebuf)) >= 0;
-
+				ok = StringToParameters (parambuf, ch);
+				ch->source = SourceFromString (sourcebuf);
+				ok = ok && ((ch->source >= 0) || 
+					(ch->source == -2)||(ch->source == -3));
 				p = strchr (vpidbuf, '+');
 				if (p)
 					*p++ = 0;
@@ -331,10 +487,12 @@ int ParseLine (const char *s, channel_t * ch)
 
 				while ((q = strtok_r (p, ",", &strtok_next)) != NULL) {
 					if (ch->NumApids < MAXAPIDS) {
-						char *l = strchr (q, '=');
-						ch->apids[ch->NumApids++] = strtol (q, NULL, 10);
+						ch->apids[ch->NumApids++] = 
+							strtol (q, NULL, 10);
 					} else
-						printf ("ERROR: too many APIDs!\n");	// no need to set ok to 'false'
+						// no need to set ok to 'false'
+						printf ("ERROR: too many APIDs!"
+							"\n");
 					p = NULL;
 				}
 				ch->apids[ch->NumApids] = 0;
@@ -343,12 +501,15 @@ int ParseLine (const char *s, channel_t * ch)
 					char *q;
 					int NumDpids = 0;
 					char *strtok_next;
-					while ((q = strtok_r (p, ",", &strtok_next)) != NULL) {
+					while ((q = strtok_r (p, ",", 
+					    &strtok_next)) != NULL) {
 						if (NumDpids < MAXDPIDS) {
-							char *l = strchr (q, '=');
-							ch->dpids[ch->NumDpids++] = strtol (q, NULL, 10);
+  						    ch->dpids[ch->NumDpids++] = 
+							strtol (q, NULL, 10);
 						} else
-							printf ("ERROR: too many DPIDs!\n");	// no need to set ok to 'false'
+						// no need to set ok to 'false'
+						    printf ("ERROR: too many "
+							"DPIDs!\n");
 						p = NULL;
 					}
 					ch->dpids[ch->NumDpids] = 0;
@@ -359,13 +520,19 @@ int ParseLine (const char *s, channel_t * ch)
 					char *q;
 					int NumCaIds = 0;
 					char *strtok_next;
-					while ((q = strtok_r (p, ",", &strtok_next)) != NULL) {
+					while ((q = strtok_r (p, ",", 
+					    &strtok_next)) != NULL) {
 						if (NumCaIds < MAXCAIDS) {
-							caids[NumCaIds++] = strtol (q, NULL, 16) & 0xFFFF;
-							if (NumCaIds == 1 && caids[0] <= 0x00FF)
-								break;
+						    caids[NumCaIds++] = 
+							strtol (q, NULL, 16) & 
+							0xFFFF;
+						    if (NumCaIds == 1 && 
+							caids[0] <= 0x00FF)
+							    break;
 						} else
-							printf ("ERROR: too many CA ids!\n");	// no need to set ok to 'false'
+						// no need to set ok to 'false'
+						    printf ("ERROR: too many "
+							"CA ids!\n");
 						p = NULL;
 					}
 					caids[NumCaIds] = 0;
@@ -377,24 +544,83 @@ int ParseLine (const char *s, channel_t * ch)
 				char *p = strchr (namebuf, ';');
 				if (p) {
 					*p++ = 0;
-					ch->provider = strdup (p);
+					ch->provider = cvt(charset,0,NULL,p,
+						strlen(p));
+					if (!ch->provider) {
+						printf ("ERROR: out of memory!"
+							"\n");
+						ok = 0;
+					}
 				}
 				p = strchr (namebuf, ',');
 				if (p) {
 					*p++ = 0;
-					ch->shortName = strdup (p);
+					ch->shortName = cvt(charset,0,NULL,p,
+						strlen(p));
+					if (!ch->shortName) {
+						printf ("ERROR: out of memory!"
+							"\n");
+						ok = 0;
+					}
 				}
 			}
-			ch->name = strdup (namebuf);
+			ch->name = cvt(charset,idx,ext,namebuf,strlen(namebuf));
+			if (!ch->name) {
+				printf ("ERROR: out of memory!\n");
+				ok = 0;
+			}
 
-			free (parambuf);
-			free (sourcebuf);
-			free (vpidbuf);
-			free (apidbuf);
-			free (caidbuf);
-			free (namebuf);
 		} else
-			return 0;
+			ok = 0;
+#if (defined WIN32 || defined APPLE)
+		free (parambuf);
+		free (sourcebuf);
+		free (vpidbuf);
+		free (apidbuf);
+		free (caidbuf);
+		free (namebuf);
+#endif
 	}
 	return ok;
+}
+
+
+int ParseGroupLine (const char *s, channel_group_t * gr, char *charset)
+{
+	char *p;
+	char *q;
+
+	if (*s++ != ':')
+		return 0;
+
+	while (*s==' ' || *s=='\t')
+		s++;
+
+	for (q=NULL, p=(char *)s;*p && *p!='\r' && *p!='\n'; p++) {
+		if(*p==' ' || *p=='\t')
+			q=p;
+		else
+			q=NULL;
+	}
+
+	if(!q)
+		q=p;
+
+	if(q==s)
+		return 0;
+
+	gr->name = cvt(charset,0,NULL,(char *)s,(long)(q-s));
+	if (!gr->name) {
+		printf ("ERROR: out of memory!\n");
+		return 0;
+	}
+
+	for (p=gr->name;*p;p++) {
+		if (*p!='.')
+			break;
+		else
+			*p='_';
+	}
+
+	return 1;
 }

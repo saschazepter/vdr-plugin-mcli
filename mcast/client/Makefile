@@ -75,7 +75,7 @@ LDFLAGS:= -Lwin32/lib $(LDFLAGS) -mno-cygwin
 LDLIBS:= -lpthreadGC2 -lxml2 -lz -lws2_32 -liphlpapi 
 else
 CFLAGS:= $(CFLAGS)  -I../dvbloop $(XML_INC)
-LDFLAGS:=$(LDFLAGS)
+LDFLAGS:=$(LDFLAGS) -Wl,--as-needed
 LDLIBS:=$(XML_LIB) -lpthread -lz -lm
 endif
 
@@ -193,7 +193,7 @@ depend: .dependencies
 	#makedepend -Y -- $(CFLAGS)  -- *c >/dev/null 2>&1
 
 clean:
-	rm -f $(MCLI) $(MCLI)-* *.elf *.gdb *.o *.lo *.la *~ *.so *.a *.def *.dll *.dylib out.ts
+	rm -f $(DEPFILE) $(MCLI) $(MCLI)-* *.elf *.gdb *.o *.lo *.la *~ *.so *.a *.def *.dll *.dylib out.ts
 
 mingw32:
 	rm -rf mingw/*.c mingw/*.h mingw/win32

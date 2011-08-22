@@ -16,6 +16,10 @@ APPLE_DARWIN = $(shell gcc -dumpmachine | grep -q 'apple-darwin' && echo "1" || 
 
 VERSION = $(shell grep 'static const char \*VERSION *=' $(PLUGIN).c | awk '{ print $$6 }' | sed -e 's/[";]//g')
 
+### Build mode: "develop" is for build under vdr tree, "system" otherwise
+
+MODE = $(shell test -f ../../../config.h -a -f ../../../Make.global && echo "develop" || echo "system")
+
 ### The C++ compiler and options:
 
 CXX      ?= g++
@@ -27,8 +31,16 @@ endif
 
 ### The directory environment:
 
+ifeq ($(MODE), develop)
 VDRDIR = ../../..
 LIBDIR = ../../lib
+PLUGINLIBDIR = $(LIBDIR)
+else
+VDRDIR = /usr/include/vdr
+LIBDIR = /usr/lib
+PLUGINLIBDIR = $(LIBDIR)/vdr/plugins
+endif
+
 TMPDIR = /tmp
 
 ### Make sure that necessary options are included:
@@ -65,7 +77,11 @@ else
   LIBS = mcast/client/libmcli.a $(XML_LIB)
 endif
 
+ifeq ($(MODE), develop)
 INCLUDES += -I$(VDRDIR)/include -I. $(XML_INC)
+else
+INCLUDES += -I$(VDRDIR) -I. $(XML_INC)
+endif
 
 
 ifeq ($(APPLE_DARWIN), 1)
@@ -143,15 +159,19 @@ i18n-dist: $(I18Nmsgs)
 libvdr-$(PLUGIN).so: $(OBJS)
 ifeq ($(APPLE_DARWIN), 1)
 	$(CXX) $(CXXFLAGS) $(OBJS) $(LIBS) -o $@
+ifeq ($(MODE), develop)
 	@cp $@ $(LIBDIR)/$@.$(APIVERSION)
+endif
 else
 	$(CXX) $(CXXFLAGS) -shared $(OBJS) $(LIBS) -o $@
+ifeq ($(MODE), develop)
 	@cp --remove-destination $@ $(LIBDIR)/$@.$(APIVERSION)
+endif
 endif
 
 install:
 ifdef MCLI_SHARED
-	install -m 755 -D mcast/client/libmcli.so /usr/lib
+	install -m 755 -D mcast/client/libmcli.so $(LIBDIR)
 endif
 	install -m 755 -D libvdr-$(PLUGIN).so $(PLUGINLIBDIR)/libvdr-$(PLUGIN).so.$(APIVERSION)
 
@@ -165,4 +185,4 @@ dist: clean
 	@echo Distribution package created as $(PACKAGE).tgz
 
 clean:
-	@-rm -f $(OBJS) $(DEPFILE) *.so *.tgz core* *~ $(PODIR)/*.mo $(PODIR)/*.pot $(LIBDIR)/libvdr-$(PLUGIN).so.* mcast/client/*.o mcast/client/*.so mcast/client/*.a
+	@-rm -f $(OBJS) $(DEPFILE) *.so *.tgz core* *~ $(PODIR)/*.mo $(PODIR)/*.pot $(PLUGINLIBDIR)/libvdr-$(PLUGIN).so.* mcast/client/*.o mcast/client/*.so mcast/client/*.a

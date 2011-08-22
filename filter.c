@@ -267,7 +267,7 @@ int cMcliFilters::OpenFilter (u_short Pid, u_char Tid, u_char Mask)
 
 	if (!m_PB) {
 		m_PB = new cMyPacketBuffer (10000 * TS_SIZE, 10000);
-		m_PB->SetTimeouts (0, CLOCKS_PER_SEC * 20 / 1000);
+		m_PB->SetTimeouts (0, 20);
 	}
 	Start ();
 

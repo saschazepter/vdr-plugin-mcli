@@ -63,7 +63,8 @@ void cStreamer::SetNumGroups(int numgroups)
 bool cStreamer::IsGroupinRange(in_addr_t groupaddr)
 {
         in_addr_t g = htonl(groupaddr);
-        if ( (g > MULTICAST_PRIV_MIN) && (g <= MULTICAST_PRIV_MIN+m_numgroups) &&(g <= MULTICAST_PRIV_MAX) )
+        if ( (g > MULTICAST_PRIV_MIN) && (g <= MULTICAST_PRIV_MIN+m_numgroups) 
+		&&(g <= MULTICAST_PRIV_MAX) )
         {
                 return true;
         }
@@ -76,7 +77,8 @@ void cStreamer::StartMulticast(cMulticastGroup* Group)
         group.s_addr = Group->group;
         unsigned long channel = htonl(Group->group) - MULTICAST_PRIV_MIN;
 
-        printf("START Channel %d on Multicast Group: %s\n", (unsigned short) channel, inet_ntoa(group));
+        printf("START Channel %d on Multicast Group: %s\n", 
+		(unsigned short) channel, inet_ntoa(group));
         if (Group->stream == NULL)
         {
                 Group->stream = new cStream(channel,  Group->group, m_portnum);

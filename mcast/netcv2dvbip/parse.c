@@ -195,7 +195,8 @@ int MapToDriver (int Value, const tChannelParameterMap * Map)
 	return -1;
 }
 
-static const char *ParseParameter (const char *s, int *Value, const tChannelParameterMap * Map)
+static const char *ParseParameter (const char *s, int *Value, 
+	const tChannelParameterMap * Map)
 {
 	if (*++s) {
 		char *p = NULL;
@@ -250,7 +251,8 @@ bool StringToParameters (const char *s, channel_t * ch)
 			s++;
 			break;
 		case 'M':
-			s = ParseParameter (s, &ch->modulation, ModulationValuesS);
+			s = ParseParameter (s, &ch->modulation, 
+				ModulationValuesS);
 			break;
 		case 'R':
 			ch->polarization = SEC_VOLTAGE_13;
@@ -266,7 +268,8 @@ bool StringToParameters (const char *s, channel_t * ch)
 			s++;
 			break;
 		case 'T':
-			s = ParseParameter (s, &ch->transmission, TransmissionValues);
+			s = ParseParameter (s, &ch->transmission, 
+				TransmissionValues);
 			break;
 		case 'V':
 			ch->polarization = SEC_VOLTAGE_13;
@@ -276,7 +279,8 @@ bool StringToParameters (const char *s, channel_t * ch)
 			s = ParseParameter (s, &ch->hierarchy, HierarchyValues);
 			break;
 		default:
-			printf ("ERROR: unknown parameter key '%c' at pos %d\n", *s, (int)((long)(s-start)));
+			printf ("ERROR: unknown parameter key '%c' at pos %d\n",
+				 *s, (int)((long)(s-start)));
 			return 0;
 		}
 	}
@@ -341,7 +345,11 @@ int ParseLine (const char *s, channel_t * ch)
 		char *caidbuf = NULL;
 		int fields;
 #if ! (defined WIN32 || defined APPLE)
-		fields = sscanf (s, "%a[^:]:%d :%a[^:]:%a[^:] :%d :%a[^:]:%a[^:]:%d :%a[^:]:%d :%d :%d :%d ", &namebuf, &ch->frequency, &parambuf, &sourcebuf, &ch->srate, &vpidbuf, &apidbuf, &ch->tpid, &caidbuf, &ch->sid, &ch->nid, &ch->tid, &ch->rid);
+		fields = sscanf (s, "%a[^:]:%d :%a[^:]:%a[^:] :%d :%a[^:]:"
+			"%a[^:]:%d :%a[^:]:%d :%d :%d :%d ", &namebuf, 
+			&ch->frequency, &parambuf, &sourcebuf, &ch->srate, 
+			&vpidbuf, &apidbuf, &ch->tpid, &caidbuf, &ch->sid, 
+			&ch->nid, &ch->tid, &ch->rid);
 #else
 		namebuf = (char *) malloc (1024);
 		parambuf = (char *) malloc (1024);
@@ -349,7 +357,11 @@ int ParseLine (const char *s, channel_t * ch)
 		vpidbuf = (char *) malloc (1024);
 		apidbuf = (char *) malloc (1024);
 		caidbuf = (char *) malloc (1024);
-		fields = sscanf (s, "%[^:]:%d :%[^:]:%[^:] :%d :%[^:]:%[^:]:%d :%[^:]:%d :%d :%d :%d ", namebuf, &ch->frequency, parambuf, sourcebuf, &ch->srate, vpidbuf, apidbuf, &ch->tpid, caidbuf, &ch->sid, &ch->nid, &ch->tid, &ch->rid);
+		fields = sscanf (s, "%[^:]:%d :%[^:]:%[^:] :%d :%[^:]:%[^:]:"
+			"%d :%[^:]:%d :%d :%d :%d ", namebuf, &ch->frequency, 
+			parambuf, sourcebuf, &ch->srate, vpidbuf, apidbuf, 
+			&ch->tpid, caidbuf, &ch->sid, &ch->nid, &ch->tid, 
+			&ch->rid);
 
 #endif
 		if (fields >= 9) {
@@ -371,8 +383,8 @@ int ParseLine (const char *s, channel_t * ch)
 //				int NumApids;
 				ok = StringToParameters (parambuf, ch);
 				ch->source = SourceFromString (sourcebuf);
-				ok = ok && ((ch->source >= 0) || (ch->source == -2) || (ch->source == -3));
-
+				ok = ok && ((ch->source >= 0) || 
+					(ch->source == -2)||(ch->source == -3));
 				p = strchr (vpidbuf, '+');
 				if (p)
 					*p++ = 0;
@@ -391,44 +403,54 @@ int ParseLine (const char *s, channel_t * ch)
 
 				ch->NumApids = 0;
 
-				while ((q = strtok_r (p, ",", &strtok_next)) != NULL) {
+				while ((q = strtok_r (p, ",", &strtok_next))) {
 					if (ch->NumApids < MAXAPIDS) {
-						ch->apids[ch->NumApids++] = strtol (q, NULL, 10);
+						ch->apids[ch->NumApids++] = 
+							strtol (q, NULL, 10);
 					} else
-						printf ("ERROR: too many APIDs!\n");	// no need to set ok to 'false'
+						// no need to set ok to 'false'
+						printf ("ERROR: too many APIDs!"
+							"\n");
 					p = NULL;
 				}
 				ch->apids[ch->NumApids] = 0;
 				if (dpidbuf) {
-					char *p = dpidbuf;
-					char *q;
-					int NumDpids = 0;
-					char *strtok_next;
-					while ((q = strtok_r (p, ",", &strtok_next)) != NULL) {
-						if (NumDpids < MAXDPIDS) {
-  							ch->dpids[ch->NumDpids++] = strtol (q, NULL, 10);
-						} else
-							printf ("ERROR: too many DPIDs!\n");	// no need to set ok to 'false'
-						p = NULL;
-					}
-					ch->dpids[ch->NumDpids] = 0;
+				    char *p = dpidbuf;
+				    char *q;
+				    int NumDpids = 0;
+				    char *strtok_next;
+				    while ((q=strtok_r(p, ",", &strtok_next))) {
+					if (NumDpids < MAXDPIDS) {
+  						ch->dpids[ch->NumDpids++] = 
+							strtol (q, NULL, 10);
+					} else
+						// no need to set ok to 'false'
+						printf ("ERROR: too many DPIDs!"
+							"\n");
+					p = NULL;
+				    }
+				    ch->dpids[ch->NumDpids] = 0;
 				}
 #if 0
 				if (caidbuf) {
-					char *p = caidbuf;
-					char *q;
-					int NumCaIds = 0;
-					char *strtok_next;
-					while ((q = strtok_r (p, ",", &strtok_next)) != NULL) {
-						if (NumCaIds < MAXCAIDS) {
-							caids[NumCaIds++] = strtol (q, NULL, 16) & 0xFFFF;
-							if (NumCaIds == 1 && caids[0] <= 0x00FF)
-								break;
-						} else
-							printf ("ERROR: too many CA ids!\n");	// no need to set ok to 'false'
-						p = NULL;
-					}
-					caids[NumCaIds] = 0;
+				    char *p = caidbuf;
+				    char *q;
+				    int NumCaIds = 0;
+				    char *strtok_next;
+				    while ((q=strtok_r(p, ",", &strtok_next))) {
+					if (NumCaIds < MAXCAIDS) {
+					    caids[NumCaIds++] = 
+						strtol (q, NULL, 16) & 0xFFFF;
+					    if (NumCaIds == 1 && 
+						caids[0] <= 0x00FF)
+						    break;
+					} else
+					    // no need to set ok to 'false'
+					    printf ("ERROR: too many CA ids!"
+						\n");
+					p = NULL;
+				    }
+				    caids[NumCaIds] = 0;
 				}
 #endif
 			}
@@ -439,8 +461,8 @@ int ParseLine (const char *s, channel_t * ch)
 					*p++ = 0;
 					ch->provider = strdup (p);
 					if (!ch->provider) {
-						printf ("ERROR: out of memory!\n");
-						ok = 0;
+					    printf ("ERROR: out of memory!\n");
+					    ok = 0;
 					}
 				}
 				p = strchr (namebuf, ',');
@@ -448,8 +470,8 @@ int ParseLine (const char *s, channel_t * ch)
 					*p++ = 0;
 					ch->shortName = strdup (p);
 					if (!ch->shortName) {
-						printf ("ERROR: out of memory!\n");
-						ok = 0;
+					    printf ("ERROR: out of memory!\n");
+					    ok = 0;
 					}
 				}
 			}

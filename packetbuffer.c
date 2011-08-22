@@ -7,18 +7,27 @@
  */
 
 #include <vdr/plugin.h>
+#if 0
 #include <sys/time.h>
+#else
+#include <sys/times.h>
+#endif
 #include "packetbuffer.h"
 
-uint64_t Now (void)
+clock_t Now (void)
 {
 #if 0
 	struct timeval t;
-        if (gettimeofday (&t, NULL) == 0)
-                return (uint64_t (t.tv_sec)) * 1000 + t.tv_usec / 1000;
-        return 0;
+        gettimeofday (&t, NULL);
+        return (clock_t)t.tv_sec * 1000 + (clock_t)(t.tv_usec / 1000);
 #else
-        return clock();
+#ifdef __linux__
+	return times(NULL);
+#else
+	struct tms unused;
+
+	return times(&unused);
+#endif
 #endif
 }
 
@@ -39,9 +48,9 @@ cMyPacketBuffer::cMyPacketBuffer (int Size, int Packets)
 		n <<= 1;
 	}
 
-	dataBuffer = (uchar *) malloc (Size);
+	dataBuffer = new uchar[Size];
 	memset (dataBuffer, 0, Size);
-	posBuffer = (posData *) malloc (Packets * sizeof (posData));
+	posBuffer = new posData[Packets];
 	pthread_mutex_init (&m_lock, NULL);
 
 	posSize = Packets;
@@ -58,8 +67,8 @@ cMyPacketBuffer::cMyPacketBuffer (int Size, int Packets)
 //--------------------------------------------------------------------------
 cMyPacketBuffer::~cMyPacketBuffer (void)
 {
-	free (dataBuffer);
-	free (posBuffer);
+	delete[] dataBuffer;
+	delete[] posBuffer;
 }
 
 //--------------------------------------------------------------------------
@@ -97,7 +106,7 @@ int cMyPacketBuffer::FindSpace (int size)
 //--------------------------------------------------------------------------
 uchar *cMyPacketBuffer::PutStart (int size)
 {
-	uint64_t starttime = 0;
+	clock_t starttime = 0;
 	int offset;
 	int nwp;
 	int rsize;
@@ -110,7 +119,7 @@ uchar *cMyPacketBuffer::PutStart (int size)
 			break;
 		if (putTimeout && !starttime)
 			starttime = Now ();
-		if (!putTimeout || (Now () - starttime) > (uint64_t) (putTimeout)) {
+		if (!putTimeout || (Now () - starttime) > (clock_t) (putTimeout)) {
 			pthread_mutex_unlock (&m_lock);
 			return NULL;
 		}
@@ -146,13 +155,13 @@ void cMyPacketBuffer::PutEnd (int size, int flags, uint64_t timestamp)
 //--------------------------------------------------------------------------
 uchar *cMyPacketBuffer::GetStartSub (int *readp, int timeout, int *size, int *flags, uint64_t * timestamp)
 {
-	uint64_t starttime = 0;
+	clock_t starttime = 0;
 
 	if (*readp == wp && timeout)
 		starttime = Now ();
 //      printf("GET rp %i wp %i\n",readp,wp);
 	while (*readp == wp) {
-		if (!timeout || (Now () - starttime) > (uint64_t) (timeout))
+		if (!timeout || (Now () - starttime) > (clock_t) (timeout))
 			return 0;
 		usleep (20 * 1000);
 	}
@@ -272,8 +281,10 @@ uchar *cMyPacketBuffer::GetStartMultiple (int maxsize, int *size, int *flags, ui
 //--------------------------------------------------------------------------
 void cMyPacketBuffer::SetTimeouts (int PutTimeout, int GetTimeout)
 {
-	putTimeout = PutTimeout;
-	getTimeout = GetTimeout;
+	int tps=sysconf(_SC_CLK_TCK);
+
+	putTimeout = PutTimeout*tps/1000;
+	getTimeout = GetTimeout*tps/1000;
 }
 
 //--------------------------------------------------------------------------
