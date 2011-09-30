@@ -462,6 +462,7 @@ void *mcli_stream_setup (const int channum)
 		fep.u.qam.symbol_rate = si->cdata->srate * 1000;
 		fep.u.qam.fec_inner = (fe_code_rate_t)si->cdata->coderateH;
 		fep.u.qam.modulation = (fe_modulation_t)si->cdata->modulation;
+		fep.frequency *= 1000;
 		fep.inversion = (fe_spectral_inversion_t)si->cdata->inversion;
 
 		tuner_type = FE_QAM;
