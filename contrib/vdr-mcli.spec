@@ -21,7 +21,7 @@
 %global account vdr-projects
 %endif
 
-%define rel	6
+%define rel	7
 
 Name:           vdr-%{pname}
 Summary:        DVB multicast stream client for the NetCeiver hardware for VDR
@@ -101,6 +101,9 @@ systemctl daemon-reload
 
 
 %changelog
+* Sat Aug 03 2024 Peter Bieringer <pb@bieringer.de> - 1.0.1-7
+- Rebuild with vdr-2.6.9
+
 * Sat Apr 27 2024 Peter Bieringer <pb@bieringer.de> - 1.0.1-6
 - Add gettext to BuildRequires (Fedora 40 issue)
 
