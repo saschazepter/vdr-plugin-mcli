@@ -221,7 +221,7 @@ bool cPluginMcli::PreInitMcli (void)
 		if(!api_sock_init (m_cmd.cmd_sock_path))
 			m_api_init_done = 1;
 		else {
-			esyslog ("mcli::%s: api_sock_init failed", __FUNCTION__);
+			esyslog ("mcli::%s: api_sock_init failed: %s (check user/group and permissions)", __FUNCTION__, m_cmd.cmd_sock_path);
 			return false;
 		};
 	}
